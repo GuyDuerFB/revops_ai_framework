@@ -1,1 +1,32 @@
-/.DS_Store
+# macOS files
+.DS_Store
+
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# AWS credentials
+.aws/
+
+# Local configuration
+.env
