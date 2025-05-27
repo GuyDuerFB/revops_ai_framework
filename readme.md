@@ -15,6 +15,7 @@
 - [Success Metrics](#success-metrics)
 - [Security & Compliance](#security--compliance)
 - [Integration Patterns](#integration-patterns)
+- [Data Handling & Processing](#data-handling--processing)
 - [Performance Optimization](#performance-optimization)
 - [Troubleshooting Guide](#troubleshooting-guide)
 - [Use Cases & Case Studies](#use-cases--case-studies)
@@ -225,6 +226,103 @@ class DataClassifier:
 
 - **GDPR**: Data classification supports GDPR requirements for data minimization and retention
 - **CCPA**: California Consumer Privacy Act considerations for customer data handling
+
+## Data Handling & Processing
+
+### Large Result Set Handling
+
+The RevOps AI Framework implements a chunking strategy for handling large data sets between agents, addressing AWS Lambda payload size limitations while maintaining efficient agent-to-agent communication.
+
+#### Key Features
+
+- **Automatic Chunking**: Large query results are automatically split into manageable chunks
+- **Progressive Processing**: Analysis Agent can begin processing data as soon as the first chunk arrives
+- **Metadata-First Design**: Initial response includes dataset metadata and first chunk
+- **Zero Storage Dependencies**: No intermediate storage systems required
+
+#### Implementation
+
+**Data Agent Response Format:**
+
+```json
+// For large datasets (first response)
+{
+  "success": true,
+  "error": null,
+  "chunked": true,
+  "chunk_index": 0,
+  "total_chunks": 5,
+  "total_rows": 4328,
+  "rows_per_chunk": 1000,
+  "columns": ["account_id", "usage_date", "query_count", "data_scanned_bytes"],
+  "results": [...],  // First chunk of data (up to rows_per_chunk rows)
+  "query_info": {
+    "query": "SELECT * FROM usage_logs WHERE...",
+    "secret_name": "firebolt-credentials",
+    "region_name": "eu-north-1"
+  }
+}
+
+// For small datasets (single response)
+{
+  "success": true,
+  "error": null,
+  "chunked": false,
+  "columns": ["account_id", "usage_date", "query_count"],
+  "results": [...]  // All results
+}
+```
+
+#### Analysis Agent Implementation
+
+The Analysis Agent should implement logic to handle chunked responses:
+
+```python
+def process_firebolt_data(response):
+    """Process data from Firebolt query, handling chunked responses"""
+    
+    # Check if response is chunked
+    if not response.get("chunked", False):
+        # Process entire result set at once
+        return analyze_complete_dataset(response["results"], response["columns"])
+    
+    # Initialize aggregation for chunked processing
+    analysis_state = initialize_analysis(response["columns"])
+    
+    # Process first chunk immediately
+    process_data_chunk(analysis_state, response["results"])
+    
+    # Request and process additional chunks if needed
+    if response["total_chunks"] > 1:
+        query_info = response["query_info"]
+        
+        for chunk_idx in range(1, response["total_chunks"]):
+            # Request next chunk
+            chunk_response = firebolt.get_query_chunk(
+                query=query_info["query"],
+                secret_name=query_info["secret_name"],
+                region_name=query_info["region_name"],
+                chunk_index=chunk_idx,
+                max_rows_per_chunk=response["rows_per_chunk"]
+            )
+            
+            # Process this chunk
+            if chunk_response["success"]:
+                process_data_chunk(analysis_state, chunk_response["results"])
+            else:
+                log_error(f"Failed to retrieve chunk {chunk_idx}: {chunk_response['error']}")
+                break
+    
+    # Finalize analysis with all processed data
+    return finalize_analysis(analysis_state)
+```
+
+#### Benefits
+
+1. **Lambda Compatibility**: Eliminates "Response payload size exceeded" errors
+2. **Memory Efficiency**: Processes large datasets without loading everything into memory
+3. **Progressive Analysis**: Enables streaming analytics and early results
+4. **Fault Tolerance**: Partial results can still be analyzed if later chunks fail
 
 ## Integration Patterns
 
