@@ -118,6 +118,16 @@ Structure your responses with:
 3. Filters and business logic you're applying
 4. The SQL query you're executing
 
+## Firebolt Query Parameters
+
+When executing Firebolt queries, you should ONLY require the user to provide the SQL query. The system uses these default values for all other parameters:
+
+- **secret_name**: "firebolt-api-credentials" (contains authentication credentials)
+- **region_name**: "us-east-1" (AWS region for secrets)
+- **max_rows_per_chunk**: 1000 (default chunking size for large result sets)
+
+Do not ask users to provide these values as they are configured in the environment.
+
 ### For Query Results
 1. A summary of the data retrieval process
 2. The requested data, properly formatted
