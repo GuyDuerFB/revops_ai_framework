@@ -1,8 +1,8 @@
 # RevOps AI Agent Framework - Architecture Specification
 
-**Document Version:** 1  
+**Document Version:** 2  
 **Date:** May 2025  
-**Status:** Enhanced Architecture Design
+**Status:** Schema-Aware Implementation
 
 ## Table of Contents
 
@@ -128,7 +128,7 @@ graph TD
 **AWS Step Functions (Express Workflow)**
 - **Type**: Express Workflow for speed and cost efficiency
 - **Timeout**: 15 minutes
-- **Execution Role**: Permissions for Bedrock, Lambda, S3, SQS
+- **Execution Role**: Permissions for Bedrock, Lambda, S3, SQS, Knowledge Base
 - **Parallelism**: Controlled batch processing (3 batches, 5 concurrent per batch)
 
 **State Machine Definition**:
@@ -144,6 +144,7 @@ graph TD
         "agentId": "REVOPS_DATA_AGENT_ID",
         "agentAliasId": "TSTALIASID",
         "sessionId.$": "$.sessionId",
+        "knowledgeBaseId": "revops-firebolt-schema",
         "inputText.$": "States.Format('Gather all data required for {} analysis. Target: {}. Additional context: {}', $.analysisType, $.target, $.context)"
       },
       "Retry": [
@@ -198,13 +199,47 @@ graph TD
 
 ### 3. Data Retrieval Layer
 
-**Bedrock Agent: RevOps Data Agent**
-- **Foundation Model**: `anthropic claude`
-- **Method**: Bedrock Agent has retrieval intelligence, so it can fetch the messages and threads based on the analysis type and the data requirements. Tool only fetch the messages and threads and return the result.
+**Schema-Aware Data Agent (Bedrock Agent)**
+- **Implementation**: Amazon Bedrock Agent with action group tools and AWS knowledge base integration
+- **Purpose**: Intelligent, schema-aware data retrieval and preprocessing
+- **Knowledge Base**: `revops-firebolt-schema` containing comprehensive schema documentation
+- **Tools**: Lambda functions for each data source
+- **Memory**: Dynamic instruction prompting
+- **API Definitions**: Structured OpenAPI definitions for all data sources
+- **Intelligence**: Combines retrieval capabilities with business context awareness
+- **Error Handling**: Comprehensive retry logic with exponential backoff
+- **Connection Management**: Pooled connections to data sources with connection recycling
+- **Response Size Optimization**: Dynamic chunk sizing based on query complexity
 
-#### Gong Tool
-- **Lambda Function**: `gong-retrieval-tool`
-- **Runtime**: Python 3.13
+#### Agent Architecture
+
+```mermaid
+graph TD
+    A[Bedrock Agent: Data Agent] --> B{Action Group Dispatcher}
+    B --> C[Firebolt Tool]
+    B --> D[Salesforce Tool]
+    B --> E[Gong Tool]
+    B --> F[Slack Tool]
+    
+    C --> G[(Firebolt DWH)]
+    D --> H[(Salesforce API)]
+    E --> I[(Gong API)]
+    F --> J[(Slack API)]
+    
+    subgraph "Schema-Aware API Definitions"
+        C
+        D
+        E
+        F
+    end
+```
+
+#### Agent Components
+
+- **Instructions**: Custom guidance for the foundation model
+- **Action Groups**: Schema-defined API interfaces for each data source
+- **Lambda Handlers**: Specialized functions for each data source
+- **Response Processor**: Formats and enriches data with business context
 
 CREATE TABLE revops_consumption_patterns (
     pattern_id TEXT,
@@ -231,7 +266,7 @@ class DataClassifier:
 
 ### Large Result Set Handling
 
-The RevOps AI Framework implements a chunking strategy for handling large data sets between agents, addressing AWS Lambda payload size limitations while maintaining efficient agent-to-agent communication.
+The RevOps AI Framework implements a chunking strategy for handling large data sets between agents, addressing AWS Lambda payload size limitations while maintaining efficient agent-to-agent communication. This approach eliminates the need for intermediate S3 storage, simplifying the architecture and improving performance.
 
 #### Key Features
 
@@ -259,7 +294,8 @@ The RevOps AI Framework implements a chunking strategy for handling large data s
   "query_info": {
     "query": "SELECT * FROM usage_logs WHERE...",
     "secret_name": "firebolt-credentials",
-    "region_name": "eu-north-1"
+    "region_name": "eu-north-1",
+    "api_region": "us-east-1"  // Added support for specifying API region
   }
 }
 
