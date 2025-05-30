@@ -104,7 +104,7 @@ class DataAgent:
             instructions=instructions,
             foundationModel=foundation_model,
             actionGroupExecutor={
-                'customEnabled': True
+                'customEnabled': 'true'
             }
         )
         
@@ -174,7 +174,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                             "description": "Execute a SQL query on the Firebolt data warehouse and return the results",
                             "operationId": "execute_firebolt_query",
                             "requestBody": {
-                                "required": True,
+                                "required": true,
                                 "content": {
                                     "application/json": {
                                         "schema": {
@@ -223,7 +223,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                                                     },
                                                     "error": {
                                                         "type": "string",
-                                                        "nullable": True
+                                                        "nullable": true
                                                     },
                                                     "chunked": {
                                                         "type": "boolean"
@@ -266,7 +266,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                             "description": "Retrieve a specific chunk from a previously executed query with large results",
                             "operationId": "get_firebolt_query_chunk",
                             "requestBody": {
-                                "required": True,
+                                "required": true,
                                 "content": {
                                     "application/json": {
                                         "schema": {
@@ -313,7 +313,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                                                     },
                                                     "error": {
                                                         "type": "string",
-                                                        "nullable": True
+                                                        "nullable": true
                                                     },
                                                     "chunked": {
                                                         "type": "boolean"
@@ -356,7 +356,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                                 },
                                 "error": {
                                     "type": "string",
-                                    "nullable": True,
+                                    "nullable": true,
                                     "description": "Error message if the query failed"
                                 },
                                 "chunked": {
