@@ -13,6 +13,22 @@ Billing events fact table with all revenue data:
 - **aflo_customer_name**: Customer name in Amberflo system
 - **aws_account_id**: AWS account ID if applicable
 
+### amberflo_customer_d
+Customer details from Amberflo:
+- **aflo_customer_id**: Unique identifier for the Amberflo customer
+- **aflo_customer_name**: Name of the Amberflo customer
+- **organization_id**: Unique identifier for the organization
+- **payment_method_id**: Identifier for the customer's payment method
+- **life_cycle_stage**: The lifecycle stage of the customer
+- **payment_provider_name**: Name of the payment provider
+- **is_private_offer**: Boolean indicating if customer is on a private offer
+- **is_test**: Boolean indicating if this is a test customer
+- **is_enabled**: Boolean indicating if the customer is currently enabled
+- **aws_customer_id**: AWS customer identifier
+- **customer_country**: Customer's country
+- **customer_city**: Customer's city
+- **customer_state**: Customer's state
+
 ### organization_d
 Organization dimension table with all customer organizations:
 - **organization_id**: Primary key - unique organization identifier
@@ -104,6 +120,57 @@ Detailed consumption events fact table:
 - **start_event_id**: ID of the start event
 - **end_event_id**: ID of the end event
 
+### daily_customer_cost_f
+Daily cost details per customer:
+- **customer_id**: Unique identifier for the customer
+- **organization_id**: Unique identifier for the organization
+- **aflo_customer_name**: Name of the Amberflo customer
+- **aws_customer_id**: AWS customer identifier
+- **start_time**: Start timestamp for the usage period
+- **end_time**: End timestamp for the usage period
+- **cost_before_discount**: Total cost before any discounts ($)
+- **cost_after_discount**: Total cost after discounts ($)
+- **prepaid_used**: Portion of cost covered by prepaid credits
+- **consumed_fbu**: FBU consumption for FB2 customers
+- **consumed_gib**: Storage consumption for FB2 customers
+- **consumed_engine_hours**: Engine hours consumption for FB1 customers
+- **consumed_bytes**: Storage consumption for FB1 customers
+- **engine_v2_cost_before_discount**: Engine costs before discount for FB2 ($)
+- **engine_v2_cost_after_discount**: Engine costs after discount for FB2 ($)
+- **storage_v2_cost**: Storage costs for FB2 customers ($)
+- **engine_v1_cost_before_discount**: Engine costs before discount for FB1 ($)
+- **engine_v1_cost_after_discount**: Engine costs after discount for FB1 ($)
+- **storage_v1_cost**: Storage costs for FB1 customers ($)
+
+### customer_billing_f
+Engine and storage billing details:
+- **organization_id**: Unique identifier for the organization
+- **account_id**: Unique identifier for the account
+- **usage_date**: Date for which the billing data is recorded
+- **consumed_fbu**: Total consumed Firebolt Usage Units (FBU)
+- **credit_consumed_fbu**: Consumed FBU covered by credits
+- **billed_engine_cost**: Total billed cost for engine usage
+- **credit_billed_engine_cost**: Billed engine cost covered by credits
+- **consumed_gib_per_month**: Total consumed storage in GiB per month
+- **credit_consumed_gib_per_month**: Storage consumption covered by credits
+- **billed_storage_cost**: Total billed cost for storage usage
+- **credit_billed_storage_cost**: Billed storage cost covered by credits
+
+### engine_billing_f
+Engine billing details:
+- **billing_id**: Unique identifier for the billing record
+- **organization_id**: Unique identifier for the organization
+- **account_id**: Unique identifier for the Firebolt account
+- **engine_id**: Unique identifier for the Firebolt engine
+- **account_name**: Name of the Firebolt account
+- **organization_name**: Name of the organization
+- **engine_name**: Name of the Firebolt engine
+- **usage_date**: Date when the billing usage was recorded
+- **consumed_fbu**: Total Firebolt Units (FBU) consumed
+- **credit_consumed_fbu**: FBU consumed using credits
+- **billed_engine_cost**: Total cost billed for engine usage
+- **credit_billed_engine_cost**: Cost covered by credits for engine usage
+
 ### engine_d
 Engine dimension table:
 - **engine_id**: Primary key - unique engine identifier
@@ -131,13 +198,109 @@ Customer invoice line items fact table:
 - **engine_name**: Name of the engine if applicable
 - **total_amount**: Total amount in USD
 - **aflo_customer_name**: Customer name in Amberflo system
+- **customer_id**: Unique identifier for the customer
+- **invoice_uri**: URI reference for the invoice
+- **invoice_id**: Unique identifier for the invoice
+- **account_id**: Identifier for the account associated with the invoice line
+- **region_name**: Region associated with the invoice line item
+- **product_plan_id**: Identifier for the product plan
+- **plan_name**: Name of the product plan
+- **product_item_id**: Identifier for the product item
+- **meter_api_name**: API name of the meter
+- **quantity**: Quantity of units billed for this invoice line
+
+### customer_invoice_f
+High-level invoice data per customer:
+- **invoice_uri**: URI reference for the invoice
+- **invoice_id**: Unique identifier for the invoice
+- **customer_id**: Unique identifier for the customer
+- **aflo_customer_name**: Name of the Amberflo customer
+- **organization_id**: Unique identifier for the organization
+- **product_plan_id**: Identifier for the product plan
+- **plan_name**: Name of the product plan
+- **invoice_started_at**: Timestamp when the invoice period started
+- **invoice_ended_at**: Timestamp when the invoice period ended
+- **total_prepaid**: Total amount covered by prepaid credits
+- **total_discount**: Total discount amount applied
+- **total_amount_before_discount**: Invoice amount before applying discounts
+- **total_amount_before_prepaid**: Invoice amount before applying prepaid credits
+- **total_amount**: Final invoice amount after all discounts and prepaid credits
 
 ### customer_discount_f
 Customer discounts fact table:
 - **organization_id**: Foreign key to organization_d.organization_id
-- **valid_from**: Start date of discount validity
+- **valid_from**: Start date of discount validity (as valid_from)
 - **valid_to**: End date of discount validity
 - **discount_amount**: Discount amount as a decimal (e.g., 0.2 for 20%)
+- **aflo_promotion_id**: Unique identifier for the Amberflo promotion
+- **promotion_id**: Identifier for the promotion applied
+- **product_id**: Identifier for the product associated with the promotion
+- **customer_id**: Unique identifier for the customer receiving the discount
+- **payment_method_id**: Identifier for the payment method used
+- **aflo_customer_name**: Name of the customer
+- **promotion_name**: Name of the promotion
+- **promotion_type**: Type of promotion applied
+
+### pricing_plan_d
+Dimension table containing pricing plan details:
+- **product_plan_id**: Unique identifier for the product plan
+- **product_plan_name**: Name of the product plan
+- **product_item_id**: Identifier for the product item associated with the plan
+- **product_item_price_id**: Identifier for the product item price
+- **is_default**: Boolean indicating if this is the default pricing plan
+- **product_plan_type**: Type of the product plan
+- **customer_region**: Extracted customer region from the pricing data
+- **price_per_fbu_usd**: Price per functional billing unit (FBU) in USD
+
+### customer_pricing_plan_f
+Customer pricing plan details:
+- **organization_id**: Unique identifier for the organization
+- **customer_id**: Unique identifier for the customer
+- **product_plan_id**: Identifier for the product plan
+- **product_plan_name**: Name of the product plan
+- **started_at**: Timestamp when the customer pricing plan started
+- **ended_at**: Timestamp when the customer pricing plan ended
+
+### account_pricing_history_f
+Historical pricing details per account and region:
+- **organization_id**: Unique identifier for the organization
+- **organization_name**: Name of the organization
+- **account_id**: Unique identifier for the account
+- **account_name**: Name of the account
+- **customer_id**: Unique identifier for the customer
+- **product_plan_id**: Identifier for the product plan
+- **product_plan_name**: Name of the product plan
+- **started_at**: Timestamp when the pricing plan started
+- **ended_at**: Timestamp when the pricing plan ended
+- **price_per_fbu_usd**: Price per FBU in USD
+- **account_region**: Region associated with the account
+- **sf_account_id**: Salesforce account ID linked to the account
+- **is_internal**: Boolean indicating if the account is internal
+
+### customer_credit_f
+Prepaid information extracted from Amberflo:
+- **customer_id**: Unique identifier for the customer
+- **prepaid_id**: Extracted prepaid ID from prepaid_uri
+- **label**: Label describing the prepaid transaction
+- **prepaid_amount**: Total amount allocated for the prepaid card
+- **used_amount**: Amount already utilized from the prepaid card
+- **amount_left**: Remaining balance in the prepaid card
+- **started_at**: Start timestamp of the prepaid transaction
+- **expired_at**: Expiration timestamp of the prepaid transaction
+- **payment_status**: Status of the payment for the prepaid transaction
+
+### prepaid_credit_f
+Detailed prepaid credit information:
+- **customer_id**: Unique identifier for the customer
+- **prepaid_id**: Extracted prepaid ID from prepaid_uri
+- **label**: Label describing the prepaid transaction
+- **prepaid_price**: Total amount of prepaid
+- **organization_id**: Unique identifier for the organization
+- **customer_priority**: Customer prepaid priority
+- **prepaid_priority**: Prepaid priority description
+- **started_at**: Start timestamp of the prepaid transaction
+- **ended_at**: End timestamp of the prepaid transaction
+- **payment_status**: Status of the payment for the prepaid transaction
 
 ## Marketing and Users
 
@@ -170,6 +333,43 @@ User dimension table:
 Login dimension table:
 - **login_id**: Primary key - unique login identifier
 - **login_name**: Login name/username
+
+## AWS Billing
+
+### daily_aws_billing_event_f
+Daily AWS billing event data:
+- **aflo_customer_id**: Unique identifier for the Aflo customer
+- **aflo_customer_name**: Name of the Aflo customer
+- **organization_id**: Identifier for the organization
+- **customer_aws_account_id**: AWS account ID for the customer
+- **payer_aws_account_id**: AWS account ID for the payer
+- **mrr_report_date**: The reporting date used for MRR calculation
+- **amount**: Billed amount for the usage
+- **is_fb2_usage**: Indicates whether the usage is related to FB2
+- **aws_product_code**: Code representing the AWS product used
+- **usage_hours**: Number of hours the resource was used
+- **usage_unit_type**: Unit type for the usage (e.g., Hours, GB)
+- **currency**: Currency of the billed amount
+- **aws_instance_type**: AWS instance type used (e.g., t3.medium)
+- **usage_period_start_date**: Start date of the usage period
+- **usage_period_end_date**: End date of the usage period
+
+### monthly_aws_billing_event_f
+Aggregated monthly AWS billing event data:
+- **billing_event_id**: Unique identifier for the billing event
+- **invoice_id**: Identifier of the AWS invoice
+- **action**: Action type for the billing event (e.g., usage, refund)
+- **transaction_type**: Type of transaction recorded
+- **product_id**: Internal product ID
+- **product_code**: Code representing the product
+- **is_private_offer**: Boolean flag indicating if the charge is part of a private offer
+- **billing_amount**: Total billing amount for the event
+- **mrr_report_date_ts**: Timestamp representing the reporting date for MRR
+- **aws_account_id**: AWS account ID associated with the billing
+- **aws_customer_id**: Customer ID provided by AWS
+- **aflo_customer_id**: Unique identifier for the Aflo customer
+- **aflo_customer_name**: Name of the Aflo customer
+- **organization_id**: Identifier for the organization
 
 ## Geographic and Miscellaneous
 

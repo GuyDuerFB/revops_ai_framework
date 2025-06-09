@@ -52,6 +52,11 @@ def deploy_agent(agent_name, alias_name, region=None):
     # Prepare action groups
     action_groups = prepare_action_groups()
     
+    # Serialize and deserialize the action groups to ensure proper JSON formatting
+    # This will convert Python booleans (True/False) to JSON booleans (true/false)
+    serialized_action_groups = json.dumps(action_groups)
+    action_groups = json.loads(serialized_action_groups)
+    
     # Create or update the agent
     print(f"Creating Bedrock Agent: {agent_name}")
     agent_response = DataAgent.create_agent(

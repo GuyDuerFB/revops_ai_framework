@@ -264,9 +264,9 @@ class DataClassifier:
 
 ## Data Handling & Processing
 
-### Large Result Set Handling
+### Data Retrieval Layer
 
-The RevOps AI Framework implements a chunking strategy for handling large data sets between agents, addressing AWS Lambda payload size limitations while maintaining efficient agent-to-agent communication. This approach eliminates the need for intermediate S3 storage, simplifying the architecture and improving performance.
+The data retrieval layer is responsible for fetching and preprocessing data from various sources before analysis. It uses schema-aware processing powered by the AWS knowledge base integration.
 
 #### Key Features
 

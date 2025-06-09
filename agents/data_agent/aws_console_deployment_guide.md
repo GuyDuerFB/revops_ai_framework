@@ -167,7 +167,7 @@ And call your Lambda with:
 ```json
 {
   "query": "SELECT sf.sf_account_name, o.opportunity_name...",
-  "secret_name": "firebolt-credentials",
+  "secret_name": "firebolt-api-credentials",
   "region_name": "eu-north-1",
   "max_rows_per_chunk": 1000,
   "chunk_index": 0

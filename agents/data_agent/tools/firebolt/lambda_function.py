@@ -8,16 +8,16 @@ def lambda_handler(event, context):
     try:
         # Extract parameters from the event
         query = event.get('query')
-        secret_name = event.get('secret_name')
+        secret_name = event.get('secret_name', 'firebolt-api-credentials')
         region_name = event.get('region_name', 'eu-north-1')
         
         # Validate required parameters
-        if not query or not secret_name:
+        if not query:
             return {
                 'statusCode': 400,
                 'body': json.dumps({
                     'success': False,
-                    'error': 'Missing required parameters: query and secret_name'
+                    'error': 'Missing required parameter: query'
                 })
             }
         

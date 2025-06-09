@@ -193,7 +193,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                                                 "region_name": {
                                                     "type": "string",
                                                     "description": "AWS region where the secret is stored",
-                                                    "default": "us-east-1"
+                                                    "default": "eu-north-1"
                                                 },
                                                 "max_rows_per_chunk": {
                                                     "type": "integer",
@@ -271,7 +271,7 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                                     "application/json": {
                                         "schema": {
                                             "type": "object",
-                                            "required": ["query", "secret_name", "chunk_index"],
+                                            "required": ["query", "chunk_index"],
                                             "properties": {
                                                 "query": {
                                                     "type": "string",
@@ -279,7 +279,8 @@ def prepare_action_groups() -> List[Dict[str, Any]]:
                                                 },
                                                 "secret_name": {
                                                     "type": "string",
-                                                    "description": "Name of the AWS secret containing client_id and client_secret"
+                                                    "description": "Name of the AWS secret containing client_id and client_secret",
+                                                    "default": "firebolt-api-credentials"
                                                 },
                                                 "region_name": {
                                                     "type": "string",
