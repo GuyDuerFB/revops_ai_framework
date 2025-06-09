@@ -27,6 +27,7 @@ env/
 
 # AWS credentials
 .aws/
+aws_tools/credentials.ini
 
 # Local configuration
 .env
