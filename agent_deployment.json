@@ -1,0 +1,12 @@
+{
+  "agent_id": "THA3J7B4NP",
+  "agent_alias_id": "TSTALIASID",
+  "agent_name": "RevOpsDataAgent",
+  "agent_arn": "arn:aws:bedrock:us-east-1:740202120544:agent/THA3J7B4NP",
+  "action_groups": [
+    "FireboltDataRetrieval"
+  ],
+  "foundation_model": "anthropic.claude-3-sonnet-20240229-v1:0",
+  "deployment_timestamp": "2025-06-09 11:24:19",
+  "description": "RevOps Data Agent for retrieving and preprocessing data from multiple sources"
+}
