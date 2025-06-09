@@ -390,6 +390,51 @@ Account forecast dimension table:
 - **forecast_id**: Unique forecast identifier
 - **forecast_name**: Name of the forecast
 - **amount**: Forecasted amount in USD
+## Sales Calls and Engagement
+
+### gong_call_f
+Gong sales calls fact table with comprehensive call data and AI-generated summaries:
+- **sf_gong_call_id**: Primary key - Salesforce Gong call ID
+- **gong_call_id**: Gong's internal call ID
+- **gong_call_name**: Name/title of the call
+- **gong_title**: Call title from Gong
+- **sf_owner_id**: Foreign key to employee_d.sf_user_id (call owner)
+- **is_deleted**: Boolean indicating if the call record is deleted
+- **created_by_id**: Salesforce user ID who created the record
+- **created_date_ts**: Timestamp when the call record was created
+- **last_modified_date_ts**: Timestamp when the call record was last modified
+- **gong_call_start_ts**: Timestamp when the call started
+- **gong_call_end_ts**: Timestamp when the call ended
+- **gong_scheduled_ts**: Timestamp when the call was scheduled
+- **gong_call_duration**: Duration of the call (string format)
+- **gong_direction**: Direction of the call (Conference, Outbound, Inbound, Unknown)
+- **gong_media**: Media type of the call (Video, Audio)
+- **gong_system**: System used for the call (Google Meet, Zoom, Microsoft Teams, Outreach, etc.)
+- **gong_language**: Language of the call
+- **gong_quality_score**: Quality score assigned by Gong
+- **gong_recorded_from**: Source of the recording
+- **gong_scope**: Scope/context of the call
+- **gong_primary_user**: Primary user from Gong's perspective
+- **gong_talk_time_them**: Talk time of external participants
+- **gong_playbook_match**: Playbook matches identified by Gong
+- **gong_participants_emails**: Comma-separated list of participant email addresses
+- **gong_primary_account**: Foreign key to salesforce_account_d.sf_account_id (primary account)
+- **gong_related_account**: Related Salesforce account ID
+- **gong_related_lead**: Related Salesforce lead ID
+- **gong_related_contact**: Related Salesforce contact ID
+- **gong_related_opportunity**: Foreign key to opportunity_d.opportunity_id
+- **gong_primary_opportunity**: Primary opportunity ID associated with the call
+- **gong_opportunity_stage_now**: Current stage of the related opportunity
+- **gong_opp_stage_time_of_call**: Opportunity stage at the time of the call
+- **gong_opp_amount_time_of_call**: Opportunity amount at the time of the call (USD)
+- **gong_opp_close_date_time_of_call**: Opportunity close date at the time of the call
+- **gong_opp_probability_time_of_call**: Opportunity probability at the time of the call (percentage)
+- **gong_call_brief**: AI-generated brief summary of the call content
+- **gong_call_key_points**: AI-generated key points and takeaways from the call
+- **gong_related_participants_json**: JSON structure containing detailed participant information
+- **source_file_name**: Source file name for data lineage
+- **source_file_timestamp**: Timestamp of the source file
+- **dbt_last_updated_ts**: Timestamp when the record was last updated by dbt
 
 ## Common Joins and Query Patterns
 
@@ -400,12 +445,16 @@ Account forecast dimension table:
 - Join Firebolt accounts to consumption events: `firebolt_account_d.account_id = consumption_event_f.account_id`
 - Join billing events to organizations: `billing_event_f.organization_id = organization_d.organization_id`
 - Join agreements to Salesforce accounts: `agreement_f.sf_account_id = salesforce_account_d.sf_account_id`
+- Join gong calls to opportunities: `gong_call_f.gong_primary_opportunity = opportunity_d.opportunity_id`
+- Join Gong calls to opportunities: `gong_call_f.gong_related_opportunity = opportunity_d.opportunity_id`
 
 ### User and Employee Relationships
 - Join account owners to Salesforce accounts: `employee_d.sf_user_id = salesforce_account_d.sf_owner_id`
 - Join opportunity owners to opportunities: `employee_d.sf_user_id = opportunity_d.owner_id`
 - Join users to engines: `user_d.user_id = engine_event_f.triggered_by_user_id`
 - Join login information to users: `login_d.login_id = user_d.login_id`
+- Join Gong calls to employees: `gong_call_f.sf_owner_id = employee_d.sf_user_id`
+- Join Gong call owners to employees: `employee_d.sf_user_id = gong_call_f.sf_owner_id`
 
 ### Revenue and Billing Relationships
 - Join discounts to invoices: `customer_discount_f.organization_id = customer_invoice_line_f.organization_id AND invoice_started_at BETWEEN valid_from AND valid_to`
@@ -472,6 +521,34 @@ WHERE opportunity_d.stage_name NOT IN ('Closed Lost')
     AND [additional_filters]
 ORDER BY opportunity_d.amount DESC
 ```
+### Gong Calls Analysis
+
+#### Sales Call Activity by Account
+```sql
+SELECT 
+    sa.sf_account_name,
+    COUNT(*) AS total_calls,
+    COUNT(CASE WHEN gc.gong_direction = 'Outbound' THEN 1 END) AS outbound_calls,
+    COUNT(CASE WHEN gc.gong_direction = 'Conference' THEN 1 END) AS conference_calls,
+    COUNT(CASE WHEN gc.gong_related_opportunity IS NOT NULL THEN 1 END) AS calls_with_opportunities,
+    AVG(gc.gong_opp_amount_time_of_call) AS avg_opp_value
+FROM gong_call_f gc
+JOIN salesforce_account_d sa ON gc.gong_primary_account = sa.sf_account_id
+WHERE gc.gong_call_start_ts >= CURRENT_DATE - INTERVAL 90 DAY
+GROUP BY sa.sf_account_name, sa.sf_account_id
+ORDER BY total_calls DESC
+```
+
+#### Call Frequency and Opportunity Progression
+```sql
+SELECT 
+    gc.gong_opportunity_stage_now,
+    COUNT(*) AS call_count,
+    COUNT(DISTINCT gc.gong_related_opportunity) AS unique_opportunities,
+    AVG(gc.gong_opp_amount_time_of_call) AS avg_opportunity_value,
+    COUNT(CASE WHEN gc.gong_direction = 'Outbound' THEN 1 END) AS outbound_calls
+FROM gong_call_f gc
+WHERE gc.gong
 
 ## Business Metrics
 
