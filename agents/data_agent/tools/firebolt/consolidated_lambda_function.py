@@ -1,6 +1,6 @@
 """
 Consolidated Firebolt Query Executor Lambda function.
-Simple implementation that returns all data as an array.
+Fixed for Bedrock Agent compatibility.
 """
 
 import json
@@ -47,22 +47,33 @@ def extract_sql_from_markdown(input_text):
 def lambda_handler(event, context):
     """
     AWS Lambda handler for Firebolt queries using REST API
-    Returns all data as a simple array without chunking
+    Fixed for Bedrock Agent compatibility - returns direct JSON response
     """
     try:
+        print(f"Received event: {json.dumps(event)}")
+        
         # Extract parameters from the event
-        query = event.get('query')
+        # Handle both direct parameters and nested structures
+        if 'query' in event:
+            query = event.get('query')
+        elif 'parameters' in event and isinstance(event['parameters'], list):
+            # Handle Bedrock agent parameter format
+            params = {param.get('name'): param.get('value') for param in event['parameters']}
+            query = params.get('query')
+        else:
+            query = None
+            
         secret_name = event.get('secret_name', 'firebolt-credentials')
         region_name = event.get('region_name', 'eu-north-1')
         
         # Validate required parameters
         if not query:
+            print("Error: Missing required parameter: query")
             return {
-                'statusCode': 400,
-                'body': json.dumps({
-                    'success': False,
-                    'error': 'Missing required parameter: query'
-                })
+                'success': False,
+                'error': 'Missing required parameter: query',
+                'results': [],
+                'columns': []
             }
         
         # Extract SQL from markdown if needed
@@ -80,11 +91,10 @@ def lambda_handler(event, context):
             region_name=region_name
         )
         
-        # Return successful response
-        return {
-            'statusCode': 200,
-            'body': json.dumps(result, default=str)  # Handle any datetime objects
-        }
+        print(f"Query execution successful, returning result with {len(result.get('results', []))} rows")
+        
+        # Return direct JSON response for Bedrock agent
+        return result
         
     except Exception as e:
         # Log the full error for debugging
@@ -92,16 +102,15 @@ def lambda_handler(event, context):
         import traceback
         print(f"Full traceback: {traceback.format_exc()}")
         
-        # Return error response
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'success': False,
-                'error': str(e),
-                'results': [],
-                'columns': []
-            })
+        # Return error response in the expected format
+        error_response = {
+            'success': False,
+            'error': str(e),
+            'results': [],
+            'columns': []
         }
+        print(f"Returning error response: {json.dumps(error_response)}")
+        return error_response
 
 def get_aws_secret(secret_name: str, region_name: str = "eu-north-1") -> Dict[str, str]:
     """
@@ -221,8 +230,6 @@ def execute_firebolt_query(
         query (str): The SQL query to execute
         secret_name (str): Name of the AWS secret containing client_id and client_secret
         region_name (str): AWS region where the secret is stored
-        max_rows_per_chunk (int): Maximum number of rows per chunk
-        chunk_index (int): Which chunk to return (0 = first chunk or metadata)
         
     Returns:
         Dict[str, Any]: A dictionary with query results in JSON-serializable format
@@ -258,7 +265,6 @@ def execute_firebolt_query(
         # Step 4: Execute query
         print("Step 4: Executing query via REST API...")
         # Construct the query URL using the environment variables
-        # Format: https://{account_name}-firebolt.api.{api_region}.app.firebolt.io?engine={engine_name}&database={database}
         query_url = f"https://{account_name}-firebolt.api.{api_region}.app.firebolt.io?engine={engine_name}&database={database}"
         print(f"Making request to: {query_url}")
         
@@ -299,12 +305,17 @@ def execute_firebolt_query(
         print(f"Error executing Firebolt query: {str(e)}")
         raise e
 
-def format_simple_result(
-    raw_result: Dict[str, Any]
-) -> Dict[str, Any]:
+def json_serializer(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+def format_simple_result(raw_result: Dict[str, Any]) -> Dict[str, Any]:
     """
     Format the raw query result into a simple structured response.
     Returns all data as an array without chunking.
+    Ensures all data is JSON serializable.
     
     Args:
         raw_result (Dict[str, Any]): Raw result from Firebolt API
@@ -332,13 +343,6 @@ def format_simple_result(
         print(f"Row data type: {type(all_rows[0])}")
         print(f"Sample row: {str(all_rows[0])[:100]}")
     
-    # Prepare base result
-    result = {
-        'success': True,
-        'columns': columns,
-        'total_rows': total_rows
-    }
-    
     # Handle both list-like and dict-like row structures
     formatted_rows = []
     for row in all_rows:
@@ -351,6 +355,7 @@ def format_simple_result(
                 col_name = col['name']
                 if col_name in row:
                     value = row[col_name]
+                    # Handle datetime objects properly
                     if isinstance(value, (datetime, date)):
                         row_dict[col_name] = value.isoformat()
                     else:
@@ -360,6 +365,7 @@ def format_simple_result(
             for i, col in enumerate(columns):
                 if i < len(row):
                     value = row[i]
+                    # Handle datetime objects properly
                     if isinstance(value, (datetime, date)):
                         row_dict[col['name']] = value.isoformat()
                     else:
@@ -370,8 +376,24 @@ def format_simple_result(
             
         formatted_rows.append(row_dict)
     
-    result['results'] = formatted_rows
+    # Prepare final result - ensure it's JSON serializable
+    result = {
+        'success': True,
+        'columns': [col['name'] for col in columns],  # Simplified column format
+        'results': formatted_rows,
+        'total_rows': total_rows,
+        'query_info': {
+            'columns_details': columns  # Keep detailed info here if needed
+        }
+    }
+    
+    # Test JSON serialization to catch issues early
+    try:
+        json.dumps(result, default=json_serializer)
+        print("✓ Result is JSON serializable")
+    except Exception as e:
+        print(f"⚠️ JSON serialization issue: {str(e)}")
+        # Fallback to string representation for problematic data
+        result['results'] = [str(row) for row in formatted_rows]
     
     return result
-
-# The get_query_chunk function has been removed as we no longer need chunking functionality
