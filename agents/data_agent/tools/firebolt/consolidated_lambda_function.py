@@ -44,6 +44,46 @@ def extract_sql_from_markdown(input_text):
     # Return original if no code blocks found
     return input_text
 
+def query_fire(query=None):
+    """
+    Execute SQL queries against Firebolt data warehouse and return structured results.
+    Matches the Bedrock Agent function schema signature.
+    
+    Args:
+        query (str): The SQL query to execute against Firebolt. Can be provided as plain SQL
+                     or wrapped in markdown code blocks (```sql ... ```).
+    
+    Returns:
+        dict: Results from the Firebolt query in a structured format
+    """
+    try:
+        if not query:
+            return {
+                "success": False,
+                "error": "No SQL query provided",
+                "message": "Please provide a valid SQL query to execute"
+            }
+        
+        # Extract SQL from markdown if needed
+        query = extract_sql_from_markdown(query)
+        
+        # Use environment variables or defaults for these values
+        secret_name = os.environ.get('FIREBOLT_CREDENTIALS_SECRET', 'firebolt-credentials')
+        region_name = os.environ.get('AWS_REGION', 'eu-north-1')
+        
+        # Execute the query
+        result = execute_firebolt_query(query, secret_name, region_name)
+        return result
+        
+    except Exception as e:
+        print(f"Error in query_fire: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to execute query against Firebolt"
+        }
+
+
 def lambda_handler(event, context):
     """
     AWS Lambda handler for Firebolt queries using REST API
@@ -52,12 +92,31 @@ def lambda_handler(event, context):
     try:
         print(f"Received event: {json.dumps(event)}")
         
-        # Extract parameters from the event
-        # Handle both direct parameters and nested structures
+        # 1. Check if this is a Bedrock Agent invocation
+        if 'actionGroup' in event and event.get('actionGroup') == 'firebolt_function':
+            # This is a Bedrock Agent invocation
+            action_name = event.get('action')
+            
+            if action_name == 'query_fire':
+                api_path = event.get('apiPath')
+                body = event.get('body', {})
+                parameters = body.get('parameters', {})
+                query = parameters.get('query')
+                
+                # Call our dedicated function
+                return query_fire(query)
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unknown action: {action_name}",
+                    "message": "This Lambda only supports the 'query_fire' action."
+                }
+                
+        # 2. Check if this is a direct invocation with parameters
         if 'query' in event:
             query = event.get('query')
         elif 'parameters' in event and isinstance(event['parameters'], list):
-            # Handle Bedrock agent parameter format
+            # Handle Bedrock agent parameter format (older versions)
             params = {param.get('name'): param.get('value') for param in event['parameters']}
             query = params.get('query')
         else:

@@ -26,7 +26,7 @@ def load_deployment_details(deployment_file="agent_deployment.json"):
     except FileNotFoundError:
         raise Exception(f"Deployment file {deployment_file} not found. Please deploy the agent first.")
 
-def invoke_agent(prompt, session_id=None, deployment_file="agent_deployment.json"):
+def invoke_agent(prompt, session_id=None, deployment_file="agent_deployment.json", region="us-east-1", profile="revops-dev-profile"):
     """
     Invoke the RevOps Data Agent with a prompt.
     
@@ -34,6 +34,8 @@ def invoke_agent(prompt, session_id=None, deployment_file="agent_deployment.json
         prompt (str): The prompt to send to the agent
         session_id (str, optional): Session ID for conversation context
         deployment_file (str): Path to the deployment details file
+        region (str): AWS region name
+        profile (str): AWS profile name
         
     Returns:
         dict: Agent response
@@ -49,9 +51,41 @@ def invoke_agent(prompt, session_id=None, deployment_file="agent_deployment.json
     
     # Invoke the agent
     print(f"Invoking agent {details['agent_name']} with prompt: {prompt[:100]}...")
-    response = agent.invoke(prompt, session_id)
+    print(f"Using AWS profile: {profile}")
+    response = agent.invoke(prompt, session_id, region_name=region, profile_name=profile)
     
-    return response
+    # Print the important response metadata
+    if 'agent_response' in response:
+        print("\nAgent Response Metadata:")
+        if 'sessionId' in response['agent_response']:
+            print(f"Session ID: {response['agent_response']['sessionId']}")
+        if 'contentType' in response['agent_response']:
+            print(f"Content Type: {response['agent_response']['contentType']}")
+            
+        # Create a standardized response object
+        processed_response = {
+            'session_id': response.get('session_id', ''),
+            'metadata': {
+                'session_id': response['agent_response'].get('sessionId', ''),
+                'content_type': response['agent_response'].get('contentType', '')
+            }
+        }
+        
+        # Check if this is a streaming response
+        if 'completion' in response['agent_response']:
+            print("\nResponse content:")
+            print("---------------------")
+            print("The agent provided a streaming response. Due to the limitations")
+            print("of the AWS SDK, we can only indicate that a response was received.")
+            print("\nTo view the full conversation and responses, please use the")
+            print("AWS Console to check the Bedrock Agent conversation history.")
+            print("---------------------")
+            processed_response['response_type'] = 'stream'
+            processed_response['has_content'] = True
+            
+        return processed_response
+    else:
+        return response
 
 def sample_query_examples():
     """
@@ -78,14 +112,27 @@ if __name__ == "__main__":
     parser.add_argument("--session-id", help="Session ID for conversation context")
     parser.add_argument("--deployment-file", default="agent_deployment.json", help="Path to the deployment details file")
     parser.add_argument("--examples", action="store_true", help="Show sample query examples")
+    parser.add_argument("--region", default="us-east-1", help="AWS region")
+    parser.add_argument("--profile", default="revops-dev-profile", help="AWS profile name")
     
     args = parser.parse_args()
     
     if args.examples:
         sample_query_examples()
     elif args.prompt:
-        response = invoke_agent(args.prompt, args.session_id, args.deployment_file)
+        response = invoke_agent(args.prompt, args.session_id, args.deployment_file, args.region, args.profile)
         print("\nAgent Response:")
-        print(json.dumps(response, indent=2))
+        
+        # Handle different response types
+        if 'error' in response:
+            print(f"Error: {response['error']}")
+        elif 'response_text' in response:
+            print("\n" + response['response_text'])
+        else:
+            # Try to print as JSON, but if it fails, print as string
+            try:
+                print(json.dumps(response, indent=2))
+            except TypeError:
+                print(str(response))
     else:
         parser.print_help()

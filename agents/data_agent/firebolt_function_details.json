@@ -1,0 +1,45 @@
+{
+  "ResponseMetadata": {
+    "RequestId": "f84c07ad-7ba7-46e3-83f0-edf3ef1c1537",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "date": "Mon, 09 Jun 2025 10:54:13 GMT",
+      "content-type": "application/json",
+      "content-length": "1132",
+      "connection": "keep-alive",
+      "x-amzn-requestid": "f84c07ad-7ba7-46e3-83f0-edf3ef1c1537",
+      "x-amz-apigw-id": "L5KFXGVgIAMETPA=",
+      "x-amzn-trace-id": "Root=1-6846bd55-5280508c1ef638956f438eba"
+    },
+    "RetryAttempts": 0
+  },
+  "agentActionGroup": {
+    "actionGroupExecutor": {
+      "lambda": "arn:aws:lambda:us-east-1:740202120544:function:QueryFirebolt"
+    },
+    "actionGroupId": "IREBEG6U7I",
+    "actionGroupName": "firebolt_function",
+    "actionGroupState": "ENABLED",
+    "agentId": "THA3J7B4NP",
+    "agentVersion": "1",
+    "createdAt": "2025-06-09 10:06:05.962202+00:00",
+    "description": "Firebolt functions for the ai agent to use",
+    "functionSchema": {
+      "functions": [
+        {
+          "description": "Execute SQL queries against Firebolt data warehouse and return structured results. Can handle both simple SQL queries and SQL queries wrapped in markdown code blocks. Useful for retrieving business data, consumption metrics, account information, and other analytics data from Firebolt.",
+          "name": "query_fire",
+          "parameters": {
+            "query": {
+              "description": "The SQL query to execute against Firebolt. Can be provided as plain SQL or wrapped in markdown code blocks (```sql ... ```). Examples: 'SELECT * FROM accounts LIMIT 10' or 'SELECT account_name, total_consumption FROM usage_summary WHERE date >= CURRENT_DATE - 7'",
+              "required": false,
+              "type": "string"
+            }
+          },
+          "requireConfirmation": "DISABLED"
+        }
+      ]
+    },
+    "updatedAt": "2025-06-09 10:06:05.962202+00:00"
+  }
+}

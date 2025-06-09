@@ -26,15 +26,29 @@ def load_aws_credentials(profile_name='default'):
         config.read(credentials_file)
         
         if profile_name in config:
-            return {
+            credentials = {
                 'aws_access_key_id': config[profile_name].get('aws_access_key_id'),
                 'aws_secret_access_key': config[profile_name].get('aws_secret_access_key'),
                 'region_name': config[profile_name].get('region_name', 'us-west-2')
             }
+            
+            # Add session token if present (for temporary credentials)
+            session_token = config[profile_name].get('aws_session_token')
+            if session_token:
+                credentials['aws_session_token'] = session_token
+                
+            return credentials
     
     # Otherwise, try environment variables
-    return {
+    credentials = {
         'aws_access_key_id': os.environ.get('AWS_ACCESS_KEY_ID'),
         'aws_secret_access_key': os.environ.get('AWS_SECRET_ACCESS_KEY'),
         'region_name': os.environ.get('AWS_DEFAULT_REGION', 'us-west-2')
     }
+    
+    # Add session token from environment if present
+    session_token = os.environ.get('AWS_SESSION_TOKEN')
+    if session_token:
+        credentials['aws_session_token'] = session_token
+        
+    return credentials
