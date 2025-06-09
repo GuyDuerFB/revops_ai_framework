@@ -30,7 +30,7 @@ The tool uses the following API endpoint structure to connect to Firebolt:
 https://{account_name}-firebolt.api.{api_region}.app.firebolt.io?engine={engine_name}&database={database}
 ```
 
-This represents an improvement over the previous endpoint structure, fixing connectivity issues and ensuring reliable data retrieval.
+This represents an improvement over the previous endpoint structure, fixing the "Device or resource busy" error in AWS Lambda and ensuring reliable data retrieval across different environments. The structure has been validated to work with the Firebolt API in production scenarios.
 
 ### Chunking Implementation
 
@@ -46,11 +46,13 @@ For large result sets that would exceed Lambda's payload limits:
 | Parameter | Description | Default | Required |
 |-----------|-------------|---------|----------|
 | `query` | SQL query to execute | - | Yes |
-| `secret_name` | Name of AWS Secrets Manager secret containing Firebolt credentials | - | Yes |
+| `secret_name` | Name of AWS Secrets Manager secret containing Firebolt credentials | firebolt-api-credentials | No |
 | `region_name` | AWS region for Secrets Manager | eu-north-1 | No |
 | `api_region` | Firebolt API region | us-east-1 | No |
 | `chunk_index` | For chunked results, the index of chunk to retrieve | 0 | No |
 | `max_rows_per_chunk` | Maximum number of rows per chunk | 1000 | No |
+
+> **Note**: The parameters have been standardized across the codebase for consistency. Users only need to provide the SQL query, with all other parameters using sensible defaults.
 
 ## Authentication
 
@@ -80,7 +82,7 @@ The tool provides structured error responses with:
 // Request
 {
   "query": "SELECT * FROM consumption_daily_d WHERE consumption_date >= CURRENT_DATE - INTERVAL '30 DAYS'",
-  "secret_name": "firebolt-credentials",
+  "secret_name": "firebolt-api-credentials",
   "region_name": "eu-north-1",
   "api_region": "us-east-1",
   "chunk_index": 0,
@@ -100,7 +102,7 @@ The tool provides structured error responses with:
   "results": [...],  // First 1000 rows
   "query_info": {
     "query": "SELECT * FROM consumption_daily_d WHERE consumption_date >= CURRENT_DATE - INTERVAL '30 DAYS'",
-    "secret_name": "firebolt-credentials",
+    "secret_name": "firebolt-api-credentials",
     "region_name": "eu-north-1",
     "api_region": "us-east-1"
   }

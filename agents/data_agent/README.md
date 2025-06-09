@@ -12,6 +12,8 @@ The Schema-Aware Data Agent is a core component of the RevOps AI Framework, resp
 - **Large Result Set Management**: Implements chunking strategy for handling large datasets without intermediate storage
 - **Contextual Enrichment**: Adds business context, data quality information, and insights
 - **Secure Credential Management**: Uses AWS Secrets Manager for secure API authentication
+- **Standardized Parameter Handling**: Implements consistent default values for simplified user interaction
+- **Optimized API Endpoints**: Uses validated API URL structure for reliable Firebolt connectivity
 
 ## Directory Structure
 
@@ -30,6 +32,25 @@ data_agent/
     ├── gong/                        # Gong conversation analytics integration (future)
     └── slack/                       # Slack communication integration (future)
 ```
+
+## Implementation Notes
+
+### Knowledge Base Integration
+
+The Data Agent uses an AWS knowledge base named `revops-firebolt-schema` that contains:
+
+- Table definitions and relationships
+- Column descriptions and data types
+- Common query patterns and join strategies
+- Business metrics definitions
+
+### API Parameter Standardization
+
+The Data Agent implements consistent parameter handling across all tools:
+
+- **Simplified User Interface**: Users only need to provide the SQL query, with all other parameters using sensible defaults
+- **Default Parameters**: Standardized defaults for `secret_name` ("firebolt-api-credentials") and `region_name` ("eu-north-1")
+- **Environment Configuration**: Lambda environment variables handle Firebolt-specific configuration
 
 ## Schema-Aware Knowledge Base Integration
 
