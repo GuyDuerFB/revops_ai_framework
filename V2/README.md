@@ -61,7 +61,33 @@ The framework implements a sophisticated multi-agent system leveraging AWS Bedro
 
 - **Execution Agent**: Implements recommended actions through integrations with external systems, converts decisions into executable operations, and provides feedback on action results.
 
-#### 2. Supporting Infrastructure
+#### 2. Centralized Insights Storage
+
+The framework employs a centralized insights storage system using the `revops_ai_insights` table in Firebolt to maintain a cohesive view of all AI-generated findings, recommendations and actions:
+
+```
+┌─────────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+│                     │    │                   │    │                   │
+│  Data Analysis      │    │  Decision         │    │  Execution        │
+│  Agent              ├───►│  Agent            ├───►│  Agent            │
+│                     │    │                   │    │                   │
+└─────────────────────┘    └───────────────────┘    └───────────────────┘
+         │                          │                        │
+         ▼                          ▼                        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                      RevOps AI Insights Table                           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Insight Schema**: Rich schema supporting identifier, classification, scoring, temporal tracking, business metrics, and action history
+- **Lifecycle Management**: Insights flow through states (open → in_progress → resolved) with complete audit trail
+- **Multi-Agent Collaboration**: All agents read from and write to this central repository, allowing efficient handoffs
+- **Business Metrics**: Tracking of business impact, priority, and confidence scoring for insights
+- **JSON Data Support**: Uses Firebolt's VARIANT type to store flexible JSON data structures for metadata, attributes, and action results
+
+#### 3. Supporting Infrastructure
 
 - **Knowledge Bases**: Specialized vector databases containing:
   - Firebolt schema information for intelligent data querying
@@ -70,7 +96,7 @@ The framework implements a sophisticated multi-agent system leveraging AWS Bedro
 
 - **Lambda Function Tools**:
   - **Firebolt Reader**: Executes optimized read queries against Firebolt data warehouse
-  - **Firebolt Writer**: Performs secure write operations with robust SQL generation
+  - **Firebolt Writer**: Performs secure write operations with robust SQL generation and specialized insight validation
   - **Gong Analyzer**: Retrieves and processes conversational data from Gong
   - **Webhook Dispatcher**: Sends notifications and triggers external systems
 

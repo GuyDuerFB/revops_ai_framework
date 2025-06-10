@@ -4,19 +4,53 @@ RevOps AI Framework V2 - Firebolt Writer Lambda
 This Lambda function writes data back to Firebolt data warehouse
 and returns execution results for use by the Execution Agent.
 Compatible with AWS Bedrock Agent function calling format.
+
+Supports specialized operations for the RevOps AI Insights table,
+with handling for VARIANT data types and complex JSON payloads.
 """
 
 import json
 import boto3
 import os
 import re
+import uuid
 import urllib.request
 import urllib.error
 import urllib.parse
 from datetime import datetime, date
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Set
 
 # Authentication and credential management
+# Helper functions for data type handling
+def format_value_for_sql(value: Any) -> str:
+    """
+    Format a value for inclusion in SQL based on its data type.
+    Handles special types like dates, timestamps, booleans, and JSON.
+    
+    Args:
+        value: The value to format
+        
+    Returns:
+        str: SQL-formatted representation of the value
+    """
+    if value is None:
+        return "NULL"
+    elif isinstance(value, (int, float)):
+        return str(value)
+    elif isinstance(value, (datetime, date)):
+        return f"'{value.isoformat()}'"
+    elif isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    elif isinstance(value, (dict, list)):
+        # JSON data in Firebolt is stored as TEXT
+        # Convert to properly formatted JSON string
+        json_str = json.dumps(value, ensure_ascii=False).replace("'", "''")
+        return f"'{json_str}'"
+    else:
+        # Escape string values
+        escaped_value = str(value).replace("'", "''")
+        return f"'{escaped_value}'"
+
 def get_aws_secret(secret_name: str, region_name: str = "us-east-1") -> Dict[str, str]:
     """
     Retrieve a secret from AWS Secrets Manager.
@@ -125,6 +159,7 @@ def get_firebolt_access_token(credentials: Dict[str, str]) -> str:
 def generate_insert_sql(table_name: str, data: Dict[str, Any]) -> str:
     """
     Generate SQL INSERT statement from data.
+    Handles complex data types including VARIANT JSON.
     
     Args:
         table_name (str): Target table name
@@ -140,23 +175,9 @@ def generate_insert_sql(table_name: str, data: Dict[str, Any]) -> str:
     columns = list(data.keys())
     values = []
     
-    # Process values and format properly
+    # Process values and format properly using our helper
     for key in columns:
-        value = data[key]
-        
-        # Format value based on type
-        if value is None:
-            values.append("NULL")
-        elif isinstance(value, (int, float)):
-            values.append(str(value))
-        elif isinstance(value, (datetime, date)):
-            values.append(f"'{value.isoformat()}'")
-        elif isinstance(value, bool):
-            values.append("TRUE" if value else "FALSE")
-        else:
-            # Escape string values
-            escaped_value = str(value).replace("'", "''")
-            values.append(f"'{escaped_value}'")
+        values.append(format_value_for_sql(data[key]))
     
     # Construct SQL
     columns_str = ", ".join(columns)
@@ -167,6 +188,7 @@ def generate_insert_sql(table_name: str, data: Dict[str, Any]) -> str:
 def generate_update_sql(table_name: str, data: Dict[str, Any], where_clause: str) -> str:
     """
     Generate SQL UPDATE statement from data.
+    Handles complex data types including VARIANT JSON.
     
     Args:
         table_name (str): Target table name
@@ -186,19 +208,8 @@ def generate_update_sql(table_name: str, data: Dict[str, Any], where_clause: str
     set_clauses = []
     
     for key, value in data.items():
-        # Format value based on type
-        if value is None:
-            set_clauses.append(f"{key} = NULL")
-        elif isinstance(value, (int, float)):
-            set_clauses.append(f"{key} = {value}")
-        elif isinstance(value, (datetime, date)):
-            set_clauses.append(f"{key} = '{value.isoformat()}'")
-        elif isinstance(value, bool):
-            set_clauses.append(f"{key} = {'TRUE' if value else 'FALSE'}")
-        else:
-            # Escape string values
-            escaped_value = str(value).replace("'", "''")
-            set_clauses.append(f"{key} = '{escaped_value}'")
+        formatted_value = format_value_for_sql(value)
+        set_clauses.append(f"{key} = {formatted_value}")
     
     # Construct SQL
     set_clause_str = ", ".join(set_clauses)
@@ -207,7 +218,8 @@ def generate_update_sql(table_name: str, data: Dict[str, Any], where_clause: str
 
 def generate_upsert_sql(table_name: str, data: Dict[str, Any], key_columns: List[str]) -> str:
     """
-    Generate SQL for upsert operation using INSERT OR UPDATE pattern.
+    Generate SQL for upsert operation using MERGE syntax.
+    Handles complex data types including VARIANT JSON.
     
     Args:
         table_name (str): Target table name
@@ -215,7 +227,7 @@ def generate_upsert_sql(table_name: str, data: Dict[str, Any], key_columns: List
         key_columns (List[str]): Columns that identify unique records
         
     Returns:
-        str: SQL for UPSERT operation
+        str: SQL for UPSERT operation using MERGE
     """
     if not data:
         raise ValueError("No data provided for UPSERT")
@@ -227,23 +239,9 @@ def generate_upsert_sql(table_name: str, data: Dict[str, Any], key_columns: List
     columns = list(data.keys())
     values = []
     
-    # Process values and format properly
+    # Process values and format properly using our helper
     for key in columns:
-        value = data[key]
-        
-        # Format value based on type
-        if value is None:
-            values.append("NULL")
-        elif isinstance(value, (int, float)):
-            values.append(str(value))
-        elif isinstance(value, (datetime, date)):
-            values.append(f"'{value.isoformat()}'")
-        elif isinstance(value, bool):
-            values.append("TRUE" if value else "FALSE")
-        else:
-            # Escape string values
-            escaped_value = str(value).replace("'", "''")
-            values.append(f"'{escaped_value}'")
+        values.append(format_value_for_sql(data[key]))
     
     # Construct the INSERT part
     columns_str = ", ".join(columns)
@@ -356,6 +354,200 @@ def execute_firebolt_query(
             'message': "Failed to execute query against Firebolt"
         }
 
+# Specialized functions for RevOps AI Insights table
+def validate_insight_data(insight_data: Dict[str, Any]) -> Dict[str, Union[bool, str]]:
+    """
+    Validate insight data against schema requirements.
+    Allows both string-encoded JSON and JSON-serializable objects for TEXT fields.
+    
+    Args:
+        insight_data (Dict[str, Any]): Insight data to validate
+        
+    Returns:
+        Dict[str, Union[bool, str]]: Validation result with status and optional error message
+    """
+    if not isinstance(insight_data, dict):
+        return {"valid": False, "error": "Insight data must be a dictionary"}
+    
+    # Required fields validation
+    required_fields = ['insight_category', 'insight_type', 'source_agent', 'insight_title', 'insight_description']
+    
+    # For updates, we don't require all fields
+    missing_fields = [field for field in required_fields if field not in insight_data]
+    if missing_fields:
+        return {"valid": False, "error": f"Missing required fields: {', '.join(missing_fields)}"}
+    
+    # Validate categorical fields using allowed values
+    status_types = ['new', 'acknowledged', 'in_progress', 'resolved', 'dismissed']
+    if 'status' in insight_data and insight_data['status'] not in status_types:
+        return {"valid": False, "error": f"Invalid status: {insight_data['status']}. Must be one of: {', '.join(status_types)}"}
+    
+    # Validate insight category and type combinations
+    category_types = {
+        'deal_quality': [
+            'icp_alignment', 'technical_fit', 'commercial_fit', 'competitive_threat', 'data_quality',
+            'icp_misalignment', 'missing_data', 'company_size_mismatch'
+        ],
+        'consumption_pattern': [
+            'usage_trend', 'feature_adoption', 'query_optimization', 'resource_utilization', 
+            'performance_degradation', 'quota_approaching', 'usage_decline'
+        ],
+        'churn_risk': [
+            'engagement_drop', 'support_escalation', 'contract_approaching', 'usage_anomaly'
+        ],
+        'pipeline_health': [
+            'conversion_rate_decline', 'velocity_slowdown', 'coverage_gap'
+        ],
+        'growth_opportunity': [
+            'expansion_opportunity', 'upsell_candidate', 'cross_sell_potential'
+        ]
+    }
+    
+    if 'insight_category' in insight_data and 'insight_type' in insight_data:
+        category = insight_data['insight_category']
+        if category not in category_types:
+            return {"valid": False, "error": f"Invalid insight_category: {category}. Must be one of: {', '.join(category_types.keys())}"}
+        insight_type = insight_data['insight_type']
+        if insight_type not in category_types[category]:
+            return {"valid": False, "error": f"Invalid insight_type '{insight_type}' for category '{category}'. Must be one of: {', '.join(category_types[category])}"}
+    
+    # Format validation for specific fields
+    if 'confidence_score' in insight_data:
+        try:
+            score = float(insight_data['confidence_score'])
+            if score < 0.0 or score > 1.0:
+                return {"valid": False, "error": "confidence_score must be between 0.0 and 1.0"}
+        except (ValueError, TypeError):
+            return {"valid": False, "error": "confidence_score must be a float between 0.0 and 1.0"}
+    
+    if 'impact_score' in insight_data:
+        try:
+            score = float(insight_data['impact_score'])
+            if score < 0.0 or score > 1.0:
+                return {"valid": False, "error": "impact_score must be between 0.0 and 1.0"}
+        except (ValueError, TypeError):
+            return {"valid": False, "error": "impact_score must be a float between 0.0 and 1.0"}
+    
+    if 'urgency_score' in insight_data:
+        try:
+            score = float(insight_data['urgency_score'])
+            if score < 0.0 or score > 1.0:
+                return {"valid": False, "error": "urgency_score must be between 0.0 and 1.0"}
+        except (ValueError, TypeError):
+            return {"valid": False, "error": "urgency_score must be a float between 0.0 and 1.0"}
+    
+    if 'priority_level' in insight_data:
+        valid_priorities = ['critical', 'high', 'medium', 'low']
+        if insight_data['priority_level'] not in valid_priorities:
+            return {
+                "valid": False,
+                "error": f"Invalid priority_level: {insight_data['priority_level']}. Must be one of: {', '.join(valid_priorities)}"
+            }
+    
+    # Validate that JSON fields are properly formatted
+    json_fields = ['insight_payload', 'evidence_data', 'recommended_actions', 'actions_taken', 'tags']
+    for field in json_fields:
+        if field in insight_data:
+            # Allow both string-encoded JSON and JSON-serializable objects
+            if insight_data[field] is None:
+                # None is allowed
+                continue
+            elif isinstance(insight_data[field], (dict, list)):
+                # Valid JSON-serializable object
+                continue
+            elif isinstance(insight_data[field], str):
+                # Validate that the string is a valid JSON if provided as string
+                try:
+                    json.loads(insight_data[field])
+                except json.JSONDecodeError:
+                    return {"valid": False, "error": f"Field '{field}' contains invalid JSON string"}
+            else:
+                return {"valid": False, "error": f"Field '{field}' must be NULL, a valid JSON object, or a JSON string"}
+    
+    return {"valid": True}
+
+def generate_insight_id() -> str:
+    """
+    Generate a unique insight ID with timestamp and UUID.
+    
+    Returns:
+        str: A unique insight ID
+    """
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    random_suffix = uuid.uuid4().hex[:8]
+    return f"insight_{timestamp}_{random_suffix}"
+
+def write_insight(query_type: str, insight_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+    """
+    Specialized function for writing insights to the revops_ai_insights table.
+    Performs validation and proper formatting of insight data.
+    Converts JSON fields to properly formatted TEXT strings for Firebolt.
+    
+    Args:
+        query_type (str): Operation type (insert, update, delete)
+        insight_data (Dict[str, Any]): Insight data to write
+        **kwargs: Additional arguments for the operation
+        
+    Returns:
+        Dict[str, Any]: Operation result
+    """
+    # Make a copy of the input data to avoid modifying the original
+    insight_data = insight_data.copy()
+    
+    # Validate the insight data
+    validation = validate_insight_data(insight_data)
+    if not validation["valid"]:
+        return {
+            "success": False, 
+            "error": "Invalid insight data",
+            "message": validation["error"]
+        }
+    
+    # For INSERT, generate an insight_id if not provided
+    if query_type.lower() == 'insert' and 'insight_id' not in insight_data:
+        insight_data['insight_id'] = generate_insight_id()
+    
+    # Set created_at timestamp for new insights
+    if query_type.lower() == 'insert' and 'created_at' not in insight_data:
+        insight_data['created_at'] = datetime.utcnow().isoformat()
+    
+    # Set default status for new insights
+    if query_type.lower() == 'insert' and 'status' not in insight_data:
+        insight_data['status'] = 'new'
+    
+    # Handle JSON fields - explicitly convert to JSON strings for TEXT storage
+    json_fields = ['insight_payload', 'evidence_data', 'recommended_actions', 'actions_taken', 'tags']
+    for field in json_fields:
+        if field in insight_data and isinstance(insight_data[field], (dict, list)):
+            # Convert JSON objects directly to strings to store as TEXT
+            # format_value_for_sql will still be applied later but this ensures proper typing
+            insight_data[field] = json.dumps(insight_data[field])
+    
+    # Set timestamps for status changes
+    if query_type.lower() == 'update' and 'status' in insight_data:
+        if insight_data['status'] == 'acknowledged' and 'acknowledged_at' not in insight_data:
+            insight_data['acknowledged_at'] = datetime.utcnow().isoformat()
+        elif insight_data['status'] == 'resolved' and 'resolved_at' not in insight_data:
+            insight_data['resolved_at'] = datetime.utcnow().isoformat()
+    
+    # Use the general write function
+    table_name = "revops_ai_insights"
+    
+    # Handle delete operation
+    if query_type.lower() == 'delete':
+        where_clause = kwargs.get('where_clause')
+        if not where_clause:
+            return {
+                "success": False,
+                "error": "WHERE clause is required for DELETE operations",
+                "message": "Please provide a where_clause parameter"
+            }
+        sql = generate_delete_sql(table_name, where_clause)
+        result = execute_firebolt_query(sql, kwargs.get('account_name'), kwargs.get('engine_name'))
+        return result
+    
+    return write_to_firebolt(query_type, table_name, insight_data, **kwargs)
+
 # Main function for Firebolt write operations
 def write_to_firebolt(
     query_type: str,
@@ -460,10 +652,27 @@ def write_to_firebolt(
             "message": "Failed to execute write operation"
         }
 
+def generate_delete_sql(table_name: str, where_clause: str) -> str:
+    """
+    Generate SQL DELETE statement.
+    
+    Args:
+        table_name (str): Target table name
+        where_clause (str): WHERE clause to identify records to delete
+        
+    Returns:
+        str: SQL DELETE statement
+    """
+    if not where_clause:
+        raise ValueError("WHERE clause is required for DELETE operation")
+    
+    return f"DELETE FROM {table_name} WHERE {where_clause}"
+
 def lambda_handler(event, context):
     """
     AWS Lambda handler for Firebolt write operations.
     Compatible with Bedrock Agent function calling format.
+    Supports special handling for RevOps AI Insights table.
     """
     try:
         print(f"Received event: {json.dumps(event)}")
@@ -472,12 +681,29 @@ def lambda_handler(event, context):
         if 'actionGroup' in event and event.get('actionGroup') == 'firebolt_writer':
             # This is a Bedrock Agent invocation
             action_name = event.get('action')
+            body = event.get('body', {})
+            parameters = body.get('parameters', {})
             
-            if action_name == 'write_to_firebolt':
-                body = event.get('body', {})
-                parameters = body.get('parameters', {})
+            # Special handling for insights operations
+            if action_name == 'write_insight':
+                query_type = parameters.get('query_type')
+                insight_data = parameters.get('data', {})
+                where_clause = parameters.get('where_clause')
+                key_columns = parameters.get('key_columns')
+                account_name = parameters.get('account_name')
+                engine_name = parameters.get('engine_name')
                 
-                # Extract parameters
+                return write_insight(
+                    query_type,
+                    insight_data,
+                    where_clause=where_clause,
+                    key_columns=key_columns,
+                    account_name=account_name,
+                    engine_name=engine_name
+                )
+            
+            # Standard Firebolt write operations
+            elif action_name == 'write_to_firebolt':
                 query_type = parameters.get('query_type')
                 table_name = parameters.get('table_name')
                 data = parameters.get('data', {})
@@ -486,7 +712,18 @@ def lambda_handler(event, context):
                 account_name = parameters.get('account_name')
                 engine_name = parameters.get('engine_name')
                 
-                # Call our dedicated function
+                # Special handling for revops_ai_insights table
+                if table_name == 'revops_ai_insights':
+                    return write_insight(
+                        query_type,
+                        data,
+                        where_clause=where_clause,
+                        key_columns=key_columns,
+                        account_name=account_name,
+                        engine_name=engine_name
+                    )
+                
+                # General write operations
                 return write_to_firebolt(
                     query_type, 
                     table_name, 
@@ -496,14 +733,33 @@ def lambda_handler(event, context):
                     account_name, 
                     engine_name
                 )
+                
             else:
                 return {
                     "success": False,
                     "error": f"Unknown action: {action_name}",
-                    "message": "This Lambda only supports the 'write_to_firebolt' action."
+                    "message": "Supported actions are 'write_to_firebolt' and 'write_insight'"
                 }
                 
-        # 2. Check if this is a direct invocation with parameters
+        # 2. Check for special insight operation in direct invocation
+        if 'operation' in event and event['operation'] == 'insight':
+            query_type = event.get('query_type')
+            insight_data = event.get('data', {})
+            where_clause = event.get('where_clause')
+            key_columns = event.get('key_columns')
+            account_name = event.get('account_name')
+            engine_name = event.get('engine_name')
+            
+            return write_insight(
+                query_type, 
+                insight_data, 
+                where_clause=where_clause,
+                key_columns=key_columns,
+                account_name=account_name,
+                engine_name=engine_name
+            )
+                
+        # 3. Check if this is a direct invocation with parameters
         if 'query_type' in event and 'table_name' in event:
             # Direct invocation
             query_type = event.get('query_type')
@@ -513,6 +769,17 @@ def lambda_handler(event, context):
             key_columns = event.get('key_columns')
             account_name = event.get('account_name')
             engine_name = event.get('engine_name')
+            
+            # Special handling for revops_ai_insights table
+            if table_name == 'revops_ai_insights':
+                return write_insight(
+                    query_type,
+                    data,
+                    where_clause=where_clause,
+                    key_columns=key_columns,
+                    account_name=account_name,
+                    engine_name=engine_name
+                )
             
             return write_to_firebolt(
                 query_type, 
@@ -524,7 +791,7 @@ def lambda_handler(event, context):
                 engine_name
             )
             
-        # 3. Legacy parameter format for backward compatibility
+        # 4. Legacy parameter format for backward compatibility
         elif 'parameters' in event and isinstance(event['parameters'], list):
             # Handle Bedrock agent parameter format (older versions)
             params = {param.get('name'): param.get('value') for param in event['parameters']}
@@ -536,6 +803,17 @@ def lambda_handler(event, context):
             account_name = params.get('account_name')
             engine_name = params.get('engine_name')
             
+            # Special handling for insights table
+            if table_name == 'revops_ai_insights':
+                return write_insight(
+                    query_type,
+                    data,
+                    where_clause=where_clause,
+                    key_columns=key_columns,
+                    account_name=account_name,
+                    engine_name=engine_name
+                )
+            
             return write_to_firebolt(
                 query_type, 
                 table_name, 
@@ -546,7 +824,7 @@ def lambda_handler(event, context):
                 engine_name
             )
         
-        # 4. No recognizable format
+        # 5. No recognizable format
         return {
             'success': False,
             'error': 'Invalid request format',
