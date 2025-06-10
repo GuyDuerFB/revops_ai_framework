@@ -6,7 +6,7 @@
             "description": "General purpose Zapier webhook for triggering workflows"
         },
         "slack_deal_quality": {
-            "url": "***REMOVED***",
+            "url": "${SLACK_DEAL_QUALITY_WEBHOOK_URL}",
             "method": "POST",
             "description": "Slack webhook for deal quality alerts",
             "headers": {
@@ -14,7 +14,7 @@
             }
         },
         "slack_consumption": {
-            "url": "***REMOVED***",
+            "url": "${SLACK_CONSUMPTION_WEBHOOK_URL}",
             "method": "POST",
             "description": "Slack webhook for consumption pattern alerts",
             "headers": {
