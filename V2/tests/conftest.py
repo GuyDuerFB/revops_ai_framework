@@ -9,7 +9,8 @@ import json
 import pytest
 import boto3
 from unittest.mock import MagicMock
-from moto import mock_bedrock, mock_secretsmanager, mock_lambda, mock_s3, mock_iam
+# Import moto for AWS service mocking
+import moto
 
 @pytest.fixture
 def aws_credentials():
@@ -22,19 +23,19 @@ def aws_credentials():
 
 @pytest.fixture
 def s3_client(aws_credentials):
-    with mock_s3():
+    with moto.mock_aws():
         conn = boto3.client("s3", region_name="us-east-1")
         yield conn
 
 @pytest.fixture
 def lambda_client(aws_credentials):
-    with mock_lambda():
+    with moto.mock_aws():
         conn = boto3.client("lambda", region_name="us-east-1")
         yield conn
 
 @pytest.fixture
 def secretsmanager_client(aws_credentials):
-    with mock_secretsmanager():
+    with moto.mock_aws():
         conn = boto3.client("secretsmanager", region_name="us-east-1")
         yield conn
 
