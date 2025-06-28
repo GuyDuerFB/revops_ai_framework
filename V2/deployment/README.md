@@ -4,49 +4,46 @@ This directory contains infrastructure as code (IaC) and deployment configuratio
 
 ## Overview
 
-The deployment directory provides all the necessary configurations and scripts to deploy the RevOps AI Framework V2 to AWS. It uses Terraform as the primary Infrastructure as Code (IaC) tool to ensure consistent, repeatable deployments.
+The deployment directory provides configurations and scripts to deploy the RevOps AI Framework V2 to AWS. It uses Terraform as the primary Infrastructure as Code (IaC) tool to ensure consistent, repeatable deployments.
 
 ## Directory Structure
 
 ```
 deployment/
 ├── README.md                 # This file
-├── terraform/                # Terraform IaC configurations
-│   ├── main.tf              # Main Terraform configuration
-│   ├── variables.tf         # Input variables definition
-│   ├── outputs.tf           # Output variables definition
-│   └── modules/             # Reusable Terraform modules
-├── scripts/                  # Deployment and utility scripts
-├── config/                   # Environment-specific configurations
-└── templates/                # CloudFormation and other templates
+├── apply_terraform.sh        # Script to apply Terraform configurations
+├── config_template.json      # Template for configuration settings
+├── deploy.py                # Python deployment script
+├── generate_tf_config.py    # Script to generate Terraform configuration
+├── requirements.txt         # Python dependencies for deployment scripts
+├── secrets_template.json    # Template for secrets configuration
+└── terraform/                # Terraform IaC configurations
+    ├── main.tf              # Main Terraform configuration
+    ├── variables.tf         # Input variables definition
+    ├── outputs.tf           # Output variables definition
+    └── modules/             # Reusable Terraform modules
+        ├── agent/            # Agent Bedrock configuration module
+        ├── flow/             # Flow configuration module
+        ├── knowledge_base/    # Knowledge base configuration module
+        └── lambda/           # Lambda function deployment module
 ```
 
 ## Deployment Components
 
-The deployment configurations provision the following resources:
+The current deployment configurations provision the following resources:
 
 1. **Compute Resources**:
    - AWS Lambda functions for agents and tools
-   - ECS containers for specific workloads (if applicable)
 
 2. **Storage Resources**:
-   - S3 buckets for artifacts and data
-   - DynamoDB tables for state management
+   - S3 buckets for knowledge base artifacts
 
-3. **Networking**:
-   - API Gateway endpoints
-   - VPC configuration (if applicable)
-   - Security groups and access controls
+3. **AI Services**:
+   - Amazon Bedrock agents and knowledge bases
 
-4. **Integration Points**:
-   - SQS queues for asynchronous processing
-   - SNS topics for notifications
-   - Event Bridge rules for event-driven workflows
-
-5. **Security**:
+4. **Security**:
    - IAM roles and policies
-   - Secrets Manager secrets
-   - KMS keys for encryption
+   - Secrets Manager secrets for credentials
 
 ## Deployment Instructions
 
@@ -58,91 +55,46 @@ The deployment configurations provision the following resources:
 
 ### Deployment Steps
 
-1. **Configure Environment Variables**:
+1. **Configure Settings**:
 
-   Create a `.env` file in the root directory with the following variables:
+   Copy and customize the template files:
+   - From `config_template.json` to create your configuration
+   - From `secrets_template.json` to provide necessary credentials
 
+2. **Generate Terraform Configuration**:
+
+   ```bash
+   python generate_tf_config.py
    ```
-   AWS_PROFILE=your-aws-profile
-   ENVIRONMENT=dev|staging|prod
-   REGION=us-west-2
+
+3. **Apply Terraform**:
+
+   Either use the convenience script:
+   ```bash
+   ./apply_terraform.sh
    ```
-
-2. **Initialize Terraform**:
-
+   
+   Or run the standard Terraform commands:
    ```bash
    cd terraform
    terraform init
+   terraform plan
+   terraform apply
    ```
 
-3. **Plan the Deployment**:
+## Terraform Modules
 
-   ```bash
-   terraform plan -var-file=../config/${ENVIRONMENT}.tfvars
-   ```
+The `terraform/modules/` directory contains reusable Terraform modules for framework components:
 
-4. **Apply the Deployment**:
-
-   ```bash
-   terraform apply -var-file=../config/${ENVIRONMENT}.tfvars
-   ```
-
-### Environment-Specific Configuration
-
-Environment-specific variables are defined in the `config/` directory:
-
-- `dev.tfvars`: Development environment configuration
-- `staging.tfvars`: Staging environment configuration
-- `prod.tfvars`: Production environment configuration
-
-## CI/CD Integration
-
-The deployment can be automated through CI/CD pipelines. Example workflows are provided for:
-
-- GitHub Actions
-- AWS CodePipeline
-- GitLab CI
-
-See the `ci` directory for example configurations.
-
-## Monitoring and Observability
-
-The deployment includes configuration for:
-
-- CloudWatch Logs for logging
-- CloudWatch Metrics for monitoring
-- X-Ray for distributed tracing
-
-## Rollback Procedures
-
-In case of deployment issues:
-
-1. **Terraform Rollback**:
-
-   ```bash
-   terraform apply -var-file=../config/${ENVIRONMENT}.tfvars -target=module.critical_component
-   ```
-
-2. **Manual Rollback**:
-
-   Use the `scripts/rollback.py` script:
-
-   ```bash
-   python scripts/rollback.py --environment=${ENVIRONMENT} --version=previous
-   ```
-
-## Custom Modules
-
-The `terraform/modules/` directory contains reusable Terraform modules for common components:
-
-- `lambda`: Lambda function deployment with standard configuration
-- `api`: API Gateway configuration with standard endpoints
-- `storage`: Standard storage configuration
-- `monitoring`: CloudWatch dashboards and alarms
+- `agent`: Configures AWS Bedrock agents for the framework
+- `flow`: Provides flow orchestration infrastructure
+- `knowledge_base`: Configures knowledge bases in Bedrock
+- `lambda`: Deploys Lambda functions with standard configuration
 
 ## Security Considerations
 
-- All secrets are stored in AWS Secrets Manager
-- Least privilege IAM policies are applied
-- Network access is restricted according to security best practices
-- Encryption is applied to data at rest and in transit
+- Secrets are stored using AWS Secrets Manager
+- IAM policies follow least-privilege principles
+- Encrypted data transmission between components
+
+Future deployment plans are detailed in the ROADMAP.md file in the project root.

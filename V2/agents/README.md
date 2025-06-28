@@ -17,66 +17,36 @@ Together, these agents form a pipeline that enables automated revenue operations
 ```
 agents/
 ├── README.md                  # This file
-├── __init__.py                # Package initialization
 ├── data_agent/                # Data retrieval and processing agent
+│   ├── data_agent.py          # Data agent implementation
+│   ├── instructions.md        # Instructions for the data agent
+│   └── README.md              # Data agent documentation
 ├── decision_agent/            # Decision-making agent
+│   ├── decision_agent.py      # Decision agent implementation
+│   ├── instructions.md        # Instructions for the decision agent
+│   └── README.md              # Decision agent documentation
 └── execution_agent/           # Action execution agent
+    ├── execution_agent.py     # Execution agent implementation
+    ├── instructions.md        # Instructions for the execution agent
+    └── README.md              # Execution agent documentation
 ```
 
-## Agent Architecture
+## Current Implementation
 
-Each agent follows a similar architecture:
+Each agent directory currently contains:
 
-1. **Input Handler**: Processes incoming requests and normalizes inputs
-2. **Core Logic**: Implements the agent's main functionality
-3. **Output Handler**: Formats and validates outputs
-4. **State Management**: Tracks agent state across invocations
-5. **Logging & Metrics**: Monitors agent performance and activity
+- A core agent implementation file (e.g., `data_agent.py`)
+- An instructions markdown file defining the agent's capabilities and usage
+- A README with agent-specific documentation
 
-## Usage
+The implementation of the three agent types is actively in development. Each agent has the following responsibilities:
 
-Agents are typically invoked as part of a flow, but can also be invoked directly via their Lambda entry points.
+1. **Data Agent**: Interfaces with the Firebolt database to retrieve and process data needed for analysis and decision-making. Uses the tools in the `tools/firebolt` directory.
 
-### Direct Invocation
+2. **Decision Agent**: Analyzes data and makes recommendations based on business rules and patterns.
 
-```python
-import boto3
-
-lambda_client = boto3.client('lambda')
-
-response = lambda_client.invoke(
-    FunctionName='revops-ai-v2-data-agent',
-    InvocationType='RequestResponse',
-    Payload=json.dumps({
-        "data_source": "firebolt",
-        "query": "get_customer_data",
-        "parameters": {
-            "customer_id": "cust-12345"
-        }
-    })
-)
-```
-
-### Integration with Flows
-
-See the `/flows` directory for examples of how agents are integrated into complete workflows.
-
-## Development
-
-### Adding a New Agent
-
-1. Create a new subdirectory for your agent
-2. Implement the standard agent interface:
-   - `handler.py`: Lambda entry point
-   - `agent.py`: Core agent logic
-   - `config.py`: Agent configuration
-3. Update the agent registry in the parent package
-4. Add tests in the `/tests/unit/agents/` directory
-
-### Configuration
-
-Agent configuration is loaded from environment variables and/or configuration files. See each agent's documentation for specific configuration options.
+3. **Execution Agent**: Takes action based on decisions, such as updating systems or sending notifications.
 
 ## Deployment
 
-Agents are deployed as AWS Lambda functions with the necessary IAM permissions to interact with other AWS services and external APIs. See the `/deployment` directory for deployment scripts and infrastructure definitions.
+The deployment configuration for these agents is defined in the `deployment/terraform` directory. The current implementation includes configuration for AWS Bedrock-powered agent deployments.

@@ -1,54 +1,22 @@
 # RevOps AI Framework V2 - Flows
 
-This directory contains the workflow definitions and orchestration logic for the RevOps AI Framework.
+This directory contains the workflow orchestration logic for the RevOps AI Framework.
 
 ## Overview
 
-The flows directory defines the end-to-end workflows that coordinate the actions of the framework's agents (Data Agent, Decision Agent, and Execution Agent) to solve specific business problems in revenue operations.
-
-A flow represents a complete business process, such as customer onboarding, renewal management, or churn prediction and intervention. Each flow orchestrates the interactions between agents, manages state transitions, and ensures successful execution of the overall process.
+The flows directory is currently in early development phase. It will eventually define how to coordinate the actions of the framework's agents (Data Agent, Decision Agent, and Execution Agent) to solve specific business problems in revenue operations.
 
 ## Directory Structure
 
 ```
 flows/
-├── README.md                   # This file
-├── __init__.py                 # Package initialization
-├── flow_engine.py              # Flow orchestration engine
-├── flow_registry.py            # Flow registration and discovery
-├── flow_state.py               # Flow state management
-├── standard_flows/             # Pre-defined standard flows
-│   ├── onboarding_flow.py      # Customer onboarding workflow
-│   ├── renewal_flow.py         # Renewal management workflow
-│   └── churn_prevention_flow.py # Churn prediction and prevention
-└── custom_flows/               # Customer-specific flow implementations
+├── README.md              # This file
+└── flow_orchestrator.py    # Flow orchestration engine (initial implementation)
 ```
 
-## Flow Definition
+## Current Implementation
 
-A flow is defined as a directed graph of steps, with each step corresponding to an agent action or control flow operation. Flows are defined using a declarative YAML syntax or programmatically using the Flow API.
-
-### Example Flow Definition (YAML)
-
-```yaml
-flow_id: renewal_management
-description: "Manage customer renewals with automated analysis and recommendations"
-version: "1.0"
-trigger:
-  type: schedule
-  schedule: "cron(0 9 * * ? *)"  # Daily at 9 AM
-  filter:
-    - "customer.renewal_date <= now() + interval '30 days'"
-
-steps:
-  - id: retrieve_customer_data
-    agent: data_agent
-    action: retrieve_customer_data
-    parameters:
-      include_fields:
-        - contract_details
-        - usage_metrics
-        - support_history
+The current implementation includes an initial version of the `flow_orchestrator.py` module, which provides basic functionality for coordinating agent interactions. The full flow definition and execution capabilities are still under development - see ROADMAP.md for planned features.
 
   - id: assess_renewal_risk
     agent: decision_agent

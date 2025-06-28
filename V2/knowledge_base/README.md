@@ -4,63 +4,24 @@ This directory contains the knowledge base resources that power the AI agents in
 
 ## Overview
 
-The knowledge base serves as a centralized repository of information that enables the framework's agents to make informed decisions and perform effective actions. It includes structured data, document collections, heuristics, and training data for machine learning models.
+The knowledge base currently contains the Firebolt data warehouse schema information needed by the Data Agent. It includes JSON schema definitions and Markdown documentation of tables, relationships, and common queries. Additional knowledge types will be added in the future (see ROADMAP.md).
 
 ## Directory Structure
 
 ```
 knowledge_base/
 ├── README.md                   # This file
-├── documents/                  # Document collections
-│   ├── best_practices/         # RevOps best practices 
-│   ├── product_knowledge/      # Product information
-│   └── troubleshooting/        # Common issues and solutions
-├── taxonomies/                 # Structured taxonomies and ontologies
-├── embeddings/                 # Vector embeddings for semantic search
-├── training/                   # Training data for ML models
-│   ├── decision_models/        # Decision agent model training data
-│   └── classification/         # Classification model training data
-└── scripts/                    # Utilities for knowledge base management
+├── firebolt_schema/            # Firebolt database schema information
+│   ├── firebolt_schema.json    # JSON schema of Firebolt tables and relationships
+│   └── firebolt_schema.md      # Markdown documentation of Firebolt schema
+└── schema_knowledge_base.py    # Module for loading schema data
 ```
 
-## Knowledge Types
+## Current Implementation
 
-The knowledge base includes several types of knowledge:
+The `schema_knowledge_base.py` module provides functionality to load and use Firebolt schema information. It is used by the Data Agent to understand the database structure and generate appropriate queries.
 
-1. **Reference Documents**: Best practices, guidelines, and product documentation
-2. **Structured Knowledge**: Taxonomies, ontologies, and knowledge graphs
-3. **Training Data**: Labeled examples for supervised learning
-4. **Embeddings**: Vector representations for semantic search and retrieval
-5. **Rules and Heuristics**: Expert-defined rules and problem-solving approaches
-
-## Usage
-
-### Loading Knowledge
-
-Knowledge can be loaded from the knowledge base using the provided utilities:
-
-```python
-from knowledge_base.loader import KnowledgeLoader
-
-# Initialize the loader
-loader = KnowledgeLoader()
-
-# Load a document by ID
-document = loader.load_document("best_practices/renewal_strategies")
-
-# Search for relevant knowledge
-results = loader.semantic_search(
-    "handling objections during renewal negotiation",
-    collection="best_practices",
-    limit=5
-)
-
-# Access a taxonomy
-taxonomy = loader.load_taxonomy("customer_segment_taxonomy")
-```
-
-### Updating the Knowledge Base
-
+The schema files in the `firebolt_schema/` directory are deployed to S3 via Terraform and made accessible to Bedrock knowledge bases for use by the agents.
 The knowledge base can be updated using the management utilities:
 
 ```python
