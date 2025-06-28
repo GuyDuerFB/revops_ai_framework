@@ -4,7 +4,7 @@ This directory contains utility tools and integrations that support the RevOps A
 
 ## Overview
 
-The tools directory provides specialized components that perform specific functions required by the framework's agents. These include data connectors, API integrations, webhook handlers, and utility services that enhance the capabilities of the framework.
+The tools directory provides specialized components that perform specific functions required by the framework's agents. These include data connectors, API integrations, and webhook handlers that enhance the capabilities of the framework.
 
 ## Directory Structure
 
@@ -17,17 +17,12 @@ tools/
 │   ├── query_lambda/         # Query execution Lambda
 │   └── writer_lambda/        # Data writing Lambda
 ├── gong/                     # Gong integration tools
-│   ├── api_client.py         # Gong API client
-│   └── processors/           # Gong data processors
-├── webhook/                  # Webhook integration
-│   ├── README.md             # Webhook documentation
-│   ├── lambda_function.py              # Webhook handler
-│   ├── modules/              # Modular webhook components
-│   └── utils/                # Webhook utilities
-└── common/                   # Shared utilities and helpers
-    ├── auth/                 # Authentication utilities
-    ├── logging/              # Logging configuration
-    └── validation/           # Input validation utilities
+│   └── retrieval_lambda/     # Gong data retrieval Lambda
+└── webhook/                  # Webhook integration
+    ├── lambda_function.py     # Webhook Lambda handler
+    ├── modules/              # Modular webhook components
+    ├── tests/                # Webhook unit tests
+    └── utils/                # Webhook utilities
 ```
 
 ## Available Tools
@@ -36,7 +31,7 @@ tools/
 
 The Firebolt tools provide integration with the Firebolt data warehouse:
 
-- **Metadata Lambda**: Retrieves metadata about tables and columns
+- **Metadata Lambda**: Retrieves schema metadata about tables and columns
 - **Query Lambda**: Executes SQL queries against Firebolt
 - **Writer Lambda**: Writes data to Firebolt tables
 
@@ -46,63 +41,22 @@ For detailed documentation, see the [Firebolt Tools README](/tools/firebolt/READ
 
 The Gong tools provide integration with Gong's conversation intelligence platform:
 
-- **API Client**: Client for interacting with the Gong API
-- **Processors**: Components for processing Gong call data
-- **Analyzers**: Tools for analyzing conversation content
+- **Retrieval Lambda**: Module for retrieving data from Gong API
 
 ### Webhook Tools
 
 The webhook tools enable integration with external systems via webhooks:
 
-- **Consolidated Lambda**: A unified webhook handler supporting multiple modes:
+- **Lambda Function**: A consolidated webhook handler with support for:
   - Direct webhook invocation
   - Queue-based asynchronous processing
   - AWS Bedrock Agent compatibility
 
-For detailed documentation, see the [Webhook Tools README](/tools/webhook/README.md).
+## Integration
 
-### Common Utilities
+These tools are integrated with the agents in the framework to provide data retrieval, messaging capabilities, and webhook handling functionality. Each tool is designed to be modular and reusable across different parts of the system.
 
-The common utilities provide shared functionality used across the framework:
-
-- **Authentication**: Utilities for handling authentication
-- **Logging**: Standardized logging configuration
-- **Validation**: Input validation and sanitization
-
-## Usage
-
-### Using Tools in Agents
-
-Tools are typically imported and used by the framework's agents:
-
-```python
-from tools.firebolt.client import FireboltClient
-from tools.webhook.client import WebhookClient
-
-# Using the Firebolt client
-firebolt = FireboltClient()
-results = firebolt.execute_query("SELECT * FROM customers LIMIT 10")
-
-# Using the webhook client
-webhook = WebhookClient()
-response = webhook.trigger_webhook(
-    webhook_name="slack_notification",
-    payload={"message": "Hello from RevOps AI!"}
-)
-```
-
-### Using Tools Directly
-
-Tools can also be invoked directly via their Lambda functions:
-
-```python
-import boto3
-import json
-
-lambda_client = boto3.client('lambda')
-
-# Invoke Firebolt query Lambda
-response = lambda_client.invoke(
+For more details on future planned enhancements to these tools, see the ROADMAP.md file in the project root.
     FunctionName='revops-ai-v2-firebolt-query',
     InvocationType='RequestResponse',
     Payload=json.dumps({
