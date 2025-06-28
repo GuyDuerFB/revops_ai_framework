@@ -12,12 +12,22 @@ resource "aws_s3_bucket" "knowledge_base_bucket" {
   bucket_prefix = "revops-ai-kb-"
 }
 
-resource "aws_s3_object" "knowledge_base_files" {
+# Use null_resource with provisioner to sync all files from a directory
+resource "null_resource" "knowledge_base_files_upload" {
   for_each = var.knowledge_bases
   
-  bucket = aws_s3_bucket.knowledge_base_bucket.id
-  key    = "${each.key}/source/"
-  source = each.value.s3_source_path
+  # Trigger this resource whenever the source path changes
+  triggers = {
+    source_path = each.value.s3_source_path
+  }
+
+  # Use local-exec provisioner to upload all files using aws cli
+  provisioner "local-exec" {
+    command = "aws s3 sync ${each.value.s3_source_path} s3://${aws_s3_bucket.knowledge_base_bucket.id}/${each.key}/source/"
+  }
+
+  # Make sure the bucket exists before trying to upload
+  depends_on = [aws_s3_bucket.knowledge_base_bucket]
 }
 
 resource "aws_bedrock_knowledge_base" "knowledge_base" {
