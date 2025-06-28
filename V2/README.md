@@ -98,7 +98,7 @@ The framework employs a centralized insights storage system using the `revops_ai
   - **Firebolt Reader**: Executes optimized read queries against Firebolt data warehouse
   - **Firebolt Writer**: Performs secure write operations with robust SQL generation and specialized insight validation
   - **Gong Analyzer**: Retrieves and processes conversational data from Gong
-  - **Webhook Dispatcher**: Sends notifications and triggers external systems
+  - **Consolidated Webhook Lambda**: A unified webhook handler for sending notifications and triggering external systems, with support for queue processing and Bedrock Agent compatibility
 
 - **Bedrock Flow Orchestration**: Manages the sequence and dependencies between agent operations, handling data passing and error management
 
