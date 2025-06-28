@@ -32,19 +32,17 @@ The webhook Lambda is designed to trigger external webhooks with configurable pa
 ```
 webhook/
 ├── README.md                       # This file
-├── lambda_function.py         # Main webhook lambda handler
-├── lambda_function.py              # Legacy webhook handler (deprecated)
-├── dispatcher_lambda/              # Legacy SQS queue dispatcher (deprecated)
-├── executor_lambda/                # Legacy Bedrock compatible executor (deprecated)
+├── lambda_function.py              # Main webhook lambda handler
 ├── modules/                        # Modular components for the consolidated lambda
 │   ├── __init__.py
 │   ├── core.py                     # Core webhook handling logic
 │   ├── queue_processor.py          # SQS queue processing logic
 │   └── bedrock_adapter.py          # AWS Bedrock Agent adapter
-└── utils/                          # Utility functions
-    ├── __init__.py
-    ├── config_loader.py            # Configuration loading
-    └── secret_manager.py           # Secret management utilities
+├── utils/                          # Utility functions
+│   ├── __init__.py
+│   ├── config_loader.py            # Configuration loading
+│   └── secret_manager.py           # Secret management utilities
+└── webhook_config_template.json    # Template for webhook configuration
 ```
 
 ## Usage

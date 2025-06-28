@@ -13,17 +13,13 @@ tests/
 ├── README.md               # This file
 ├── conftest.py             # PyTest configuration and fixtures
 ├── unit/                   # Unit tests for individual components
-│   ├── agents/             # Tests for agent components
-│   ├── flows/              # Tests for flow definitions
-│   ├── knowledge_base/     # Tests for knowledge base functionality
-│   └── tools/              # Tests for tool implementations
-├── integration/            # Integration tests across components
-│   ├── agent_interactions/ # Tests for agent interactions
-│   ├── flow_execution/     # Tests for complete flow execution
-│   └── external_systems/   # Tests for external system integrations
-├── performance/            # Performance and load tests
-├── fixtures/               # Test fixtures and sample data
-└── scripts/                # Test utility scripts
+│   ├── test_agents/        # Tests for agent components
+│   └── test_tools/         # Tests for tool implementations
+└── integration/            # Integration tests across components
+    ├── test_agent_integration/   # Tests for agent interactions
+    ├── test_agents/          # Tests for individual agents
+    ├── test_deployment/      # Tests for deployment processes
+    └── test_flow_integration/ # Tests for flow integration
 ```
 
 ## Running Tests

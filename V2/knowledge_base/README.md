@@ -22,57 +22,12 @@ knowledge_base/
 The `schema_knowledge_base.py` module provides functionality to load and use Firebolt schema information. It is used by the Data Agent to understand the database structure and generate appropriate queries.
 
 The schema files in the `firebolt_schema/` directory are deployed to S3 via Terraform and made accessible to Bedrock knowledge bases for use by the agents.
-The knowledge base can be updated using the management utilities:
-
-```python
-from knowledge_base.manager import KnowledgeManager
-
-# Initialize the manager
-manager = KnowledgeManager()
-
-# Add a new document
-manager.add_document(
-    collection="best_practices",
-    document_id="upsell_strategies",
-    content="Document content...",
-    metadata={
-        "author": "RevOps Team",
-        "created_at": "2023-06-15"
-    }
-)
-
-# Update embeddings for the document
-manager.update_embeddings("best_practices/upsell_strategies")
-```
-
-## Embedding Models
-
-The knowledge base uses vector embeddings for semantic search and similarity matching. The default embedding model is stored in the `embeddings/` directory.
-
-Available embedding models:
-
-- `general-purpose`: General text embedding model
-- `revops-specific`: Domain-adapted model for revenue operations
-- `customer-interaction`: Specialized model for customer interaction analysis
 
 ## Integration with Agents
 
 The knowledge base is integrated with the framework's agents:
 
-- **Data Agent**: Uses the knowledge base for query enhancement and context enrichment
-- **Decision Agent**: References best practices and heuristics for decision-making
-- **Execution Agent**: Uses templates and examples for action implementation
-
-## Maintenance
-
-### Updating the Knowledge Base
-
-```bash
-# Update document embeddings
-python scripts/update_embeddings.py --collection=best_practices
-
-# Import new documents
-python scripts/import_documents.py --source=s3://bucket/path --collection=product_knowledge
+- **Data Agent**: Uses the Firebolt schema knowledge base for database queries
 
 # Verify knowledge base integrity
 python scripts/verify_kb.py
