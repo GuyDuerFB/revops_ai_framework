@@ -14,13 +14,36 @@ from datetime import datetime
 # Add project root to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
+# Create patchers before importing to avoid boto3 credential issues
+boto3_session_patcher = patch('boto3.Session')
+mock_boto3_session = boto3_session_patcher.start()
+mock_session_instance = MagicMock()
+mock_boto3_session.return_value = mock_session_instance
+
+# Setup mock clients
+mock_bedrock_runtime = MagicMock()
+mock_bedrock_agent = MagicMock()
+mock_session_instance.client.side_effect = lambda service, **kwargs: {
+    'bedrock-agent-runtime': mock_bedrock_runtime,
+    'bedrock-agent': mock_bedrock_agent
+}.get(service, MagicMock())
+
 from agents.data_agent.data_agent import DataAnalysisAgent
+
+# Stop patchers after imports
+boto3_session_patcher.stop()
 
 class TestDataAnalysisAgent:
     """Test cases for the DataAnalysisAgent class."""
     
-    def test_initialization(self):
+    @patch('boto3.Session')
+    def test_initialization(self, mock_session):
         """Test that agent initializes with default and custom parameters."""
+        # Set up mock session and clients
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+        mock_session_instance.client.return_value = MagicMock()
+        
         # Test with default parameters
         agent = DataAnalysisAgent()
         assert agent.agent_id is None
@@ -84,7 +107,10 @@ class TestDataAnalysisAgent:
         # Check prompt content
         assert "Analyze consumption patterns for last_30_days" in prompt
         assert "1. Significant changes in consumption patterns" in prompt
-        assert "account" not in prompt.lower()  # Should not mention specific accounts
+        # This assertion was incorrect, as 'account' appears in multiple contexts in the prompt
+        # For example, "Accounts with decreasing usage" would cause this to fail
+        # Let's verify that it doesn't contain specific account filtering instead
+        assert "Focus your analysis on the following account" not in prompt
     
     def test_construct_consumption_pattern_prompt_with_account(self):
         """Test prompt construction for consumption patterns with account filter."""
@@ -95,13 +121,25 @@ class TestDataAnalysisAgent:
         assert "Analyze consumption patterns for last_quarter" in prompt
         assert "Focus your analysis on the following account(s): Acme Corp" in prompt
     
-    def test_invoke_success(self, mock_bedrock_client):
+    @patch('boto3.Session')
+    def test_invoke_success(self, mock_session):
         """Test successful invocation of the agent."""
+        # Setup mock session and bedrock client
+        mock_runtime_client = MagicMock()
+        mock_runtime_client.invoke_agent.return_value = {"completion": "Test response"}
+        
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+        mock_session_instance.client.side_effect = lambda service, **kwargs: {
+            'bedrock-agent-runtime': mock_runtime_client
+        }.get(service, MagicMock())
+        
+        # Create agent and invoke
         agent = DataAnalysisAgent(agent_id="test-id", agent_alias_id="test-alias")
         response = agent.invoke("Test prompt")
         
         # Check that bedrock was called correctly
-        mock_bedrock_client.invoke_agent.assert_called_once_with(
+        mock_runtime_client.invoke_agent.assert_called_once_with(
             agentId="test-id",
             agentAliasId="test-alias",
             sessionId=response["session_id"],
@@ -114,15 +152,27 @@ class TestDataAnalysisAgent:
         assert "agent_response" in response
         assert "session_id" in response
     
-    def test_invoke_with_session_id(self, mock_bedrock_client):
+    @patch('boto3.Session')
+    def test_invoke_with_session_id(self, mock_session):
         """Test invoking the agent with a provided session ID."""
+        # Setup mock session and bedrock client
+        mock_runtime_client = MagicMock()
+        mock_runtime_client.invoke_agent.return_value = {"completion": "Test response"}
+        
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+        mock_session_instance.client.side_effect = lambda service, **kwargs: {
+            'bedrock-agent-runtime': mock_runtime_client
+        }.get(service, MagicMock())
+        
+        # Create agent and invoke with session ID
         agent = DataAnalysisAgent(agent_id="test-id", agent_alias_id="test-alias")
         session_id = "test-session-123"
         response = agent.invoke("Test prompt", session_id=session_id)
         
         # Check the session ID is used
         assert response["session_id"] == session_id
-        mock_bedrock_client.invoke_agent.assert_called_once_with(
+        mock_runtime_client.invoke_agent.assert_called_once_with(
             agentId="test-id",
             agentAliasId="test-alias",
             sessionId=session_id,
@@ -130,10 +180,18 @@ class TestDataAnalysisAgent:
             enableTrace=True
         )
     
-    def test_invoke_error_handling(self, mock_bedrock_client):
+    @patch('boto3.Session')
+    def test_invoke_error_handling(self, mock_session):
         """Test error handling during agent invocation."""
-        # Set up the mock to raise an exception
-        mock_bedrock_client.invoke_agent.side_effect = Exception("Test error")
+        # Setup mock session and bedrock client
+        mock_runtime_client = MagicMock()
+        mock_runtime_client.invoke_agent.side_effect = Exception("Test error")
+        
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+        mock_session_instance.client.side_effect = lambda service, **kwargs: {
+            'bedrock-agent-runtime': mock_runtime_client
+        }.get(service, MagicMock())
         
         agent = DataAnalysisAgent(agent_id="test-id", agent_alias_id="test-alias")
         response = agent.invoke("Test prompt")
@@ -178,8 +236,14 @@ class TestDataAnalysisAgent:
         assert "Analyze consumption patterns for last_60_days" in call_args
         assert "Focus your analysis on the following account(s): Test Account" in call_args
     
-    def test_from_deployment_config(self):
+    @patch('boto3.Session')
+    def test_from_deployment_config(self, mock_session):
         """Test creating an agent from a deployment config file."""
+        # Setup mock session
+        mock_session_instance = MagicMock()
+        mock_session.return_value = mock_session_instance
+        mock_session_instance.client.return_value = MagicMock()
+        
         # Create a temporary config file
         config_data = {
             "data_agent": {
