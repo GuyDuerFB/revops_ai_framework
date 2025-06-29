@@ -1,5 +1,0 @@
-aws_region                  = "us-east-1"
-aws_account_id              = ""
-environment                 = "development"
-firebolt_credentials_secret = "firebolt-credentials"
-webhook_url_secret          = "webhook-urls"
