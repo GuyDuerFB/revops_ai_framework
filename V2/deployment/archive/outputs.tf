@@ -13,10 +13,12 @@ output "agents" {
   value       = module.agents.agents
 }
 
-output "flows" {
-  description = "Map of deployed Bedrock flows"
-  value       = module.flows.flows
-}
+# Commented out because flows module is disabled
+# Will be re-enabled in later deployment phases
+#output "flows" {
+#  description = "Map of deployed Bedrock flows"
+#  value       = module.flows.flows
+#}
 
 output "webhook_queue_url" {
   description = "URL of the webhook dispatch queue"

@@ -30,6 +30,9 @@ resource "null_resource" "knowledge_base_files_upload" {
   depends_on = [aws_s3_bucket.knowledge_base_bucket]
 }
 
+# Commented out due to unsupported resource type in Terraform AWS provider v5.100.0
+# Resource will be created using AWS CLI or AWS Console manually
+/*
 resource "aws_bedrock_knowledge_base" "knowledge_base" {
   for_each = var.knowledge_bases
   
@@ -39,27 +42,27 @@ resource "aws_bedrock_knowledge_base" "knowledge_base" {
   knowledge_base_configuration {
     type = "VECTOR"
     
-    storage_configuration {
-      type = "S3"
-      s3_configuration {
-        bucket_name = aws_s3_bucket.knowledge_base_bucket.id
-        s3_prefix   = "${each.key}/source/"
-      }
-    }
-    
     vector_ingestion_configuration {
       model_id = each.value.bedrock_model
     }
   }
+  
+  storage_configuration {
+    type = "S3"
+    s3_configuration {
+      bucket_name = aws_s3_bucket.knowledge_base_bucket.id
+      s3_prefix   = "${each.key}/source/"
+    }
+  }
 }
+*/
 
 output "knowledge_bases" {
-  description = "Created knowledge bases"
+  description = "Created S3 buckets for knowledge bases (aws_bedrock_knowledge_base resources commented out)"
   value = {
-    for key, kb in aws_bedrock_knowledge_base.knowledge_base : key => {
-      id   = kb.id
-      name = kb.name
-      arn  = kb.arn
+    for key, _ in var.knowledge_bases : key => {
+      bucket_name = aws_s3_bucket.knowledge_base_bucket.id
+      bucket_prefix = "${key}/source/"
     }
   }
 }
