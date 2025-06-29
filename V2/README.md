@@ -231,105 +231,82 @@ The framework is extensible to support additional use cases by adding new knowle
 
 ### Deployment Process
 
-#### Infrastructure as Code Approach
+#### AWS CLI Deployment Approach
 
-The framework uses Terraform for infrastructure provisioning to ensure consistency, version control, and auditability:
+The framework uses AWS CLI for infrastructure provisioning to ensure consistency, reproducibility, and direct control over AWS resources:
 
 ```
 deployment/
-├── terraform/
-│   ├── modules/
-│   │   ├── lambda/
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   ├── knowledge_base/
-│   │   ├── agent/
-│   │   └── flow/
-│   ├── main.tf
-│   ├── variables.tf
-│   └── outputs.tf
-└── scripts/
-    ├── generate_tf_config.py
-    └── apply_terraform.sh
+├── deploy_aws_cli.sh       # Main AWS CLI deployment script
+├── config_template.json    # Template for configuration
+├── secrets_template.json   # Template for sensitive data
+├── deploy.py              # Python helper for deployment
+└── archive/               # Archived legacy files
 ```
 
-The `deploy.py` script has been refactored to generate Terraform configurations rather than directly calling AWS APIs:
+The deployment process uses direct AWS CLI commands for resource provisioning:
 
-```python
-# Example of refactored deploy.py that generates Terraform
-def deploy_lambda_function(lambda_config):
-    """Generate Terraform config for Lambda instead of direct deployment"""
-    lambda_tf_config = {
-        "resource": {
-            "aws_lambda_function": {
-                lambda_config["name"]: {
-                    "function_name": lambda_config["name"],
-                    "handler": lambda_config["handler"],
-                    "runtime": lambda_config["runtime"],
-                    "role": f"${{aws_iam_role.{lambda_config['name']}_role.arn}}",
-                    "filename": f"${{path.module}}/dist/{lambda_config['name']}.zip}",
-                    "source_code_hash": f"${{filebase64sha256("${{path.module}}/dist/{lambda_config['name']}.zip}")}}",
-                    "environment": {
-                        "variables": lambda_config["environment_variables"]
-                    },
-                    "timeout": lambda_config.get("timeout", 30),
-                    "memory_size": lambda_config.get("memory_size", 256),
-                    "tracing_config": {
-                        "mode": "Active"
-                    }
-                }
-            },
-            "aws_iam_role": {
-                f"{lambda_config['name']}_role": generate_iam_role_config(lambda_config)
-            }
-        }
-    }
-    return lambda_tf_config
+```bash
+# Example AWS CLI commands from deploy_aws_cli.sh
+# Create an S3 bucket for knowledge base storage
+aws s3api create-bucket \
+    --bucket $BUCKET_NAME \
+    --profile $AWS_PROFILE
+    
+# Create a Bedrock agent
+aws bedrock create-agent \
+    --agent-name "firebolt-data-agent" \
+    --instruction "$INSTRUCTIONS" \
+    --foundation-model "anthropic.claude-3-7-sonnet-20250219-v1:0" \
+    --profile $AWS_PROFILE
 ```
 
 #### Deployment Steps
 
-1. **Prepare Configuration**
+1. **Initialize Configuration**
+
    ```bash
-   # Copy and edit configuration templates
    cp deployment/config_template.json deployment/config.json
    cp deployment/secrets_template.json deployment/secrets.json
+   # Edit these files to match your environment
    ```
 
-2. **Generate Terraform Configuration**
+2. **Set Up AWS CLI Credentials**
+
+   ```bash
+   # Follow instructions in deployment/setup_aws_cli.md
+   # This will configure your AWS CLI profile
+   aws configure sso
+   ```
+
+3. **Deploy Infrastructure Using AWS CLI**
+
    ```bash
    cd deployment
-   # Generate Terraform configurations from high-level config
-   python generate_tf_config.py --config config.json --output terraform/
-   ```
-
-3. **Review and Apply Infrastructure**
-   ```bash
-   cd terraform
-   # Initialize Terraform modules and providers
-   terraform init
+   # For incremental deployment:
    
-   # Preview changes
-   terraform plan -out=tfplan
+   # Deploy data agent and its infrastructure
+   ./deploy_aws_cli.sh --deploy-data
    
-   # Apply changes
-   terraform apply tfplan
+   # Deploy decision agent (when ready)
+   ./deploy_aws_cli.sh --deploy-decision
+   
+   # Deploy execution agent (when ready)
+   ./deploy_aws_cli.sh --deploy-exec
+   
+   # Or deploy everything at once
+   ./deploy_aws_cli.sh --deploy-all
    ```
 
 4. **Verify Deployment**
+
    ```bash
-   # Check deployment status
-   terraform output deployment_summary
+   # Check deployment state file
+   cat deploy_state.json | jq
+   
+   # Optionally set up integration points
+   python scripts/configure_integrations.py
    ```
-
-5. **Destroy Resources (When Needed)**
-   ```bash
-   # Remove all deployed resources
-   terraform destroy
-   ```
-
-
 
 ## Usage
 
@@ -1121,7 +1098,7 @@ def emit_operation_metrics(operation_type, table_name, duration_ms, record_count
     )
 ```
 
-Example of CloudWatch alarm configuration in Terraform:
+Example of CloudWatch alarm configuration using AWS CLI:
 
 ```hcl
 resource "aws_cloudwatch_metric_alarm" "firebolt_write_errors" {
@@ -1287,7 +1264,7 @@ def profile_function(func):
   * Log groups follow the pattern `/aws/lambda/revops-ai-framework-*`
 
 * **Deployment Logs**
-  * Check `deployment/deployment.log` for detailed deployment information
+  * Check `deployment/deploy_aws_cli.log` for detailed deployment information
 
 * **Execution Tracking**
   * All flow executions are recorded in the `revops_ai_executions` table in Firebolt

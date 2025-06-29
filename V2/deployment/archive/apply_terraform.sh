@@ -69,7 +69,7 @@ fi
 
 # Generate Terraform configuration
 echo "Generating Terraform configuration..."
-python generate_tf_config.py --config "$CONFIG_FILE" --output "$TF_DIR" --secrets "$SECRETS_FILE" --deploy-state "$DEPLOY_STATE"
+python3 generate_tf_config.py --config "$CONFIG_FILE" --output "$TF_DIR" --secrets "$SECRETS_FILE" --deploy-state "$DEPLOY_STATE"
 
 # Check if Terraform is installed
 if ! command -v terraform &> /dev/null; then
