@@ -6,7 +6,7 @@
   "data_agent": {
     "agent_id": null,
     "agent_alias_id": null,
-    "foundation_model": "anthropic.claude-3-sonnet-20240229-v1:0",
+    "foundation_model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Data Analysis Agent for RevOps AI Framework",
     "instructions_file": "agents/data_agent/instructions.md",
     "action_groups": [
@@ -31,7 +31,7 @@
   "decision_agent": {
     "agent_id": null,
     "agent_alias_id": null,
-    "foundation_model": "anthropic.claude-3-sonnet-20240229-v1:0",
+    "foundation_model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Decision Agent for RevOps AI Framework",
     "instructions_file": "agents/decision_agent/instructions.md",
     "action_groups": [
@@ -46,7 +46,7 @@
   "execution_agent": {
     "agent_id": null,
     "agent_alias_id": null,
-    "foundation_model": "anthropic.claude-3-sonnet-20240229-v1:0",
+    "foundation_model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Execution Agent for RevOps AI Framework",
     "instructions_file": "agents/execution_agent/instructions.md",
     "action_groups": [

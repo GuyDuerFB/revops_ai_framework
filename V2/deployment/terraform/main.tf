@@ -116,19 +116,19 @@ module "knowledge_bases" {
       name           = "deal-quality-knowledge-base"
       description    = "Knowledge base for deal quality analysis"
       s3_source_path = "${path.module}/../../knowledge_base/deal_quality"
-      bedrock_model  = "anthropic.claude-3-sonnet-20240229-v1:0"
+      bedrock_model  = "anthropic.claude-3-7-sonnet-20250219-v1:0"
     },
     consumption_patterns = {
       name           = "consumption-patterns-knowledge-base"
       description    = "Knowledge base for consumption pattern analysis"
       s3_source_path = "${path.module}/../../knowledge_base/consumption_patterns"
-      bedrock_model  = "anthropic.claude-3-sonnet-20240229-v1:0"
+      bedrock_model  = "anthropic.claude-3-7-sonnet-20250219-v1:0"
     },
     firebolt_schema = {
       name           = "firebolt-schema-knowledge-base"
       description    = "Knowledge base for Firebolt data warehouse schema"
       s3_source_path = "${path.module}/../../knowledge_base/firebolt_schema"
-      bedrock_model  = "anthropic.claude-3-sonnet-20240229-v1:0"
+      bedrock_model  = "anthropic.claude-3-7-sonnet-20250219-v1:0"
     }
   }
 }
@@ -140,7 +140,7 @@ module "agents" {
     data_agent = {
       name          = "firebolt-data-agent"
       description   = "Agent for retrieving and writing Firebolt data"
-      foundation_model = "anthropic.claude-3-sonnet-20240229-v1:0"
+      foundation_model = "anthropic.claude-3-7-sonnet-20250219-v1:0"
       instruction   = file("${path.module}/../../agents/data_agent/instructions.txt")
       knowledge_bases = ["firebolt_schema"]
       lambda_functions = ["firebolt_reader", "firebolt_writer", "firebolt_metadata"]
@@ -152,7 +152,7 @@ module "agents" {
     deal_quality_agent = {
       name          = "deal-quality-agent"
       description   = "Agent for analyzing deal quality"
-      foundation_model = "anthropic.claude-3-sonnet-20240229-v1:0"
+      foundation_model = "anthropic.claude-3-7-sonnet-20250219-v1:0"
       instruction   = file("${path.module}/../../agents/deal_quality_agent/instructions.txt")
       knowledge_bases = ["deal_quality"]
       lambda_functions = []
@@ -164,7 +164,7 @@ module "agents" {
     consumption_agent = {
       name          = "consumption-agent"
       description   = "Agent for analyzing consumption patterns"
-      foundation_model = "anthropic.claude-3-sonnet-20240229-v1:0"
+      foundation_model = "anthropic.claude-3-7-sonnet-20250219-v1:0"
       instruction   = file("${path.module}/../../agents/consumption_agent/instructions.txt")
       knowledge_bases = ["consumption_patterns"]
       lambda_functions = []
@@ -176,7 +176,7 @@ module "agents" {
     execution_agent = {
       name          = "execution-agent"
       description   = "Agent for executing actions based on analyses"
-      foundation_model = "anthropic.claude-3-sonnet-20240229-v1:0"
+      foundation_model = "anthropic.claude-3-7-sonnet-20250219-v1:0"
       instruction   = file("${path.module}/../../agents/execution_agent/instructions.txt")
       knowledge_bases = []
       lambda_functions = ["webhook_dispatcher"]
