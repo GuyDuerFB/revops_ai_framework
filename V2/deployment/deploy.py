@@ -664,7 +664,7 @@ class RevOpsDeployer:
                     logger.warning(f"Error listing agents: {str(e)}")
                 
                 # Set foundation model
-                foundation_model = agent_config.get("foundation_model", "anthropic.claude-v2")
+                foundation_model = agent_config.get("foundation_model", "anthropic.claude-3-7-sonnet-20250219-v1:0")
                 
                 if existing_agent_id:
                     # Update existing agent
