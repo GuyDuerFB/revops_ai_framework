@@ -1,0 +1,21 @@
+# Sensitive configuration files
+config.json
+secrets.json
+
+# Deployment outputs and backups
+backups/*_response.json
+
+# Virtual Environment
+venv/
+bin/
+include/
+lib/
+lib64/
+share/
+pyvenv.cfg
+__pycache__/
+*.py[cod]
+*$py.class
+
+# System files
+.DS_Store
