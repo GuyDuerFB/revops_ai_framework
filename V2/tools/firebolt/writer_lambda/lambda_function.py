@@ -125,7 +125,8 @@ def get_firebolt_access_token(credentials: Dict[str, str]) -> str:
     data = {
         'grant_type': 'client_credentials',
         'client_id': client_id,
-        'client_secret': client_secret
+        'client_secret': client_secret,
+        'audience': 'https://api.firebolt.io'
     }
     
     data = urllib.parse.urlencode(data).encode('ascii')
@@ -278,8 +279,6 @@ def generate_upsert_sql(table_name: str, data: Dict[str, Any], key_columns: List
 # Execute query against Firebolt
 def execute_firebolt_query(
     query: str, 
-    secret_name: str, 
-    region_name: str = "us-east-1",
     account_name: Optional[str] = None,
     engine_name: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -298,35 +297,38 @@ def execute_firebolt_query(
         Dict[str, Any]: A dictionary with query results in JSON-serializable format
     """
     try:
-        # Get Firebolt credentials from Secrets Manager
+        # Get Firebolt credentials from Secrets Manager using environment variable
+        secret_name = os.environ.get('FIREBOLT_CREDENTIALS_SECRET', 'firebolt-credentials')
+        region_name = os.environ.get('AWS_REGION', 'us-east-1')
+        
+        print(f"Getting Firebolt credentials from secret: {secret_name} in region: {region_name}")
         credentials = get_firebolt_credentials(secret_name, region_name)
         
         # Get access token using OAuth
+        print("Getting Firebolt access token")
         token = get_firebolt_access_token(credentials)
+        print("Successfully obtained Firebolt access token")
         
-        # Get account/engine configuration
-        firebolt_account = account_name or os.environ.get('FIREBOLT_ACCOUNT', 'firebolt')
-        firebolt_engine = engine_name or os.environ.get('FIREBOLT_ENGINE', 'revops')
+        # Get account/engine configuration - use same env vars as query Lambda
+        firebolt_account = account_name or os.environ.get('FIREBOLT_ACCOUNT_NAME', 'firebolt-dwh')
+        firebolt_engine = engine_name or os.environ.get('FIREBOLT_ENGINE_NAME', 'dwh_prod_analytics')
+        firebolt_database = os.environ.get('FIREBOLT_DATABASE', 'dwh_prod')
+        firebolt_api_region = os.environ.get('FIREBOLT_API_REGION', 'us-east-1')
         
-        # Build query URL
-        query_url = f"https://api.app.firebolt.io/query/{firebolt_account}/{firebolt_engine}"
+        # Build query URL using the format that works in query Lambda
+        query_url = f"https://{firebolt_account}-firebolt.api.{firebolt_api_region}.app.firebolt.io?engine={firebolt_engine}&database={firebolt_database}"
         
-        # Prepare request data
-        data = {
-            'query': query
-        }
+        # Send the SQL query directly as data, like in the query Lambda
+        data = query.encode('utf-8')
         
-        data = json.dumps(data).encode('utf-8')
-        
-        # Create request
+        # Create request with text/plain content type as in query Lambda
         req = urllib.request.Request(
             query_url,
             data=data,
             headers={
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
                 'Authorization': f'Bearer {token}'
-            },
-            method='POST'
+            }
         )
         
         # Execute query
@@ -590,9 +592,9 @@ def write_to_firebolt(
                 "message": "Please provide data to write"
             }
         
-        # Use environment variables or defaults for these values
-        secret_name = os.environ.get('FIREBOLT_CREDENTIALS_SECRET', 'firebolt-credentials')
-        region_name = os.environ.get('AWS_REGION', 'us-east-1')
+        # Log debug info
+        print(f"Write operation: {query_type} to table: {table_name}")
+        print(f"Data: {json.dumps(data, default=str)}")
         
         # Generate SQL based on operation type
         if query_type.lower() == 'insert':
@@ -626,10 +628,8 @@ def write_to_firebolt(
         # Execute the query
         result = execute_firebolt_query(
             query, 
-            secret_name, 
-            region_name,
-            account_name,
-            engine_name
+            account_name=account_name,
+            engine_name=engine_name
         )
         
         # Include metadata in response
@@ -670,13 +670,57 @@ def generate_delete_sql(table_name: str, where_clause: str) -> str:
 
 def lambda_handler(event, context):
     """
-    AWS Lambda handler for Firebolt write operations.
-    Compatible with Bedrock Agent function calling format.
-    Supports special handling for RevOps AI Insights table.
+    AWS Lambda handler for Firebolt write operations - simplified for direct SQL execution
     """
     try:
-        print(f"Received event: {json.dumps(event)}")
+        print(f"WRITER LAMBDA: Received event: {json.dumps(event)}")
         
+        # Direct SQL query execution - assume this is the primary purpose
+        if 'query' in event:
+            query = event.get('query')
+            print(f"Processing direct SQL query: {query}")
+            
+            # Get parameters with defaults from env vars
+            account_name = event.get('account_name') or os.environ.get('FIREBOLT_ACCOUNT_NAME')
+            engine_name = event.get('engine_name') or os.environ.get('FIREBOLT_ENGINE_NAME')
+            
+            # Get secret name and region from environment variables
+            secret_name = os.environ.get('FIREBOLT_CREDENTIALS_SECRET')
+            region_name = os.environ.get('AWS_REGION', 'us-east-1')
+            
+            print(f"Using account: {account_name}, engine: {engine_name}")
+            print(f"Secret: {secret_name}, Region: {region_name}")
+            print(f"Query to execute: {query}")
+            
+            # Execute the query directly
+            try:
+                # Direct execution with SQL query
+                result = execute_firebolt_query(
+                    query,
+                    account_name=account_name,
+                    engine_name=engine_name
+                )
+                print("Query executed successfully")
+                return {
+                    'success': True,
+                    'message': "SQL query executed successfully",
+                    'result': result
+                }
+            except Exception as query_error:
+                print(f"Error executing query: {str(query_error)}")
+                return {
+                    'success': False,
+                    'error': str(query_error),
+                    'message': "Error executing direct SQL query."
+                }
+        else:
+            print("No query parameter found in event")
+            return {
+                'success': False,
+                'error': "Missing required parameter", 
+                'message': "Please provide a 'query' parameter with your SQL statement"
+            }
+
         # 1. Check if this is a Bedrock Agent invocation
         if 'actionGroup' in event and event.get('actionGroup') == 'firebolt_writer':
             # This is a Bedrock Agent invocation
@@ -760,15 +804,19 @@ def lambda_handler(event, context):
             )
                 
         # 3. Check if this is a direct invocation with parameters
-        if 'query_type' in event and 'table_name' in event:
-            # Direct invocation
-            query_type = event.get('query_type')
-            table_name = event.get('table_name')
+        # Support both old format (query_type/table_name) and new format (operation/table)
+        if ('query_type' in event and 'table_name' in event) or ('operation' in event and 'table' in event):
+            # Direct invocation - handle both parameter formats
+            query_type = event.get('query_type') or event.get('operation')
+            table_name = event.get('table_name') or event.get('table')
             data = event.get('data', {})
             where_clause = event.get('where_clause')
             key_columns = event.get('key_columns')
             account_name = event.get('account_name')
             engine_name = event.get('engine_name')
+            
+            print(f"Using parameters: operation={query_type}, table={table_name}")
+            print(f"Data: {json.dumps(data, default=str)}")
             
             # Special handling for revops_ai_insights table
             if table_name == 'revops_ai_insights':

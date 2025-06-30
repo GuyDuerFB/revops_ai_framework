@@ -113,6 +113,8 @@ def get_firebolt_access_token(credentials: Dict[str, str]) -> str:
     Returns:
         str: Access token for Firebolt API calls
     """
+    print("Obtaining Firebolt access token...")
+    
     client_id = credentials.get('client_id')
     client_secret = credentials.get('client_secret')
     
@@ -125,35 +127,40 @@ def get_firebolt_access_token(credentials: Dict[str, str]) -> str:
     data = {
         'grant_type': 'client_credentials',
         'client_id': client_id,
-        'client_secret': client_secret
+        'client_secret': client_secret,
+        'audience': 'https://api.firebolt.io'
     }
     
-    data = urllib.parse.urlencode(data).encode('ascii')
+    form_data = urllib.parse.urlencode(data).encode('ascii')
     
-    # Create request
+    # Create request with Content-Length header
     req = urllib.request.Request(
         auth_url,
-        data=data,
+        data=form_data,
         headers={
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': str(len(form_data))
         },
         method='POST'
     )
     
     try:
-        # Send request and get response
-        with urllib.request.urlopen(req) as response:
-            response_data = json.loads(response.read().decode('utf-8'))
-            
-        # Extract token
-        token = response_data.get('access_token')
-        if not token:
-            raise Exception("No access token in response")
-            
-        return token
+        # Send request and get response with timeout
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                token_data = json.loads(response.read().decode('utf-8'))
+                if 'access_token' not in token_data:
+                    raise Exception("No access_token in response from Firebolt auth endpoint")
+                print("✓ Access token obtained successfully")
+                return token_data['access_token']
+            else:
+                raise Exception(f"HTTP {response.status}: {response.read().decode('utf-8')}")
         
     except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
+        error_body = e.read().decode('utf-8') if hasattr(e, 'read') else "No error details"
+        raise Exception(f"Failed to get Firebolt access token - HTTP {e.code}: {error_body}")
+    except Exception as e:
+        raise Exception(f"Failed to get Firebolt access token: {str(e)}")
         raise Exception(f"Failed to get Firebolt token. Status: {e.code}, Response: {error_body}")
 
 # Query execution
@@ -179,56 +186,88 @@ def execute_firebolt_query(
         Dict[str, Any]: A dictionary with query results in JSON-serializable format
     """
     try:
-        # Get Firebolt credentials from Secrets Manager
+        print("=== Starting Firebolt Query Execution ===")
+        
+        # Step 1: Get sensitive credentials from secret
+        print("Step 1: Getting Firebolt credentials from secret...")
         credentials = get_firebolt_credentials(secret_name, region_name)
         
-        # Get access token using OAuth
+        # Step 2: Get configuration from environment variables if not provided
+        print("Step 2: Getting configuration from environment variables...")
+        account = account_name if account_name else os.environ.get('FIREBOLT_ACCOUNT_NAME')
+        engine = engine_name if engine_name else os.environ.get('FIREBOLT_ENGINE_NAME')
+        database = os.environ.get('FIREBOLT_DATABASE')
+        api_region = os.environ.get('FIREBOLT_API_REGION', 'us-east-1')
+        
+        # Validate configuration
+        if not account:
+            raise ValueError("Missing account name. Provide as parameter or set FIREBOLT_ACCOUNT_NAME environment variable.")
+        if not engine:
+            raise ValueError("Missing engine name. Provide as parameter or set FIREBOLT_ENGINE_NAME environment variable.")
+        if not database:
+            raise ValueError("Missing database name. Set FIREBOLT_DATABASE environment variable.")
+            
+        print(f"Using configuration: account={account}, engine={engine}, database={database}")
+        
+        # Step 3: Get access token
+        print("Step 3: Getting access token...")
         token = get_firebolt_access_token(credentials)
         
-        # Get account/engine configuration
-        firebolt_account = account_name or os.environ.get('FIREBOLT_ACCOUNT', 'firebolt')
-        firebolt_engine = engine_name or os.environ.get('FIREBOLT_ENGINE', 'revops')
+        # Step 4: Execute query
+        print("Step 4: Executing query via REST API...")
         
-        # Build query URL
-        query_url = f"https://api.app.firebolt.io/query/{firebolt_account}/{firebolt_engine}"
+        # Method 1: Using the v2 REST API (JSON-based)
+        # api_url = f"https://api.app.firebolt.io/v2/account/{account}/engine/{engine}/query"
+        # headers = {
+        #     'Authorization': f'Bearer {token}',
+        #     'Content-Type': 'application/json'
+        # }
+        # payload = {
+        #     'query': query,
+        #     'database': database
+        # }
+        # data = json.dumps(payload).encode('utf-8')
         
-        # Prepare request data
-        data = {
-            'query': query
-        }
+        # Method 2: Using the direct endpoint (text-based) as shown in the example
+        query_url = f"https://{account}-firebolt.api.{api_region}.app.firebolt.io?engine={engine}&database={database}"
+        print(f"Making request to: {query_url}")
         
-        data = json.dumps(data).encode('utf-8')
+        # Send the SQL query directly as data
+        query_data = query.encode('utf-8')
         
         # Create request
         req = urllib.request.Request(
             query_url,
-            data=data,
+            data=query_data,
             headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {token}'
-            },
-            method='POST'
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'text/plain',
+                'Content-Length': str(len(query_data))
+            }
         )
         
-        # Execute query
-        with urllib.request.urlopen(req) as response:
-            raw_result = json.loads(response.read().decode('utf-8'))
+        # Execute request
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                if response.status == 200:
+                    response_body_str = response.read().decode('utf-8')
+                    result = json.loads(response_body_str)
+                    print("✓ Query executed successfully")
+                    
+                    # Format response to a simple structure with all data
+                    formatted_result = format_simple_result(result)
+                    
+                    return formatted_result
+                else:
+                    raise Exception(f"HTTP {response.status}: {response.read().decode('utf-8')}")
+                    
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8') if hasattr(e, 'read') else "No error details"
+            raise Exception(f"Failed to execute Firebolt query - HTTP {e.code}: {error_body}")
             
-        # Format the result into a simplified structure
-        result = format_simple_result(raw_result)
-        
-        return result
-        
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
-        return {
-            'success': False,
-            'error': f"Firebolt query error: {e.code}",
-            'message': error_body,
-            'results': [],
-            'columns': []
-        }
     except Exception as e:
+        print(f"Error executing Firebolt query: {str(e)}")
+        raise Exception(f"Error executing Firebolt query: {str(e)}")
         return {
             'success': False,
             'error': str(e),
@@ -257,8 +296,12 @@ def format_simple_result(raw_result: Dict[str, Any]) -> Dict[str, Any]:
         Dict[str, Any]: Formatted result with all data
     """
     try:
+        # Print debug info about the raw result structure
+        print(f"Raw result type: {type(raw_result)}")
+        print(f"Raw result keys: {raw_result.keys() if isinstance(raw_result, dict) else 'not a dict'}")
+        
         # Handle error cases first
-        if 'error' in raw_result:
+        if isinstance(raw_result, dict) and 'error' in raw_result:
             return {
                 'success': False,
                 'error': raw_result.get('error', 'Unknown error'),
@@ -266,57 +309,109 @@ def format_simple_result(raw_result: Dict[str, Any]) -> Dict[str, Any]:
                 'results': [],
                 'columns': []
             }
+        
+        # Handle the actual response structure from Firebolt
+        # New format from our testing: {'meta': [...], 'data': [...], 'rows': 1, 'statistics': {...}}
+        if isinstance(raw_result, dict) and 'meta' in raw_result and 'data' in raw_result:
+            # Extract columns from meta
+            columns = []
+            for col in raw_result.get('meta', []):
+                columns.append({
+                    'name': col.get('name', 'unnamed'),
+                    'type': col.get('type', 'unknown')
+                })
             
-        # Check for expected structure
-        if 'data' not in raw_result or not isinstance(raw_result['data'], dict):
+            # Extract the row data
+            row_data = raw_result.get('data', [])
+            
+            # Return in the expected format
             return {
-                'success': False,
-                'error': 'Invalid response format',
-                'message': 'The response from Firebolt does not contain expected data structure',
-                'results': [],
-                'columns': []
+                'success': True,
+                'results': row_data,  # Already in dict format
+                'columns': columns,
+                'row_count': len(row_data),
+                'column_count': len(columns)
             }
+        
+        # Handle the case where we receive an array of result objects
+        # For example: [{'meta': [...], 'data': [...], 'rows': 1, 'statistics': {...}}]
+        if isinstance(raw_result, list) and len(raw_result) > 0 and isinstance(raw_result[0], dict):
+            first_result = raw_result[0]
+            
+            if 'meta' in first_result and 'data' in first_result:
+                # Extract columns from meta
+                columns = []
+                for col in first_result.get('meta', []):
+                    columns.append({
+                        'name': col.get('name', 'unnamed'),
+                        'type': col.get('type', 'unknown')
+                    })
                 
-        # Extract metadata and rows
-        metadata = raw_result['data'].get('metadata', [])
-        rows = raw_result['data'].get('rows', [])
+                # Extract the row data
+                row_data = first_result.get('data', [])
+                
+                # Return in the expected format
+                return {
+                    'success': True,
+                    'results': row_data,  # Already in dict format
+                    'columns': columns,
+                    'row_count': len(row_data),
+                    'column_count': len(columns)
+                }
         
-        # Extract column names from metadata
-        columns = []
-        for col in metadata:
-            columns.append({
-                'name': col.get('name', 'unnamed'),
-                'type': col.get('type', 'unknown')
-            })
+        # Legacy format handling (kept for backward compatibility)
+        if isinstance(raw_result, dict) and 'data' in raw_result and isinstance(raw_result['data'], dict):
+            # Extract metadata and rows
+            metadata = raw_result['data'].get('metadata', [])
+            rows = raw_result['data'].get('rows', [])
+            
+            # Extract column names from metadata
+            columns = []
+            for col in metadata:
+                columns.append({
+                    'name': col.get('name', 'unnamed'),
+                    'type': col.get('type', 'unknown')
+                })
+            
+            column_names = [col['name'] for col in columns]
+            
+            # Process each row, making sure all values are JSON serializable
+            processed_rows = []
+            for row in rows:
+                # Convert any non-serializable types
+                processed_row = {}
+                for i, value in enumerate(row):
+                    if i < len(column_names):
+                        col_name = column_names[i]
+                        # Handle special types
+                        if isinstance(value, (datetime, date)):
+                            processed_row[col_name] = value.isoformat()
+                        else:
+                            processed_row[col_name] = value
+                processed_rows.append(processed_row)
+            
+            # Construct final response
+            return {
+                'success': True,
+                'results': processed_rows,
+                'columns': columns,
+                'row_count': len(processed_rows),
+                'column_count': len(columns)
+            }
         
-        column_names = [col['name'] for col in columns]
-        
-        # Process each row, making sure all values are JSON serializable
-        processed_rows = []
-        for row in rows:
-            # Convert any non-serializable types
-            processed_row = {}
-            for i, value in enumerate(row):
-                if i < len(column_names):
-                    col_name = column_names[i]
-                    # Handle special types
-                    if isinstance(value, (datetime, date)):
-                        processed_row[col_name] = value.isoformat()
-                    else:
-                        processed_row[col_name] = value
-            processed_rows.append(processed_row)
-        
-        # Construct final response
+        # If we reach here, the format is unrecognized
+        print(f"Unrecognized result format: {json.dumps(raw_result)[:500]}...")
         return {
-            'success': True,
-            'results': processed_rows,
-            'columns': columns,
-            'row_count': len(processed_rows),
-            'column_count': len(columns)
+            'success': False,
+            'error': 'Invalid response format',
+            'message': 'The response from Firebolt does not match any expected structure',
+            'results': [],
+            'columns': []
         }
         
     except Exception as e:
         # Fallback error handler
+        print(f"Error in format_simple_result: {str(e)}")
         return {
             'success': False,
             'error': f'Error formatting results: {str(e)}',
