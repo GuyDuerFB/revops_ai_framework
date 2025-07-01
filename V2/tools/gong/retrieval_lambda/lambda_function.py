@@ -91,9 +91,14 @@ def generate_gong_headers(access_key: str, access_key_secret: str) -> Dict[str, 
         hashlib.sha256
     ).hexdigest()
     
+    # Encode credentials for Basic authentication
+    import base64
+    auth_string = f"{access_key}:{access_key_secret}"
+    encoded_auth = base64.b64encode(auth_string.encode('utf-8')).decode('utf-8')
+    
     # Return headers
     return {
-        'Authorization': f"Bearer {access_key}",
+        'Authorization': f"Basic {encoded_auth}",
         'X-API-Signature': signature,
         'X-API-Timestamp': str(timestamp),
         'Content-Type': 'application/json'
@@ -132,6 +137,11 @@ def make_gong_request(
         data = json.dumps(body).encode('utf-8')
     
     # Create request
+    print(f"DEBUG: Making request to {url} with method {method}")
+    print(f"DEBUG: Request headers: {headers}")
+    if data:
+        print(f"DEBUG: Request body: {data.decode('utf-8')}")
+    
     req = urllib.request.Request(
         url,
         data=data,
@@ -170,30 +180,66 @@ def clean_gong_response(raw_data: Dict[str, Any], query_type: str) -> Dict[str, 
         }
     
     try:
+        # For debugging
+        print(f"DEBUG: Raw Gong API response for {query_type}: {json.dumps(raw_data)[:500]}...")
+        
         if query_type == 'calls':
-            # Process call data
-            calls = raw_data.get('calls', [])
+            # Process call data - handle different possible response formats
+            calls = []
+            
+            # The new Gong API returns calls directly in the response
+            if isinstance(raw_data, list):
+                calls = raw_data
+            # Standard format with 'calls' key
+            elif 'calls' in raw_data and isinstance(raw_data['calls'], list):
+                calls = raw_data['calls']
+            # Format with records wrapper
+            elif 'records' in raw_data and 'calls' in raw_data:
+                calls = raw_data['calls']
+                
             result = []
             
             for call in calls:
+                # Handle both string and dict types for call
+                if not isinstance(call, dict):
+                    continue
+                    
                 # Extract and format key call data
                 processed_call = {
                     "id": call.get('id'),
                     "title": call.get('title'),
-                    "date": call.get('date'),
-                    "duration": call.get('content', {}).get('duration'),
-                    "speakers": [
-                        {
-                            "name": speaker.get('name'),
-                            "email": speaker.get('emailAddress'),
-                            "role": "internal" if speaker.get('isCompanyEmployee') else "external",
-                            "talk_time": speaker.get('speakingTime')
-                        }
-                        for speaker in call.get('speakers', [])
-                    ],
-                    "transcript_url": call.get('media', {}).get('transcriptUrl'),
-                    "recording_url": call.get('media', {}).get('recordingUrl')
+                    "date": call.get('date')
                 }
+                
+                # Add optional fields if they exist
+                if 'content' in call and isinstance(call['content'], dict):
+                    processed_call["duration"] = call['content'].get('duration')
+                
+                # Add speakers if they exist
+                speakers = []
+                if 'speakers' in call and isinstance(call['speakers'], list):
+                    for speaker in call['speakers']:
+                        if isinstance(speaker, dict):
+                            speaker_info = {
+                                "name": speaker.get('name'),
+                                "email": speaker.get('emailAddress')
+                            }
+                            
+                            if 'isCompanyEmployee' in speaker:
+                                speaker_info["role"] = "internal" if speaker.get('isCompanyEmployee') else "external"
+                            
+                            if 'speakingTime' in speaker:
+                                speaker_info["talk_time"] = speaker.get('speakingTime')
+                                
+                            speakers.append(speaker_info)
+                
+                processed_call["speakers"] = speakers
+                
+                # Add media info if it exists
+                if 'media' in call and isinstance(call['media'], dict):
+                    processed_call["transcript_url"] = call['media'].get('transcriptUrl')
+                    processed_call["recording_url"] = call['media'].get('recordingUrl')
+                
                 result.append(processed_call)
                 
             return {
@@ -236,7 +282,7 @@ def clean_gong_response(raw_data: Dict[str, Any], query_type: str) -> Dict[str, 
 # Main functions for different Gong API endpoints
 def get_calls(credentials: Dict[str, str], params: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Retrieve call data from Gong.
+    Retrieve call data from Gong API.
     
     Args:
         credentials (Dict[str, str]): Gong API credentials
@@ -245,40 +291,30 @@ def get_calls(credentials: Dict[str, str], params: Dict[str, Any]) -> Dict[str, 
     Returns:
         Dict[str, Any]: Structured call data
     """
-    # Format date range for the request
-    from_date = params.get('from_date')
-    to_date = params.get('to_date')
+    # Build query parameters for the endpoint
+    query_params = []
     
-    # Default date range if not specified (last 7 days)
-    if not from_date:
-        to_date_obj = datetime.now()
-        from_date_obj = to_date_obj - timedelta(days=7)
-        from_date = from_date_obj.strftime("%Y-%m-%d")
-        to_date = to_date_obj.strftime("%Y-%m-%d")
-    elif not to_date:
-        to_date = datetime.now().strftime("%Y-%m-%d")
+    # Add date range if provided
+    if params.get('from_date'):
+        query_params.append(f"from={params.get('from_date')}")
     
-    # Prepare request body
-    body = {
-        "filter": {
-            "fromDateTime": f"{from_date}T00:00:00.000Z",
-            "toDateTime": f"{to_date}T23:59:59.999Z"
-        }
-    }
+    if params.get('to_date'):
+        query_params.append(f"to={params.get('to_date')}")
     
-    # Add additional filters if provided
-    if params.get('workspace_id'):
-        body['filter']['workspaceId'] = params.get('workspace_id')
+    # Add limit if provided
+    if params.get('limit'):
+        query_params.append(f"limit={params.get('limit')}")
     
-    if params.get('user_ids'):
-        body['filter']['userIds'] = params.get('user_ids')
+    # Construct endpoint with query params
+    endpoint = "calls"
+    if query_params:
+        endpoint = f"{endpoint}?{'&'.join(query_params)}"
     
-    # Make the request
+    # Make the GET request
     response = make_gong_request(
-        endpoint="calls/filter",
-        method="POST",
-        credentials=credentials,
-        body=body
+        endpoint=endpoint,
+        method="GET",
+        credentials=credentials
     )
     
     # Process the response
@@ -371,7 +407,8 @@ def get_gong_data(
     query_type: str = 'calls',
     date_range: Dict[str, str] = None,
     filters: Dict[str, Any] = None,
-    call_id: str = None
+    call_id: str = None,
+    debug: bool = False
 ) -> Dict[str, Any]:
     """
     Main function to retrieve data from Gong based on query type.
@@ -437,6 +474,8 @@ def lambda_handler(event, context):
     """
     AWS Lambda handler for Gong data retrieval.
     Compatible with Bedrock Agent function calling format.
+    
+    Also supports a debug mode for troubleshooting credential issues.
     """
     try:
         print(f"Received event: {json.dumps(event)}")
@@ -471,7 +510,67 @@ def lambda_handler(event, context):
             date_range = event.get('date_range', {})
             filters = event.get('filters', {})
             call_id = event.get('call_id')
+            debug = event.get('debug', False)
             
+            # Special debug mode for credential troubleshooting
+            if query_type == 'debug_credentials' and debug:
+                try:
+                    # Get environment variables
+                    secret_name = os.environ.get('GONG_CREDENTIALS_SECRET', 'gong-credentials')
+                    region_name = os.environ.get('AWS_REGION', 'us-east-1')
+                    
+                    # Try to get credentials
+                    try:
+                        credentials = get_gong_credentials(secret_name, region_name)
+                        # Generate headers but mask the sensitive parts
+                        headers = generate_gong_headers(credentials['access_key'], credentials['access_key_secret'])
+                        masked_headers = headers.copy()
+                        if 'Authorization' in masked_headers:
+                            masked_headers['Authorization'] = masked_headers['Authorization'][:12] + '****'
+                        if 'X-API-Signature' in masked_headers:
+                            masked_headers['X-API-Signature'] = masked_headers['X-API-Signature'][:8] + '****'
+                            
+                        return {
+                            'success': True,
+                            'debug_info': {
+                                'secret_name': secret_name,
+                                'region_name': region_name,
+                                'credentials_found': True,
+                                'access_key_exists': 'access_key' in credentials,
+                                'access_key_secret_exists': 'access_key_secret' in credentials,
+                                'access_key_prefix': credentials.get('access_key', '')[:4] + '****' if 'access_key' in credentials else None,
+                                'access_key_secret_prefix': credentials.get('access_key_secret', '')[:4] + '****' if 'access_key_secret' in credentials else None,
+                                'generated_headers': masked_headers,
+                                'environment_variables': {
+                                    'GONG_CREDENTIALS_SECRET': os.environ.get('GONG_CREDENTIALS_SECRET', 'not_set'),
+                                    'AWS_REGION': os.environ.get('AWS_REGION', 'not_set')
+                                }
+                            }
+                        }
+                    except Exception as cred_error:
+                        return {
+                            'success': False,
+                            'error': str(cred_error),
+                            'debug_info': {
+                                'secret_name': secret_name,
+                                'region_name': region_name,
+                                'error_type': type(cred_error).__name__,
+                                'environment_variables': {
+                                    'GONG_CREDENTIALS_SECRET': os.environ.get('GONG_CREDENTIALS_SECRET', 'not_set'),
+                                    'AWS_REGION': os.environ.get('AWS_REGION', 'not_set')
+                                }
+                            }
+                        }
+                except Exception as e:
+                    return {
+                        'success': False,
+                        'error': str(e),
+                        'debug_info': {
+                            'error_type': type(e).__name__
+                        }
+                    }
+            
+            # Normal operation
             return get_gong_data(query_type, date_range, filters, call_id)
             
         # Legacy parameter format for backward compatibility

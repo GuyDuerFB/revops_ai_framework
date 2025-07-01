@@ -4,6 +4,9 @@ RevOps AI Framework V2 - Lambda Deployer
 
 This script deploys Lambda functions defined in the configuration file.
 It handles packaging dependencies, creating IAM roles, and deploying the functions.
+
+Special handling is included for the Gong Lambda function which requires specific
+source directory path resolution and environment variable configuration.
 """
 
 import os
@@ -17,7 +20,9 @@ from typing import Dict, Any, List, Optional
 from botocore.exceptions import ClientError
 
 # Constants
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# V2 root directory (one level up from deployment directory)
+V2_ROOT = os.path.dirname(PROJECT_ROOT)
 
 
 def create_lambda_role(role_name: str, trust_policy_file: Optional[str] = None) -> str:
@@ -298,6 +303,85 @@ def deploy_lambda_function(lambda_config: Dict[str, Any], role_arn: str) -> Dict
         raise
 
 
+def deploy_gong_lambda(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Special function to deploy only the Gong retrieval Lambda function
+    
+    Args:
+        config: Configuration dictionary
+        
+    Returns:
+        Updated configuration with ARNs
+    """
+    # Get AWS credentials
+    region = config["region_name"]
+    profile = config["profile_name"]
+    
+    print(f"\nDeploying Gong Lambda function with profile: {profile} and region: {region}")
+    
+    # Use AWS CLI directly to handle expired tokens better
+    os.environ["AWS_PROFILE"] = profile
+    os.environ["AWS_REGION"] = region
+    
+    lambda_name = "gong_retrieval"
+    lambda_config = config["lambda_functions"][lambda_name]
+    
+    print(f"Deploying Gong Lambda function: {lambda_config['function_name']}")
+    
+    # Fix source_dir path to be relative to project root, not deployment directory
+    source_dir = os.path.join(V2_ROOT, lambda_config["source_dir"])
+    lambda_config["source_dir"] = source_dir
+    print(f"Using source directory: {source_dir}")
+    
+    # Create or get IAM role
+    role_name = f"revops-{lambda_name}-lambda-role"
+    role_arn = lambda_config.get("iam_role")
+    if not role_arn:
+        print(f"Creating IAM role: {role_name}")
+        role_arn = create_lambda_role(role_name)
+        lambda_config["iam_role"] = role_arn
+    
+    # Deploy the Lambda function
+    result = deploy_lambda_function(lambda_config, role_arn)
+    
+    # Debug the result
+    print("Lambda deployment result:")
+    print(result)
+    
+    # Get the function ARN - extract from the result if available or query it if necessary
+    function_arn = None
+    if isinstance(result, dict) and "FunctionArn" in result:
+        function_arn = result["FunctionArn"]
+    elif isinstance(result, dict) and "function_name" in result:
+        # If we have the function name but not the ARN, query it
+        function_name = result.get("function_name") or lambda_config["function_name"]
+        print(f"Querying ARN for function: {function_name}")
+        try:
+            session = boto3.Session(profile_name=config["profile_name"], region_name=config["region_name"])
+            lambda_client = session.client('lambda')
+            response = lambda_client.get_function(FunctionName=function_name)
+            function_arn = response["Configuration"]["FunctionArn"]
+        except Exception as e:
+            print(f"Error getting Lambda ARN: {str(e)}")
+    
+    if not function_arn:
+        function_arn = f"arn:aws:lambda:{config['region_name']}:740202120544:function:{lambda_config['function_name']}"
+        print(f"Using constructed ARN: {function_arn}")
+    
+    # Update config with ARN
+    config["lambda_functions"][lambda_name]["lambda_arn"] = function_arn
+    
+    # Also update action group ARN if it exists
+    for agent_type in ["data_agent", "decision_agent", "execution_agent"]:
+        if agent_type in config:
+            for action_group in config[agent_type].get("action_groups", []):
+                if action_group.get("name") == lambda_name:
+                    action_group["lambda_arn"] = function_arn
+    
+    print(f"Gong Lambda function deployed successfully: {function_arn}")
+    return config
+
+
 def deploy_lambda_functions(config: Dict[str, Any], secrets: Dict[str, Any]) -> Dict[str, Any]:
     """
     Deploy all Lambda functions defined in the configuration
@@ -309,43 +393,49 @@ def deploy_lambda_functions(config: Dict[str, Any], secrets: Dict[str, Any]) -> 
     Returns:
         Updated configuration with ARNs
     """
-    # Create a copy of the config to update
-    updated_config = config.copy()
+    print("\nDeploying Lambda functions...")
     
-    # Get Lambda functions from config
-    lambda_functions = updated_config.get("lambda_functions", {})
-    if not lambda_functions:
-        print("No Lambda functions defined in configuration")
-        return {"config": updated_config}
+    lambda_functions = config.get("lambda_functions", {})
     
-    # Process each Lambda function
     for lambda_name, lambda_config in lambda_functions.items():
-        print(f"Deploying Lambda function: {lambda_name}")
+        print(f"\nProcessing Lambda function: {lambda_name}")
+        
+        # Skip if marked to skip
+        if lambda_config.get("skip_deployment", False):
+            print(f"Skipping deployment of {lambda_name} as requested in config")
+            continue
+            
+        # Special handling for Gong Lambda
+        if lambda_name == "gong_retrieval":
+            print("Using specialized Gong Lambda deployment logic")
+            # Deploy Gong Lambda with special handling and update the config
+            config = deploy_gong_lambda(config)
+            continue
         
         # Create or get IAM role
         role_name = f"revops-{lambda_name}-lambda-role"
-        if lambda_config.get("iam_role"):
-            role_arn = lambda_config["iam_role"]
-            print(f"Using existing IAM role: {role_arn}")
-        else:
+        role_arn = lambda_config.get("iam_role")
+        if not role_arn:
+            print(f"Creating IAM role: {role_name}")
             role_arn = create_lambda_role(role_name)
-            # Update config with role ARN
-            updated_config["lambda_functions"][lambda_name]["iam_role"] = role_arn
+            lambda_config["iam_role"] = role_arn
         
         # Deploy the Lambda function
         result = deploy_lambda_function(lambda_config, role_arn)
         
-        # Update config with Lambda ARN
-        updated_config["lambda_functions"][lambda_name]["function_arn"] = result["function_arn"]
-        
-        # If this is the firebolt_query function, update the action group in data_agent
-        if lambda_name == "firebolt_query":
-            for i, action_group in enumerate(updated_config.get("data_agent", {}).get("action_groups", [])):
-                if action_group.get("name") == "firebolt_query":
-                    updated_config["data_agent"]["action_groups"][i]["lambda_arn"] = result["function_arn"]
-                    print(f"Updated data_agent action_group with Lambda ARN: {result['function_arn']}")
+        # Get the function ARN
+        if isinstance(result, dict) and "FunctionArn" in result:
+            function_arn = result["FunctionArn"]
+            lambda_config["lambda_arn"] = function_arn
+            
+            # Also update action group ARN if it exists
+            for agent_type in ["data_agent", "decision_agent", "execution_agent"]:
+                if agent_type in config:
+                    for action_group in config[agent_type].get("action_groups", []):
+                        if action_group.get("name") == lambda_name:
+                            action_group["lambda_arn"] = function_arn
     
-    return {"config": updated_config}
+    return {"config": config}
 
 
 def delete_lambda_function(function_name, region_name=None):
@@ -465,3 +555,4 @@ def test_lambda_function(lambda_name: str, lambda_config: Dict[str, Any]) -> Non
 if __name__ == "__main__":
     # This script is not meant to be run directly
     print("This script is meant to be imported by deploy.py")
+    print("To deploy the Gong Lambda function, use: python deploy.py --deploy lambda --lambda_name gong_retrieval")
