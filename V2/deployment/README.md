@@ -22,10 +22,9 @@ This directory contains scripts and configuration for deploying the RevOps AI Fr
 ├── scripts/
 │   ├── deployment/        # Core deployment scripts
 │   │   ├── deploy.py             # Main deployment orchestrator
-│   │   ├── lambda_deployer.py    # Lambda function deployment
+│   │   ├── lambda_deployer.py    # Lambda function deployment (includes Gong Lambda handling)
 │   │   ├── knowledge_base_deployer.py  # Knowledge base deployment
 │   │   ├── agent_deployer.py     # Agent deployment
-│   │   ├── deploy_except_gong.py # Deploys all Lambdas except Gong tool
 │   │   └── delete_and_redeploy.py # Deletes and redeploys Lambda functions
 │   │
 │   ├── utilities/         # Helper scripts for deployment and maintenance
@@ -35,7 +34,8 @@ This directory contains scripts and configuration for deploying the RevOps AI Fr
 │   │   └── update_firebolt_metadata.py # Updates firebolt_metadata Lambda
 │   │
 │   └── testing/           # Scripts for testing deployed components
-│       └── test_firebolt_writer.py   # Tests the firebolt_writer Lambda
+│       ├── test_firebolt_writer.py   # Tests the firebolt_writer Lambda
+│       └── test_gong_lambda.py      # Tests the Gong call retrieval Lambda
 │
 └── backups/               # Backup files and deployment responses
     ├── config.json.YYYYMMDD
@@ -98,17 +98,37 @@ This script checks for:
 python deploy.py --deploy
 ```
 
-#### Selective Deployment
+#### Component Deployment
 
 ```bash
 # Deploy specific components
 python deploy.py --deploy lambda kb data_agent
-
-# Deploy a specific Lambda function
-python deploy.py --deploy lambda --lambda_function firebolt_query
 ```
 
-#### Testing After Deployment
+Options:
+- `lambda`: Deploy all Lambda functions
+- `kb`: Deploy knowledge base
+- `data_agent`: Deploy data agent
+- `decision_agent`: Deploy decision agent
+- `execution_agent`: Deploy execution agent
+
+#### Specific Lambda Deployment
+
+```bash
+# Deploy a specific Lambda function (e.g., Gong retrieval)
+python deploy.py --deploy lambda --lambda_name gong_retrieval
+
+# Deploy another specific Lambda function
+python deploy.py --deploy lambda --lambda_name firebolt_query
+```
+
+The `--lambda_name` parameter works with both deployment and testing:
+```bash
+# Deploy and test a specific Lambda function
+python deploy.py --deploy lambda --test lambda --lambda_name gong_retrieval
+```
+
+### 3. Testing Components after deployment
 
 ```bash
 # Test components after deployment
@@ -118,26 +138,18 @@ python deploy.py --test lambda data_agent
 python deploy.py --deploy lambda --test lambda
 ```
 
-### 3. Special Deployment Cases
+### 4. Special Cases
 
-#### Deploying All Lambda Functions Except Gong
+#### Gong Lambda Deployment
 
-```bash
-# For initial deployment, excluding Gong tool
-python scripts/deployment/deploy_except_gong.py
-```
-
-#### Fixing Deployment Issues
-
-If a Lambda deployment fails with ResourceConflictException:
+The Gong Lambda has special handling integrated into the main deployment script:
 
 ```bash
-# Option 1: Delete and redeploy a specific Lambda
-python scripts/deployment/delete_and_redeploy.py --function firebolt_query
-
-# Option 2: Update a specific Lambda with dependencies
-python scripts/utilities/update_firebolt_metadata.py
+# Deploy only the Gong Lambda
+python deploy.py --deploy lambda --lambda_name gong_retrieval
 ```
+
+This approach handles setting the correct source directory path and AWS credential setup automatically.
 
 ## Component Details
 
@@ -148,7 +160,7 @@ python scripts/utilities/update_firebolt_metadata.py
 | firebolt_query | Executes SQL queries | FIREBOLT_ACCOUNT_NAME, FIREBOLT_ACCOUNT, FIREBOLT_ENGINE, FIREBOLT_DATABASE | - |
 | firebolt_metadata | Retrieves schema info | FIREBOLT_ACCOUNT, FIREBOLT_ENGINE, FIREBOLT_DATABASE | requests |
 | firebolt_writer | Executes write operations | FIREBOLT_ACCOUNT, FIREBOLT_ENGINE, FIREBOLT_DATABASE | - |
-| gong_retrieval | Retrieves Gong call data | (Add Gong-specific variables) | (Add Gong dependencies) |
+| gong_retrieval | Retrieves Gong call data | GONG_CREDENTIALS_SECRET | boto3 |
 | webhook | Sends data to webhooks | - | requests |
 
 ### Knowledge Base
@@ -187,6 +199,33 @@ The knowledge base contains schema information for Firebolt tables and columns.
   4. Decision agent
   5. Execution agent
 
+## Gong Lambda Deployment and Testing
+
+The Gong Lambda function requires special handling due to its authentication requirements:
+
+1. **AWS Secret Setup:**
+   - Create a secret in AWS Secrets Manager named `gong-credentials` with two fields:
+     - `access_key`: Your Gong API access key
+     - `access_key_secret`: Your Gong API access key secret
+
+2. **Deployment:**
+   ```bash
+   source venv/bin/activate
+   python deploy.py --deploy lambda --lambda_name gong_retrieval
+   python scripts/deployment/deploy_gong.py
+   ```
+
+3. **Testing:**
+   ```bash
+   source venv/bin/activate
+   python scripts/testing/test_gong_lambda.py
+   ```
+
+4. **Authentication Notes:**
+   - The Gong Lambda uses Basic Authentication with the credentials from AWS Secrets Manager
+   - The Lambda accesses Gong's API endpoints via GET requests
+   - Environment variable `GONG_CREDENTIALS_SECRET` must be set to `gong-credentials`
+
 ## Troubleshooting
 
 ### Common Issues
@@ -202,3 +241,6 @@ The knowledge base contains schema information for Firebolt tables and columns.
 3. **Environment variable configuration issues**
    - Solution: Check config.json for missing environment variables
    - Use update_lambda_env.py to update environment variables for deployed Lambdas
+
+4. **Gong API 401 errors**
+   - Verify that the AWS secret is correctly configured with valid Gong API credentials

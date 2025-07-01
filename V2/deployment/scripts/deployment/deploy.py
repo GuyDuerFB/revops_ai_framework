@@ -76,9 +76,18 @@ def update_config(config: Dict[str, Any]) -> None:
     print(f"Updated configuration saved to {CONFIG_FILE}")
 
 
-def deploy_all(config: Dict[str, Any], secrets: Dict[str, Any], components: List[str] = None) -> Dict[str, Any]:
+def deploy_all(config: Dict[str, Any], secrets: Dict[str, Any], components: List[str] = None, lambda_name: str = None) -> Dict[str, Any]:
     """
     Deploy all components or specified components
+    
+    Args:
+        config: Configuration dictionary
+        secrets: Secrets dictionary
+        components: List of components to deploy (lambda, kb, data_agent, etc.)
+        lambda_name: Optional name of specific Lambda function to deploy
+        
+    Returns:
+        Updated configuration with deployment results
     """
     updated_config = config.copy()
     
@@ -93,8 +102,35 @@ def deploy_all(config: Dict[str, Any], secrets: Dict[str, Any], components: List
     # Deploy Lambda functions (tools)
     if "lambda" in components_to_deploy:
         print("\n=== Deploying Lambda Functions ===")
-        lambda_results = deploy_lambda_functions(config, secrets)
-        updated_config = lambda_results["config"]
+        
+        # Handle specific Lambda deployment if requested
+        if lambda_name:
+            if lambda_name not in config.get("lambda_functions", {}):
+                print(f"Error: Lambda function '{lambda_name}' not found in configuration")
+                sys.exit(1)
+                
+            print(f"Deploying single Lambda function: {lambda_name}")
+            
+            # Special case for Gong Lambda
+            if lambda_name == "gong_retrieval":
+                print("Using specialized Gong Lambda deployment logic")
+                updated_config = deploy_lambda_functions(config, secrets)
+            else:
+                # Create a filtered config with only the requested Lambda
+                filtered_config = updated_config.copy()
+                lambda_config = filtered_config["lambda_functions"][lambda_name]
+                filtered_config["lambda_functions"] = {lambda_name: lambda_config}
+                
+                # Deploy the single Lambda function
+                lambda_results = deploy_lambda_functions(filtered_config, secrets)
+                
+                # Update the main config with the result
+                if lambda_name in lambda_results.get("config", {}).get("lambda_functions", {}):
+                    updated_config["lambda_functions"][lambda_name] = lambda_results["config"]["lambda_functions"][lambda_name]
+        else:
+            # Deploy all Lambda functions
+            lambda_results = deploy_lambda_functions(config, secrets)
+            updated_config = lambda_results["config"]
     
     # Deploy knowledge base
     if "kb" in components_to_deploy:
@@ -182,31 +218,57 @@ def test_e2e(config: Dict[str, Any], secrets: Dict[str, Any]) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Deploy RevOps AI Framework to AWS")
-    parser.add_argument("--deploy", nargs="*", help="Components to deploy (lambda, kb, data_agent, decision_agent, execution_agent)")
-    parser.add_argument("--test", nargs="*", help="Components to test (lambda, kb, data_agent, decision_agent, execution_agent, e2e)")
+    parser.add_argument("--deploy", type=str, nargs="+", choices=["all", "lambda", "kb", "data_agent", "decision_agent", "execution_agent"],
+                        help="Component(s) to deploy. 'all' deploys everything.")
+    parser.add_argument("--test", type=str, nargs="+", choices=["all", "lambda", "kb", "data_agent", "decision_agent", "execution_agent", "e2e"],
+                        help="Component(s) to test.")
+    parser.add_argument("--lambda_name", type=str,
+                        help="Deploy a specific Lambda function by name (e.g., 'gong_retrieval', 'firebolt_query')")
+    
     args = parser.parse_args()
     
     # Load configuration and secrets
     config = load_config()
     secrets = load_secrets()
     
-    # Determine action
-    if args.deploy is not None:
-        # Empty list means deploy all
-        components = args.deploy if args.deploy else None
-        results = deploy_all(config, secrets, components)
-        update_config(results["config"])
-        print("Deployment completed successfully!")
+    # Deploy components if requested
+    if args.deploy:
+        components = None
+        if "all" in args.deploy:
+            components = None  # Deploy all components
+        else:
+            components = args.deploy
+            
+        updated_config = deploy_all(config, secrets, components, args.lambda_name)
+        update_config(updated_config["config"])
     
-    if args.test is not None:
-        # Empty list means test all
-        components = args.test if args.test else None
-        test_components(config, secrets, components)
-        print("Testing completed!")
-    
-    if args.deploy is None and args.test is None:
-        print("No action specified. Use --deploy or --test to specify an action.")
-        parser.print_help()
+    # Test components if requested
+    if args.test:
+        components = None
+        if "all" in args.test:
+            components = ["lambda", "kb", "data_agent", "decision_agent", "execution_agent"]
+        else:
+            components = args.test
+            
+        # If testing a specific Lambda
+        if args.lambda_name and "lambda" in components:
+            print(f"\nTesting specific Lambda function: {args.lambda_name}")
+            lambda_config = config["lambda_functions"].get(args.lambda_name)
+            if lambda_config:
+                test_lambda_function(args.lambda_name, lambda_config)
+            else:
+                print(f"Error: Lambda function '{args.lambda_name}' not found in configuration")
+            
+            # Remove 'lambda' from components as we've already tested the specific one
+            components.remove("lambda")
+            
+        if "e2e" in components:
+            # Remove e2e from components as it's handled separately
+            components.remove("e2e")
+            test_e2e(config, secrets)
+            
+        if components:  # If there are other components to test
+            test_components(config, secrets, components)
 
 
 if __name__ == "__main__":
