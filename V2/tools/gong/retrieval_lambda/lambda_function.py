@@ -17,6 +17,52 @@ import hmac
 import hashlib
 from datetime import datetime, timedelta, date
 from typing import Dict, Any, List, Optional, Union
+import re
+
+# Utility functions
+def parse_date_range_string(date_range_str: str) -> Dict[str, str]:
+    """
+    Parse a date range string (e.g., "7d", "30d", "1w") into from/to dates.
+    
+    Args:
+        date_range_str (str): Date range string like "7d", "30d", "1w", "3m"
+        
+    Returns:
+        Dict[str, str]: Dictionary with 'from' and 'to' date strings in ISO format
+    """
+    # Remove any whitespace
+    date_range_str = date_range_str.strip().lower()
+    
+    # Parse the number and unit
+    match = re.match(r'^(\d+)([dwmy])$', date_range_str)
+    if not match:
+        # Default to 7 days if invalid format
+        amount = 7
+        unit = 'd'
+    else:
+        amount = int(match.group(1))
+        unit = match.group(2)
+    
+    # Calculate the date range
+    now = datetime.utcnow()
+    
+    if unit == 'd':  # days
+        from_date = now - timedelta(days=amount)
+    elif unit == 'w':  # weeks
+        from_date = now - timedelta(weeks=amount)
+    elif unit == 'm':  # months (approximate as 30 days)
+        from_date = now - timedelta(days=amount * 30)
+    elif unit == 'y':  # years (approximate as 365 days)
+        from_date = now - timedelta(days=amount * 365)
+    else:
+        # Default to days
+        from_date = now - timedelta(days=amount)
+    
+    # Format as ISO strings
+    return {
+        'from': from_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'to': now.strftime('%Y-%m-%dT%H:%M:%SZ')
+    }
 
 # Authentication and credential management
 def get_aws_secret(secret_name: str, region_name: str = "us-east-1") -> Dict[str, str]:
@@ -431,6 +477,11 @@ def get_gong_data(
         if filters is None:
             filters = {}
         
+        # Handle string date_range (e.g., "7d", "30d", "1w")
+        if isinstance(date_range, str):
+            # Convert string date range to proper from/to format
+            date_range = parse_date_range_string(date_range)
+        
         # Use environment variables or defaults for these values
         secret_name = os.environ.get('GONG_CREDENTIALS_SECRET', 'gong-credentials')
         region_name = os.environ.get('AWS_REGION', 'us-east-1')
@@ -440,8 +491,8 @@ def get_gong_data(
         
         # Combine parameters
         params = {
-            'from_date': date_range.get('from'),
-            'to_date': date_range.get('to'),
+            'from_date': date_range.get('from') if isinstance(date_range, dict) else None,
+            'to_date': date_range.get('to') if isinstance(date_range, dict) else None,
             'call_id': call_id,
             **filters
         }

@@ -1,1 +1,0 @@
-scripts/utilities/validate_deployment.py
