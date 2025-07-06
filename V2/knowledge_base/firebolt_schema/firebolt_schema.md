@@ -451,6 +451,15 @@ Account forecast dimension table:
 - Join Gong calls to accounts: `gong_call_f.gong_primary_account = salesforce_account_d.sf_account_id`
 - Join Gong calls to opportunities: `gong_call_f.gong_related_opportunity = opportunity_d.opportunity_id`
 
+### FB1/FB2 Bridge Relationships
+- FB1 to Salesforce bridge: `firebolt_fb1_account_d.sf_account_id = salesforce_account_d.sf_account_id`
+- Billing events to FB1 accounts: `billing_event_f.aflo_customer_name = firebolt_fb1_account_d.account_name`
+- Billing events to FB2 accounts: `billing_event_f.organization_id = salesforce_account_d.organization_id`
+- Amberflo customer connection: `billing_event_f.aflo_customer_id = amberflo_customer_d.aflo_customer_id`
+- FB2 consumption to accounts: `firebolt_account_d.account_id = consumption_event_f.account_id`
+- Join FB 1.0 accounts to Salesforce accounts: `firebolt_fb1_account_d.sf_account_id = salesforce_account_d.sf_account_id`
+
+
 ### User and Employee Relationships
 - Join account owners to Salesforce accounts: `employee_d.sf_user_id = salesforce_account_d.sf_owner_id`
 - Join opportunity owners to opportunities: `employee_d.sf_user_id = opportunity_d.owner_id`
@@ -462,9 +471,6 @@ Account forecast dimension table:
 - Join discounts to invoices: `customer_discount_f.organization_id = customer_invoice_line_f.organization_id AND invoice_started_at BETWEEN valid_from AND valid_to`
 - Join invoices to Salesforce accounts: `customer_invoice_line_f.organization_id = salesforce_account_d.organization_id`
 
-### Special Joins for FB 1.0 and FB 2.0
-- Join FB 1.0 accounts to Salesforce accounts: `firebolt_fb1_account_d.sf_account_id = salesforce_account_d.sf_account_id`
-- Bridge FB 1.0 and FB 2.0 data: `billing_event_f.aflo_customer_name = firebolt_fb1_account_d.account_name`
 
 ## Common Query Patterns
 
@@ -480,6 +486,37 @@ GROUP BY 1, 2
 ORDER BY 1, 2
 ```
 
+### Monthly Revenue by Account and Owner
+```sql
+SELECT
+    COALESCE(salesforce_account_d.sf_account_id,sf_acc.sf_account_id) as "salesforce_account_d.sf_account_id",
+    COALESCE(salesforce_account_d.sf_account_type_custom,sf_acc.sf_account_type_custom) AS "salesforce_account_d.sf_account_type_custom",
+    COALESCE(salesforce_account_d.sf_account_type_custom,sf_acc.sf_account_type_custom) AS sf_account_type_custom,
+    COALESCE(salesforce_account_d.sf_account_name, sf_acc.sf_account_name) AS sf_account_name,
+    COALESCE(salesforce_account_d.sf_open_opportunities, sf_acc.sf_open_opportunities) AS sf_open_opportunities,
+    COALESCE(salesforce_account_d.sf_account_name, sf_acc.sf_account_name) AS "salesforce_account_d.sf_account_name",
+    COALESCE(salesforce_account_d.account_region, sf_acc.account_region) AS "salesforce_account_d.account_region",
+    COALESCE(sf_owner_1.first_name  || ' ' || sf_owner_1.last_name, sf_owner_2.first_name  || ' ' || sf_owner_2.last_name) AS sf_account_owner_name,
+  	date_trunc('month', mrr_report_date_ts) as month,
+  	case when organization_d.organization_name is null then 'Firebolt 1' else 'Firebolt 2' end as platform,
+  	sum(amount) as consumption
+FROM billing_event_f
+LEFT JOIN organization_d AS organization_d ON organization_d.organization_id = billing_event_f.organization_id
+LEFT JOIN salesforce_account_d AS salesforce_account_d ON billing_event_f.organization_id = salesforce_account_d.organization_id 
+LEFT JOIN 
+    employee_d AS sf_owner_1
+    ON sf_owner_1.sf_user_id = salesforce_account_d.sf_owner_id
+LEFT JOIN 
+ firebolt_fb1_account_d fb1 ON billing_event_f.aflo_customer_name = fb1.account_name
+LEFT JOIN salesforce_account_d sf_acc ON fb1.sf_account_id = sf_acc.sf_account_id
+LEFT JOIN amberflo_customer_d  ON billing_event_f.aflo_customer_id = amberflo_customer_d.aflo_customer_id
+LEFT JOIN countries_by_region ON amberflo_customer_d.customer_country = countries_by_region.country_code
+LEFT JOIN aws_account_d ON billing_event_f.aws_account_id = aws_account_d.aws_account_id
+LEFT JOIN 
+    employee_d AS sf_owner_2
+    ON sf_owner_2.sf_user_id = sf_acc.sf_owner_id
+group by all
+```
 ### Engine Cost Analysis
 ```sql
 SELECT

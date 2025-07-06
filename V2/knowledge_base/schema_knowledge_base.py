@@ -91,9 +91,15 @@ class SchemaKnowledgeBase:
                     'vectorKnowledgeBaseConfiguration': storage_configuration
                 },
                 storageConfiguration={
-                    'type': 'S3',
-                    's3Configuration': {
-                        'bucketName': data_source_bucket
+                    'type': 'OPENSEARCH_SERVERLESS',
+                    'opensearchServerlessConfiguration': {
+                        'collectionArn': storage_configuration.get('collectionArn'),
+                        'vectorIndexName': 'bedrock-knowledge-base-default-index',
+                        'fieldMapping': {
+                            'vectorField': 'bedrock-knowledge-base-default-vector',
+                            'textField': 'AMAZON_BEDROCK_TEXT',
+                            'metadataField': 'AMAZON_BEDROCK_METADATA'
+                        }
                     }
                 }
             )
@@ -141,8 +147,17 @@ class SchemaKnowledgeBase:
                 dataSourceConfiguration={
                     'type': 'S3',
                     's3Configuration': {
-                        'bucketName': data_source_bucket,
-                        'prefix': data_source_prefix
+                        'bucketArn': f'arn:aws:s3:::{data_source_bucket}'
+                    }
+                },
+                vectorIngestionConfiguration={
+                    'chunkingConfiguration': {
+                        'chunkingStrategy': 'SEMANTIC',
+                        'semanticChunkingConfiguration': {
+                            'breakpointPercentileThreshold': 95,
+                            'bufferSize': 0,
+                            'maxTokens': 300
+                        }
                     }
                 }
             )
