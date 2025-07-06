@@ -1,1270 +1,474 @@
-# Firebolt RevOps AI Framework V2
+# RevOps AI Framework V2
 
-![Firebolt Logo](https://firebolt.io/static/firebolt-logo-light-80b11f708f.svg)
+**Enterprise-grade AI-powered Revenue Operations Framework built on Amazon Bedrock**
 
-## Overview
+## Project Goal
 
-The Firebolt RevOps AI Framework is an advanced multi-agent orchestration system built on AWS Bedrock that empowers Revenue Operations teams with AI-driven insights, recommendations, and automated actions. The framework processes and analyzes data from multiple sources to optimize deal quality assessment and consumption pattern analysis.
+The RevOps AI Framework is a comprehensive, AI-powered revenue operations platform designed to revolutionize how revenue teams analyze data, assess leads, manage deals, and optimize business performance. Built on Amazon Bedrock with a multi-agent architecture, it provides intelligent automation and insights across the entire revenue lifecycle.
 
-## Business Goals
+## What This System Does
 
-### Primary Objectives
+### For RevOps Teams
+This system acts as your intelligent assistant for revenue operations. Instead of manually analyzing data across multiple systems, you can simply ask questions in plain English through Slack and get comprehensive answers. The system automatically pulls data from your Firebolt Data Warehouse, Salesforce CRM, and Gong call recordings to provide complete insights about customers, deals, and revenue performance.
 
-- **Improve Deal Quality**: Identify and prioritize high-value opportunities by analyzing deals against the Ideal Customer Profile (ICP) to focus sales efforts on the most promising prospects.
+### Technical Implementation
+The system uses four specialized AI agents working together: a Decision Agent that coordinates everything, a Data Agent that retrieves information from your databases, a WebSearch Agent that researches companies and prospects, and an Execution Agent that can take actions like sending notifications or updating systems. This multi-agent approach ensures accurate, comprehensive responses while maintaining security and performance.
 
-- **Enhance Customer Success**: Proactively monitor and respond to consumption patterns to identify churn risks and growth opportunities before they affect revenue.
+## Solution Overview
 
-- **Streamline Operations**: Automate repetitive analysis tasks and enable data-driven decision making across the revenue cycle.
+### Core Problem Solved
+Revenue teams struggle with:
+- Manual analysis of vast amounts of customer and prospect data
+- Time-intensive lead qualification and assessment processes
+- Fragmented insights across multiple data sources (Firebolt Data Warehouse, Salesforce, Gong)
+- Reactive rather than proactive revenue management
+- Inconsistent decision-making processes
 
-- **Drive Revenue Growth**: Increase customer lifetime value through timely interventions based on AI-driven insights and recommendations.
-
-### Key Performance Indicators (KPIs)
-
-- Reduction in sales cycle length
-- Improved forecast accuracy
-- Increased deal win rates
-- Decreased customer churn
-- Enhanced upsell/cross-sell rates
-- More efficient resource allocation
+### Our Solution
+An intelligent AI framework that:
+- Automates complex revenue operations analysis using specialized AI agents
+- Provides real-time insights from multiple data sources
+- Enables natural language interactions through Slack integration
+- Delivers consistent, data-driven recommendations for revenue optimization
+- Scales seamlessly with enterprise-grade AWS infrastructure
 
 ## Architecture Overview
 
-The framework implements a sophisticated multi-agent system leveraging AWS Bedrock Agents and Flows to create an intelligent, collaborative workflow that processes information, makes decisions, and executes actions autonomously.
-
-### System Architecture
+### Multi-Agent Collaboration Architecture
 
 ```
-┌─────────────────────┐    ┌───────────────────┐    ┌───────────────────┐
-│                     │    │                   │    │                   │
-│  Data Analysis      │    │  Decision         │    │  Execution        │
-│  Agent              ├───►│  Agent            ├───►│  Agent            │
-│                     │    │                   │    │                   │
-└─────────────────────┘    └───────────────────┘    └───────────────────┘
-         ▲                          ▲                        │
-         │                          │                        │
-         │                          │                        ▼
-┌─────────────────────┐    ┌───────────────────┐    ┌───────────────────┐
-│                     │    │                   │    │                   │
-│  Knowledge Base     │    │  Action           │    │  Integration      │
-│  (Schema/Queries)   │    │  Repository       │    │  Hub (Webhooks)   │
-│                     │    │                   │    │                   │
-└─────────────────────┘    └───────────────────┘    └───────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        USER INTERFACES                             │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐           │
+│  │    Slack    │    │   Direct    │    │   Future    │           │
+│  │ Integration │    │ API Calls   │    │ Interfaces  │           │
+│  └─────────────┘    └─────────────┘    └─────────────┘           │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    DECISION AGENT (SUPERVISOR)                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │ • Orchestrates multi-agent collaboration                     │ │
+│  │ • Processes complex revenue operations queries               │ │
+│  │ • Synthesizes insights from multiple sources                 │ │
+│  │ • Delivers strategic recommendations                         │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                    ┌───────────┼───────────┐
+                    ▼           ▼           ▼
+    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+    │   DATA AGENT    │ │ WEBSEARCH AGENT │ │ EXECUTION AGENT │
+    │                 │ │                 │ │                 │
+    │ • Firebolt DWH  │ │ • External      │ │ • Webhooks      │
+    │ • Salesforce    │ │   Intelligence  │ │ • Notifications │
+    │ • Gong Calls    │ │ • Company       │ │ • CRM Updates   │
+    │ • Knowledge     │ │   Research      │ │ • Data Writes   │
+    │   Base Queries  │ │ • Market Data   │ │ • Triggers      │
+    └─────────────────┘ └─────────────────┘ └─────────────────┘
+            │                   │                   │
+            ▼                   ▼                   ▼
+    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+    │ DATA SOURCES    │ │ EXTERNAL APIs   │ │ ACTION SYSTEMS  │
+    │                 │ │                 │ │                 │
+    │ • Firebolt DWH  │ │ • Web Search    │ │ • Slack         │
+    │ • Salesforce    │ │ • Company DBs   │ │ • Webhooks      │
+    │ • Gong          │ │ • Market APIs   │ │ • Firebolt      │
+    │ • Knowledge     │ │ • LinkedIn      │ │ • Salesforce    │
+    │   Base          │ │ • News Sources  │ │ • Email         │
+    └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
-### Core Components
+### Technology Stack
 
-#### 1. Specialized Agents
+- AI/ML Platform: Amazon Bedrock (Claude 3.5 Sonnet)
+- Agent Framework: Amazon Bedrock Agents with SUPERVISOR collaboration
+- Data Platform: Firebolt Data Warehouse
+- CRM Integration: Salesforce
+- Conversation Intelligence: Gong
+- Knowledge Management: Amazon Bedrock Knowledge Bases
+- Integration Layer: AWS Lambda, API Gateway, SQS
+- User Interface: Slack (AWS best practices architecture)
+- Infrastructure: AWS (CloudFormation, IAM, Secrets Manager, CloudWatch)
 
-- **Data Analysis Agent**: Interfaces with Firebolt data warehouse to extract insights from customer data, usage patterns, and sales information. Leverages specialized knowledge about Firebolt's data schema to formulate complex analytical queries.
+## Core Use Cases
 
-- **Decision Agent**: Evaluates insights against business rules and recommends appropriate actions based on contextual understanding of the business domain. Applies domain-specific knowledge to determine optimal interventions.
-
-- **Execution Agent**: Implements recommended actions through integrations with external systems, converts decisions into executable operations, and provides feedback on action results.
-
-#### 2. Centralized Insights Storage
-
-The framework employs a centralized insights storage system using the `revops_ai_insights` table in Firebolt to maintain a cohesive view of all AI-generated findings, recommendations and actions:
-
+### 1. Data Analysis on Specific Topics
 ```
-┌─────────────────────┐    ┌───────────────────┐    ┌───────────────────┐
-│                     │    │                   │    │                   │
-│  Data Analysis      │    │  Decision         │    │  Execution        │
-│  Agent              ├───►│  Agent            ├───►│  Agent            │
-│                     │    │                   │    │                   │
-└─────────────────────┘    └───────────────────┘    └───────────────────┘
-         │                          │                        │
-         ▼                          ▼                        ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                                                                         │
-│                      RevOps AI Insights Table                           │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+Query: "Analyze Q4 consumption trends for EMEA customers"
+Process: Decision Agent → Data Agent → Firebolt DWH → Analysis → Insights
+Output: Detailed consumption analysis with trends, anomalies, and recommendations
 ```
 
-- **Insight Schema**: Rich schema supporting identifier, classification, scoring, temporal tracking, business metrics, and action history
-- **Lifecycle Management**: Insights flow through states (open → in_progress → resolved) with complete audit trail
-- **Multi-Agent Collaboration**: All agents read from and write to this central repository, allowing efficient handoffs
-- **Business Metrics**: Tracking of business impact, priority, and confidence scoring for insights
-- **JSON Data Support**: Uses Firebolt's VARIANT type to store flexible JSON data structures for metadata, attributes, and action results
-
-#### 3. Supporting Infrastructure
-
-- **Knowledge Bases**: Specialized vector databases containing:
-  - Firebolt schema information for intelligent data querying
-  - Business rule documentation for decision context
-  - Integration guidelines for execution capabilities
-
-- **Lambda Function Tools**:
-  - **Firebolt Reader**: Executes optimized read queries against Firebolt data warehouse
-  - **Firebolt Writer**: Performs secure write operations with robust SQL generation and specialized insight validation
-  - **Gong Analyzer**: Retrieves and processes conversational data from Gong
-  - **Consolidated Webhook Lambda**: A unified webhook handler for sending notifications and triggering external systems, with support for queue processing and Bedrock Agent compatibility
-
-- **Bedrock Flow Orchestration**: Manages the sequence and dependencies between agent operations, handling data passing and error management
-
-#### 3. Integration Points
-
-- **Data Sources**: Firebolt DWH, Salesforce, Gong, Customer Usage Metrics
-- **Action Channels**: Slack alerts, Email notifications, CRM updates, Ticketing systems
-
-### Technical Foundation
-
-- **Compute Layer**: AWS Lambda for serverless operations
-- **Security**: AWS Secrets Manager for credential management
-- **Storage**: S3 for knowledge base source files
-- **AI Backbone**: AWS Bedrock for foundation model inference
-- **Orchestration**: AWS Bedrock Flows for agent sequencing
-
-### Security Architecture
-
+### 2. Lead Assessment and Qualification
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Security Layer                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│ ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────┐   │
-│ │ Authentication  │    │ Authorization   │    │  Data Protection    │   │
-│ └────────┬────────┘    └────────┬────────┘    └─────────┬───────────┘   │
-│          │                       │                       │               │
-└──────────┼───────────────────────┼───────────────────────┼───────────────┘
-           │                       │                       │
-           ▼                       ▼                       ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          Agent Interactions                              │
-└─────────────────────────────────────────────────────────────────────────┘
+Query: "Assess if John Smith from TechCorp is a good lead"
+Process: Decision Agent → Data Agent (CRM check) → WebSearch Agent (research) → Assessment
+Output: Comprehensive lead score with ICP alignment and engagement strategy
 ```
 
-#### Authentication & Authorization
-
-- **Token-based Authentication**: All inter-agent communications authenticated with short-lived JWT tokens
-- **Request Signing**: All Lambda invocations require AWS SigV4 signatures
-- **Least Privilege IAM**: Each Lambda function has its own IAM role with minimal permissions
-  ```json
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Action": ["firehose:PutRecord", "firehose:PutRecordBatch"],
-        "Resource": "arn:aws:firehose:region:account-id:deliverystream/revops-ai-logs"
-      },
-      {
-        "Effect": "Allow",
-        "Action": ["secretsmanager:GetSecretValue"],
-        "Resource": "arn:aws:secretsmanager:region:account-id:secret:firebolt-credentials-*"
-      }
-    ]
-  }
-  ```
-- **Credential Rotation**: Automatic rotation of service credentials using AWS Secrets Manager
-- **Request Validation**: All incoming requests validated against schema before processing
-
-#### Data Protection
-
-- **Encryption at Rest**: All data stored in S3 and Firebolt encrypted
-- **Encryption in Transit**: All communications use TLS 1.2+ with modern cipher suites
-- **Secrets Isolation**: Credentials stored only in AWS Secrets Manager, never in code or environment variables
-- **Secure Defaults**: All infrastructure deployed with security best practices by default
-
-## Supported Scenarios & Use Cases
-
-### 1. Deal Quality Assessment
-
-Evaluates sales opportunities against Firebolt's Ideal Customer Profile (ICP) to optimize sales resource allocation and improve win rates.
-
-**Capabilities:**
-- **ICP Alignment Analysis**: Scores deals based on firmographic, technographic, and use case fit
-- **Opportunity Data Health**: Identifies missing or inconsistent data in CRM records
-- **Technical Qualification**: Evaluates technical requirements against Firebolt's capabilities
-- **Conversation Intelligence**: Processes call transcripts to extract key technical requirements and objections
-- **Risk Assessment**: Flags potential blockers and competitive threats
-
-**Outputs:**
-- Deal quality score (0-100)
-- Prioritized action items to improve deal quality
-- Suggested conversation topics for sales teams
-- Risk mitigation recommendations
-
-### 2. Consumption Pattern Analysis
-
-Monitors and analyzes customer usage data to identify potential churn risks and growth opportunities.
-
-**Capabilities:**
-- **Usage Trend Analysis**: Tracks changes in query volume, data ingestion, and compute usage
-- **Anomaly Detection**: Identifies unusual patterns in consumption metrics
-- **Seasonal Adjustment**: Normalizes usage patterns accounting for known business cycles
-- **Growth Opportunity Identification**: Highlights areas for potential upsell based on usage patterns
-- **Customer Health Scoring**: Calculates overall health score based on multiple data points
-
-**Outputs:**
-- Consumption trend alerts with explanation
-- Customer health dashboard updates
-- Recommended intervention strategies
-- Growth opportunity notifications
-
-### 3. Custom Analysis Workflows
-
-The framework is extensible to support additional use cases by adding new knowledge bases, Lambda functions, and agent instructions.
-
-## Deployment & Configuration
-
-### System Requirements
-
-**AWS Environment:**
-- AWS Account with access to Bedrock, Lambda, IAM, S3, and Secrets Manager
-- AWS CLI version 2.0+ installed and configured with appropriate credentials
-- Python 3.9+ for the deployment script
-
-**Source Systems:**
-- Firebolt account with OAuth credentials
-- Gong account with API access (optional)
-- Salesforce access for CRM data (optional)
-
-**Destination Systems:**
-- Slack workspace for notifications (optional)
-- Email server configuration (optional)
-
-### Configuration Files
-
-- `config_template.json`: Main configuration file template
-- `secrets_template.json`: Template for storing credentials securely
-- `webhook_config_template.json`: Configuration for external integrations
-
-### Deployment Process
-
-#### AWS CLI Deployment Approach
-
-The framework uses AWS CLI for infrastructure provisioning to ensure consistency, reproducibility, and direct control over AWS resources:
-
+### 3. Deal Health and Risk Assessment
 ```
-deployment/
-├── deploy_aws_cli.sh       # Main AWS CLI deployment script
-├── config_template.json    # Template for configuration
-├── secrets_template.json   # Template for sensitive data
-├── deploy.py              # Python helper for deployment
-└── archive/               # Archived legacy files
+Query: "Analyze the Acme Corp opportunity and assess deal risk"
+Process: Decision Agent → Data Agent (Salesforce + Gong) → Analysis → Risk scoring
+Output: Deal health assessment with risk factors and mitigation strategies
 ```
 
-The deployment process uses direct AWS CLI commands for resource provisioning:
+### 4. Customer Churn Risk Analysis
+```
+Query: "Which customers are at highest churn risk this quarter?"
+Process: Decision Agent → Data Agent (usage patterns) → WebSearch (company health) → Risk scoring
+Output: Prioritized churn risk list with intervention recommendations
+```
 
+### 5. Forecasting and Pipeline Reviews
+```
+Query: "Review Q1 pipeline forecast and identify gaps"
+Process: Decision Agent → Data Agent (pipeline data) → Analysis → Gap identification
+Output: Pipeline health assessment with gap analysis and strategies
+```
+
+### 6. Consumption Pattern Analysis
+```
+Query: "Analyze FBU utilization trends for commit customers"
+Process: Decision Agent → Data Agent (consumption data) → Pattern analysis
+Output: Usage optimization recommendations and expansion opportunities
+```
+
+## Key Capabilities
+
+### Intelligence and Analytics
+- Multi-source Data Integration: Seamlessly combines data from Firebolt Data Warehouse, Salesforce, Gong, and external sources
+- Temporal Analysis: Advanced time-series analysis with proper handling of incomplete periods
+- Customer Segmentation: Intelligent classification (Commit, Product-Led Growth, Prospects) with appropriate business logic
+- Anomaly Detection: Automated identification of unusual patterns requiring investigation
+- Predictive Analytics: Churn risk scoring, deal probability assessment, consumption forecasting
+
+### Natural Language Processing
+- Conversational Interface: Natural language queries through Slack integration
+- Context Awareness: Maintains conversation history for follow-up questions
+- Intent Recognition: Understands complex revenue operations requests
+- Multi-turn Conversations: Supports interactive analysis sessions
+
+### Automation and Actions
+- Automated Insights: Proactive identification of opportunities and risks
+- Stakeholder Notifications: Intelligent alerting based on analysis results
+- CRM Updates: Automated data enrichment and field updates
+- Workflow Triggers: Integration with existing revenue operations processes
+
+### Enterprise Features
+- Security: IAM-based access control with Slack signature verification
+- Scalability: Serverless AWS architecture with auto-scaling
+- Monitoring: Comprehensive CloudWatch integration
+- Error Handling: Dead letter queues and retry mechanisms
+- Audit Trail: Complete logging of all agent interactions
+
+## Business Value
+
+### Revenue Impact
+- Faster Lead Qualification: Reduce lead assessment time from hours to minutes
+- Improved Deal Conversion: Data-driven insights increase win rates
+- Churn Prevention: Proactive risk identification and intervention
+- Pipeline Optimization: Better forecasting and gap identification
+- Consumption Growth: Usage pattern analysis drives expansion opportunities
+
+### Operational Efficiency
+- Automated Analysis: Eliminate manual data gathering and analysis
+- Consistent Decision-Making: Standardized assessment criteria and processes
+- Real-time Insights: Immediate access to critical revenue data
+- Reduced Context Switching: All insights available through familiar Slack interface
+
+### Strategic Advantages
+- Data-Driven Culture: Promote evidence-based revenue decisions
+- Competitive Intelligence: External research capabilities for market insights
+- Scalable Operations: Handle growing data volumes without proportional team growth
+- Knowledge Democratization: Make revenue insights accessible to entire team
+
+## Deployment
+
+### Prerequisites
+- AWS Account with appropriate permissions
+- AWS CLI configured with `FireboltSystemAdministrator-740202120544` profile
+- Firebolt Data Warehouse access
+- Salesforce integration
+- Gong API access
+- Slack workspace administration rights
+
+### Quick Start
+
+#### 1. Deploy Core Agent Infrastructure
 ```bash
-# Example AWS CLI commands from deploy_aws_cli.sh
-# Create an S3 bucket for knowledge base storage
-aws s3api create-bucket \
-    --bucket $BUCKET_NAME \
-    --profile $AWS_PROFILE
-    
-# Create a Bedrock agent
-aws bedrock create-agent \
-    --agent-name "firebolt-data-agent" \
-    --instruction "$INSTRUCTIONS" \
-    --foundation-model "anthropic.claude-3-7-sonnet-20250219-v1:0" \
-    --profile $AWS_PROFILE
+cd deployment
+python3 deploy_production.py
 ```
 
-#### Deployment Steps
-
-1. **Initialize Configuration**
-
-   ```bash
-   cp deployment/config_template.json deployment/config.json
-   cp deployment/secrets_template.json deployment/secrets.json
-   # Edit these files to match your environment
-   ```
-
-2. **Set Up AWS CLI Credentials**
-
-   ```bash
-   # Follow instructions in deployment/setup_aws_cli.md
-   # This will configure your AWS CLI profile
-   aws configure sso
-   ```
-
-3. **Deploy Infrastructure Using AWS CLI**
-
-   ```bash
-   cd deployment
-   # For incremental deployment:
-   
-   # Deploy data agent and its infrastructure
-   ./deploy_aws_cli.sh --deploy-data
-   
-   # Deploy decision agent (when ready)
-   ./deploy_aws_cli.sh --deploy-decision
-   
-   # Deploy execution agent (when ready)
-   ./deploy_aws_cli.sh --deploy-exec
-   
-   # Or deploy everything at once
-   ./deploy_aws_cli.sh --deploy-all
-   ```
-
-4. **Verify Deployment**
-
-   ```bash
-   # Check deployment state file
-   cat deploy_state.json | jq
-   
-   # Optionally set up integration points
-   python scripts/configure_integrations.py
-   ```
-
-## Usage
-
-### Triggering the Framework
-
-The RevOps AI Framework can be activated through multiple methods:
-
-1. **Scheduled Analysis**
-   ```bash
-   # Configure an EventBridge rule (runs daily at 8am)
-   aws events put-rule --name "RevOpsAIDailyAnalysis" --schedule-expression "cron(0 8 * * ? *)"
-   
-   # Set the target to the main flow
-   aws events put-targets --rule "RevOpsAIDailyAnalysis" --targets "Id"="1","Arn"="arn:aws:bedrock:REGION:ACCOUNT_ID:flow/FLOW_ID"
-   ```
-
-2. **On-Demand Execution**
-   ```bash
-   # Via the provided CLI tool
-   python tools/cli/invoke_flow.py --flow deal_quality --account_id 123456 --opportunity_id SF12345
-   
-   # Or directly via AWS CLI
-   aws bedrock-agent invoke-flow --flow-id "FLOW_ID" --flow-alias-id "FLOW_ALIAS_ID" \
-     --inputs '{"input": {"content": {"account_id": "123456", "opportunity_id": "SF12345"}}}'
-   ```
-
-3. **Webhook Integration**
-   * Configure the provided webhook endpoints to receive events from external systems
-   * For example, trigger analysis when a Salesforce opportunity reaches a specific stage
-
-### Accessing Results
-
-* **Slack Notifications**: Receive immediate alerts for critical insights
-* **Email Reports**: Scheduled summaries of findings and recommendations
-* **Firebolt Database**: Query detailed results stored in the analyses table
-
-## Agent Flows & Orchestration
-
-### Multi-Agent Orchestration
-
-The RevOps AI Framework orchestrates a sequence of specialized agents that work together to analyze data, make decisions, and execute actions. Each agent has a specific role in the workflow and communicates with others through structured JSON payloads.
-
-#### Flow Architecture
-
-```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                                                           │
-│                         RevOps AI Framework Flow                          │
-│                                                                           │
-└─────────────────┬─────────────────────────────┬───────────────────────────┘
-                  │                             │
-          ┌───────▼───────┐           ┌─────────▼─────────┐
- ┌────────┤  Flow Input   ├───────────►  Input Processor  │
- │        └───────────────┘           └─────────┬─────────┘
- │                                              │
- │                                     ┌────────▼────────┐
- │                                     │                  │
- │                                     │   Data Agent     │
- │                                     │                  │
- │                                     └────────┬────────┘
- │                                              │
- │        ┌───────────────┐                     │
- │        │               │                     │
- │        │  Knowledge    │◄────────┐  ┌───────▼───────┐
- │        │  Base         │         │  │               │
- │        │               │         ├──┤ Decision Agent│
- │        └───────┬───────┘         │  │               │
- │                │                 │  └───────┬───────┘
- │                │                 │          │
- │        ┌───────▼───────┐         │  ┌───────▼───────┐
- │        │               │         │  │               │
- └────────┤   Execution   │◄────────┘  │   Analysis    │
-          │   Agent       │            │   Results     │
-          │               │            │               │
-          └───────┬───────┘            └───────────────┘
-                  │
-          ┌───────▼───────┐
-          │               │
-          │  Flow Output  │
-          │               │
-          └───────────────┘
-```
-
-#### Data Flow & Transformations
-
-1. **Input Processing Stage**
-   - **Input Format**: Raw trigger payload (JSON)
-   ```json
-   {
-     "trigger_type": "scheduled|event|manual",
-     "parameters": {
-       "account_id": "123456",
-       "opportunity_id": "OP-789",
-       "analysis_type": "deal_quality|consumption"
-     }
-   }
-   ```
-   - **Transformation**: Validates parameters, enriches with contextual metadata
-   - **Output Format**: Enriched analysis request (JSON)
-   ```json
-   {
-     "request_id": "req-uuid-1234",
-     "timestamp": "2025-06-10T10:30:00Z",
-     "analysis_type": "deal_quality",
-     "parameters": {
-       "account_id": "123456",
-       "opportunity_id": "OP-789"
-     },
-     "context": {
-       "requester": "scheduled_job",
-       "priority": "normal"
-     }
-   }
-   ```
-
-2. **Data Agent Stage**
-   - **Input Format**: Enriched analysis request (from Input Processor)
-   - **Processing**:
-     * Analyzes request to determine required data sources
-     * Formulates optimal SQL queries using schema knowledge
-     * Executes queries against Firebolt via Lambda function
-     * Retrieves external data (Gong transcripts, CRM data)
-     * Normalizes and merges data from multiple sources
-     * Performs preliminary analysis (trends, anomalies)
-   - **Output Format**: Structured analytical dataset (JSON)
-   ```json
-   {
-     "request_id": "req-uuid-1234",
-     "data_collection": {
-       "status": "complete",
-       "sources_accessed": ["firebolt", "gong", "salesforce"],
-       "record_counts": {"opportunities": 1, "calls": 5, "usage_metrics": 90}
-     },
-     "preliminary_findings": [
-       {"type": "data_gap", "description": "Missing technical requirements"},
-       {"type": "anomaly", "description": "Usage spike on 2025-06-01"}
-     ],
-     "dataset": {
-       "account": {...},
-       "opportunity": {...},
-       "usage_trends": [...],
-       "conversations": [...]
-     }
-   }
-   ```
-
-3. **Decision Agent Stage**
-   - **Input Format**: Structured analytical dataset (from Data Agent)
-   - **Knowledge Base Access**:
-     * Retrieves business rules from vector knowledge base
-     * Accesses ICP criteria and scoring rubrics
-     * Pulls historical patterns for comparative analysis
-   - **Processing**:
-     * Evaluates data against business rules and thresholds
-     * Calculates scores and confidence levels
-     * Identifies action triggers and priorities
-     * Generates recommendations with supporting evidence
-     * Formulates response strategies
-   - **Output Format**: Analysis results with recommendations (JSON)
-   ```json
-   {
-     "request_id": "req-uuid-1234",
-     "analysis_results": {
-       "scores": {
-         "deal_quality": 72,
-         "data_completeness": 85,
-         "technical_fit": 68
-       },
-       "flags": [
-         {"type": "risk", "severity": "medium", "description": "Competing solution mentioned"},
-         {"type": "opportunity", "severity": "high", "description": "Multi-region expansion potential"}
-       ]
-     },
-     "recommendations": [
-       {
-         "id": "rec-1",
-         "priority": "high",
-         "action": "technical_workshop",
-         "description": "Schedule technical workshop to address performance concerns",
-         "evidence": ["call_transcript_1", "usage_metric_3"],
-         "assignee": "solutions_engineering"
-       },
-       {...}
-     ]
-   }
-   ```
-
-4. **Execution Agent Stage**
-   - **Input Format**: Analysis results with recommendations (from Decision Agent)
-   - **Knowledge Base Access**:
-     * Retrieves integration specifications
-     * Accesses notification templates
-     * Pulls action execution patterns
-   - **Processing**:
-     * Transforms recommendations into executable actions
-     * Prioritizes and sequences actions
-     * Formats data for external system requirements
-     * Executes system integrations via webhooks
-     * Records actions and responses
-     * Manages state and retries for reliability
-   - **Output Format**: Execution results (JSON)
-   ```json
-   {
-     "request_id": "req-uuid-1234",
-     "execution_results": {
-       "status": "complete",
-       "timestamp": "2025-06-10T10:35:27Z",
-       "actions_executed": [
-         {
-           "id": "action-1",
-           "based_on": "rec-1",
-           "type": "notification",
-           "target": "slack",
-           "status": "success",
-           "response": {"channel": "#revops-alerts", "ts": "1623324927.001500"}
-         },
-         {
-           "id": "action-2",
-           "based_on": "rec-2",
-           "type": "data_update",
-           "target": "firebolt",
-           "status": "success",
-           "response": {"rows_affected": 1}
-         }
-       ],
-       "persistent_storage": {
-         "database": "firebolt",
-         "table": "revops_ai_executions",
-         "record_id": "exec-5678"
-       }
-     },
-     "summary": {
-       "total_actions": 5,
-       "successful": 5,
-       "failed": 0,
-       "notifications_sent": 2,
-       "data_updates": 3
-     }
-   }
-   ```
-
-5. **Flow Output Stage**
-   - **Input Format**: Execution results (from Execution Agent)
-   - **Processing**:
-     * Compiles comprehensive execution summary
-     * Formats final response
-     * Archives complete flow record
-   - **Output Format**: Final flow response (JSON)
-   ```json
-   {
-     "flow_execution_id": "flow-12345",
-     "request_id": "req-uuid-1234",
-     "status": "success",
-     "execution_time_ms": 4827,
-     "summary": "Deal quality assessment completed with 5 actions executed",
-     "results_location": {
-       "database": "firebolt",
-       "table": "revops_ai_executions",
-       "query": "SELECT * FROM revops_ai_executions WHERE request_id = 'req-uuid-1234'"
-     }
-   }
-   ```
-
-### Inter-Agent Communication
-
-#### Message Structure
-
-All messages between agents use a standardized envelope format with required tracking fields:
-
-```json
-{
-  "metadata": {
-    "request_id": "req-uuid-1234",
-    "flow_id": "flow-12345",
-    "source_agent": "data_agent",
-    "target_agent": "decision_agent",
-    "message_id": "msg-6789",
-    "timestamp": "2025-06-10T10:32:15Z",
-    "idempotency_key": "idem-key-abcdef",
-    "correlation_id": "corr-id-456789",
-    "version": 1
-  },
-  "payload": {
-    // Agent-specific content as shown above
-  }
-}
-```
-
-#### Robust Error Handling
-
-##### Error Response Format
-
-Agents implement a standardized error response format with detailed diagnostic information:
-
-```json
-{
-  "metadata": { /* standard metadata */ },
-  "error": {
-    "code": "DATA_RETRIEVAL_ERROR",
-    "message": "Failed to retrieve data from Firebolt",
-    "details": "Connection timeout after 30 seconds",
-    "recovery_action": "retry",
-    "retry_strategy": {
-      "max_attempts": 3,
-      "backoff_rate": 2.0,
-      "initial_delay_seconds": 1
-    },
-    "severity": "recoverable",
-    "diagnostic_info": {
-      "trace_id": "trace-123456",
-      "service": "firebolt-reader",
-      "operation": "execute_query",
-      "timestamp": "2025-06-10T10:32:17Z"
-    }
-  }
-}
-```
-
-##### Circuit Breaker Pattern
-
-All service integrations implement the circuit breaker pattern to prevent cascading failures:
-
-```
-┌───────────────────┐     ┌──────────────┐     ┌───────────────┐
-│                   │     │              │     │               │
-│  Service Client   ├────►│Circuit Breaker├────►│External Service│
-│                   │     │              │     │               │
-└───────────────────┘     └──────────────┘     └───────────────┘
-```
-
-Circuit breaker configuration is specified per integration:
-
-```json
-{
-  "circuit_breaker": {
-    "failure_threshold": 5,
-    "success_threshold": 3,
-    "timeout_seconds": 60,
-    "monitoring": {
-      "alarm_sns_topic": "arn:aws:sns:region:account:revops-ai-alerts"
-    }
-  }
-}
-```
-
-##### Retry Policies
-
-Exponential backoff with jitter is implemented for all service calls:
-
-```python
-def get_backoff_duration(attempt, initial_delay=1, max_delay=60, jitter=0.1):
-    delay = min(initial_delay * (2 ** attempt), max_delay)
-    jitter_amount = random.uniform(-jitter * delay, jitter * delay)
-    return delay + jitter_amount
-```
-
-##### Dead Letter Queues
-
-All asynchronous operations have associated dead letter queues for failed operations:
-
-```
-┌───────────────┐     ┌─────────────┐     ┌──────────────┐
-│  Operation    │     │  Max Retry  │     │ Dead Letter  │
-│  Queue        ├────►│  Exceeded   ├────►│ Queue        │
-└───────────────┘     └─────────────┘     └──────────────┘
-```
-
-Operations in dead letter queues trigger alerts and can be manually replayed after issue resolution.
-
-#### Advanced State Management
-
-##### Distributed Transaction Management
-
-The framework uses a distributed transaction manager for operations that span multiple services:
-
-```
-┌───────────────────────────────────────────────────────────┐
-│                Transaction Coordinator                     │
-├───────────┬───────────┬───────────┬───────────┬───────────┤
-│ Prepare   │ Commit    │ Rollback  │ Recovery  │ Timeout   │
-└───────────┴───────────┴───────────┴───────────┴───────────┘
-         ▲              │              ▲
-         │              ▼              │
-┌────────┴──────┐    ┌─────────────┐  └──────────────┐
-│ Participant 1 │    │Participant 2│               │Participant 3│
-└───────────────┘    └─────────────┘               └────────────┘
-```
-
-State management strategies by durability requirements:
-
-1. **Durable Persistent State**
-   - Stored in Firebolt tables with transaction guarantees
-   - Schema includes version control fields for optimistic concurrency
-   - Schema example:
-     ```sql
-     CREATE TABLE revops_ai_executions (
-       request_id VARCHAR NOT NULL,
-       flow_id VARCHAR,
-       version INTEGER NOT NULL,
-       created_at TIMESTAMP NOT NULL,
-       updated_at TIMESTAMP NOT NULL,
-       state_data VARIANT NOT NULL,
-       execution_status VARCHAR NOT NULL,
-       PRIMARY KEY (request_id)
-     )
-     ```
-
-2. **Transient Flow State**
-   - Maintained by Bedrock Flow service with checkpoint capability
-   - Critical decision points create explicit state checkpoints
-   - Recoverable from checkpoint in case of failure
-
-3. **Volatile Agent State**
-   - Temporarily stored in memory during agent execution
-   - Periodically synced to persistent state for recovery
-   - Implements lease mechanism for long-running operations
-
-##### Idempotency Implementation
-
-All stateful operations implement idempotency to prevent duplicate processing:
-
-```json
-{
-  "idempotency": {
-    "key": "idem-key-abcdef",
-    "expires_at": "2025-06-10T11:32:15Z",
-    "previous_response": {
-      "status": "success",
-      "result_id": "result-123"
-    }
-  }
-}
-```
-
-##### Compensating Transactions
-
-For multi-step operations that cannot be rolled back atomically, the framework implements compensating transactions:
-
-```python
-def execute_with_compensation(operations, compensation_handlers):
-    results = []
-    completed_ops = []
-    
-    try:
-        for i, operation in enumerate(operations):
-            result = operation.execute()
-            results.append(result)
-            completed_ops.append(i)
-    except Exception as e:
-        # Execute compensation handlers in reverse order
-        for op_idx in reversed(completed_ops):
-            compensation_handlers[op_idx](results[op_idx])
-        raise e
-    
-    return results
-```
-
-This robust state management allows for:
-- Recovery from failures at any point in the flow
-- Asynchronous processing with guaranteed completion
-- Complete audit trail of all decisions and actions
-- Analytics on historical executions and outcomes
-- Safe retries and reprocessing without side effects
-
-## Agent Capabilities
-
-### Data Agent
-
-**Core Capabilities:**
-* Schema-aware SQL query generation against Firebolt data warehouse
-* Multi-model data aggregation across various sources
-* Intelligent data transformation and preparation for analysis
-* Historical data comparison and trend identification
-* Data quality assessment and anomaly detection
-
-**Knowledge Base:**
-* Firebolt schema definitions and relationships
-* Common query patterns and optimization techniques
-* Data dictionary with business context for key metrics
-
-**Tools:**
-* `firebolt_reader`: Executes read queries against Firebolt
-* `gong_analyzer`: Retrieves and analyzes conversation data
-* `crm_connector`: Pulls opportunity and account data
-
-### Decision Agent
-
-**Core Capabilities:**
-* Evaluation of data insights against business rules
-* Risk scoring and opportunity assessment
-* Recommendation generation with confidence levels
-* Multi-factor decision making with weighted criteria
-* Context-aware analysis considering customer history
-
-**Knowledge Base:**
-* Business rules and evaluation criteria
-* Ideal Customer Profile (ICP) definition
-* Risk factors and mitigation strategies
-* Intervention threshold guidelines
-
-**Tools:**
-* `insight_analyzer`: Evaluates data against business rules
-* `recommendation_generator`: Creates actionable recommendations
-
-### Execution Agent
-
-**Core Capabilities:**
-* Transformation of recommendations into concrete actions
-* Integration with external systems via webhooks
-* Secure write operations to Firebolt database
-* Notification routing based on severity and context
-* Record-keeping of executed actions for accountability
-
-**Knowledge Base:**
-* Integration specifications and requirements
-* Action templates and formats
-* Escalation procedures and contact information
-
-**Tools:**
-* `firebolt_writer`: Performs write operations on Firebolt
-* `webhook_dispatcher`: Sends notifications to external systems
-* `action_logger`: Records executed actions for audit purposes
-
-## Development and Extension
-
-### Extending Agent Capabilities
-
-1. **Add New Action Groups**
-   ```bash
-   # Create a new action group definition
-   cp agents/templates/action_group_template.json agents/data_agent/actions/new_action.json
-   
-   # Edit the action group definition
-   nano agents/data_agent/actions/new_action.json
-   ```
-
-2. **Implement Lambda Functions**
-   ```bash
-   # Create a new Lambda function from template
-   mkdir -p tools/new_tool/lambda_function
-   cp tools/templates/lambda_template.py tools/new_tool/lambda_function/lambda_function.py
-   
-   # Implement your custom logic
-   nano tools/new_tool/lambda_function/lambda_function.py
-   ```
-
-3. **Update Knowledge Bases**
-   ```bash
-   # Add new knowledge base content
-   nano knowledge/schema/new_entity_schema.md
-   ```
-
-4. **Modify Flow Definitions**
-   ```bash
-   # Update flow configuration
-   nano deployment/config.json
-   ```
-
-### Testing Extensions
-
+#### 2. Deploy Slack Integration
 ```bash
-# Test Lambda function locally
-python tools/test_lambda.py --function-name new_tool --event tests/events/sample_event.json
-
-# Deploy and test specific components
-python deploy.py --deploy-lambdas --function new_tool
+cd integrations/slack-bedrock-gateway
+python3 deploy.py
 ```
 
+#### 3. Configure Slack App
+- Event Subscriptions URL: `https://your-api-gateway-url/prod/slack-events`
+- Subscribe to: `app_mention`
+- Install app to workspace
 
-
-## Lambda Function Design
-
-### Function Separation by Responsibility
-
-Lambda functions are designed following the single responsibility principle to improve maintainability, scalability, and fault isolation:
-
-#### Firebolt Data Service
-
-Rather than a monolithic writer Lambda, the framework implements specialized functions:
-
+#### 4. Test Integration
 ```
-┌───────────────────────────────┐
-│       Firebolt Data Service         │
-└───────┬────────┬──────────┘
-         │           │
-┌────────▼────────┐ ┌────────▼────────┐ ┌──────────────────┐
-│  firebolt-reader   │ │  firebolt-writer   │ │ firebolt-metadata │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-
-┌─────────────────┘ ┌─────────────────┘ ┌─────────────────┘
-│ Read Queries      │ │ Write Operations  │ │ Schema Information│
-└─────────────────┘ └─────────────────┘ └─────────────────┘
+@RevBot analyze EMEA customers consumption QoQ and provide main highlights
 ```
 
-1. **firebolt-reader**: Specialized for optimized read queries
-   - SQL query generation for analytics
-   - Result transformation and processing
-   - Cursor pagination for large result sets
-   - Query optimization for Firebolt engine
+### Advanced Configuration
 
-2. **firebolt-writer**: Specialized for data modification operations 
-   - Broken down into specialized modules:
-     ```python
-     # Writer service architecture
-     class FireboltWriterService:
-         def __init__(self, connection_manager):
-             self.connection = connection_manager
-             self.insert_handler = InsertOperationHandler(connection_manager)
-             self.update_handler = UpdateOperationHandler(connection_manager)
-             self.upsert_handler = UpsertOperationHandler(connection_manager)
-             self.transaction_manager = TransactionManager(connection_manager)
-             
-         def handle_operation(self, operation_type, params):
-             # Dispatch to appropriate specialized handler
-             if operation_type == 'INSERT':
-                 return self.insert_handler.execute(params)
-             elif operation_type == 'UPDATE':
-                 return self.update_handler.execute(params)
-             elif operation_type == 'UPSERT':
-                 return self.upsert_handler.execute(params)
-             else:
-                 raise ValueError(f"Unsupported operation: {operation_type}")
-     ```
+#### Environment Setup
+```bash
+# Clone repository
+git clone <repository-url>
+cd revops_ai_framework/V2
 
-3. **firebolt-metadata**: Manages schema information and metadata
-   - Table definitions and relationships
-   - Column data types and constraints
-   - Index information
-   - Schema change tracking
+# Configure AWS credentials
+aws configure --profile FireboltSystemAdministrator-740202120544
 
-#### Integration Service Design
+# Deploy infrastructure
+cd deployment
+python3 deploy_production.py
 
-Webhook dispatching uses non-blocking, queue-based architecture:
-
-```
-┌─────────────────┐     ┌─────────────┐     ┌───────────────────┐
-│ webhook-dispatcher ├───►│ Message Queue ├───►│ webhook-processor  │
-└─────────────────┘     └─────────────┘     └───────────────────┘
-                                                  │
-                                                  ▼
-                                     ┌───────────────────┐  
-                                     │ External Services │
-                                     └───────────────────┘
+# Deploy Slack integration
+cd ../integrations/slack-bedrock-gateway
+python3 deploy.py
 ```
 
-1. **webhook-dispatcher**: Queues notification requests
-   - Validates webhook payload against schema
-   - Attaches metadata and tracking information
-   - Publishes to SQS with appropriate attributes
-   - Returns immediately with acceptance receipt
+#### Monitoring Setup
+```bash
+# Monitor agent performance
+aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow
 
-2. **webhook-processor**: Processes notifications from queue
-   - Implements specialized handlers per integration type
-   - Manages rate limiting and throttling
-   - Implements circuit breakers for external services
-   - Provides status tracking and delivery guarantees
-
-### Lambda Connection Pooling
-
-Efficient connection management is implemented for database operations:
-
-```python
-class ConnectionManager:
-    _instances = {}
-    _lock = threading.RLock()
-    
-    @classmethod
-    def get_instance(cls, connection_id):
-        with cls._lock:
-            if connection_id not in cls._instances:
-                cls._instances[connection_id] = ConnectionManager(connection_id)
-            return cls._instances[connection_id]
-    
-    def __init__(self, connection_id):
-        self.connection_id = connection_id
-        self.pool = self._create_connection_pool()
-        self.last_used = time.time()
-        self.in_use_connections = 0
-    
-    def get_connection(self):
-        with self._lock:
-            self.in_use_connections += 1
-            self.last_used = time.time()
-            return self.pool.get_connection()
-    
-    def release_connection(self, conn):
-        with self._lock:
-            self.in_use_connections -= 1
-            self.pool.release_connection(conn)
+# Check system health
+cd integrations/slack-bedrock-gateway
+python3 tests/test_integration.py
 ```
 
-
-
-## Monitoring & Observability
-
-### Comprehensive Observability Stack
-
-The RevOps AI Framework implements a multi-layered observability stack:
+## Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Observability Dashboard                │
-└──────────────┬──────────────┬───────────────┬──────────┘
-               │              │               │
-┌──────────────▼┐    ┌────────▼─────┐    ┌────▼───────────┐
-│    Metrics     │    │    Logging   │    │    Tracing     │
-└──────────────┬┘    └────────┬─────┘    └────┬───────────┘
-               │              │               │
-┌──────────────▼┐    ┌────────▼─────┐    ┌────▼───────────┐
-│  CloudWatch    │    │ CloudWatch   │    │  X-Ray         │
-└───────────────┘    └──────────────┘    └────────────────┘
+revops_ai_framework/V2/
+├── agents/                          # AI Agent Definitions
+│   ├── data_agent/                  # Data retrieval and analysis
+│   ├── decision_agent/              # Main orchestrator (SUPERVISOR)
+│   ├── execution_agent/             # Action execution
+│   └── web_search_agent/            # External intelligence
+├── deployment/                      # Infrastructure deployment
+│   ├── config.json                  # Agent configuration
+│   └── deploy_production.py         # Main deployment script
+├── integrations/                    # External integrations
+│   └── slack-bedrock-gateway/       # Slack integration (AWS best practices)
+│       ├── infrastructure/          # CloudFormation templates
+│       ├── lambdas/                 # Handler and processor functions
+│       └── tests/                   # Integration tests
+├── knowledge_base/                  # Knowledge management
+│   ├── business_logic/              # Business rules and logic
+│   ├── firebolt_schema/             # Data warehouse schema
+│   ├── icp_and_reachout/           # Customer profiling
+│   ├── sql_patterns/               # Query templates
+│   └── workflows/                  # Process documentation
+└── tools/                          # Supporting Lambda functions
+    ├── firebolt/                   # Data warehouse integration
+    ├── gong/                       # Conversation intelligence
+    ├── web_search/                 # External search capabilities
+    └── webhook/                    # Action execution functions
 ```
 
-### Distributed Tracing
+## Usage Examples
 
-End-to-end tracing is implemented using AWS X-Ray to track requests across all components:
+### Slack Commands
 
-```python
-from aws_xray_sdk.core import xray_recorder
-from aws_xray_sdk.core import patch_all
+#### Revenue Analysis
+```
+@RevBot analyze Q4 revenue performance by customer segment
 
-# Patch all supported libraries for X-Ray tracing
-patch_all()
+@RevBot compare consumption patterns between commit and PLG customers
 
-@xray_recorder.capture('firebolt_writer')
-def lambda_handler(event, context):
-    # Sub-segment for input validation
-    with xray_recorder.in_subsegment('input_validation'):
-        validate_input(event)
-    
-    # Sub-segment for authentication
-    with xray_recorder.in_subsegment('authentication'):
-        credentials = get_firebolt_credentials()
-    
-    # Sub-segment for database operation
-    with xray_recorder.in_subsegment('database_operation'):
-        result = execute_firebolt_operation(event, credentials)
-    
-    # Annotate the trace with additional metadata
-    xray_recorder.current_subsegment().put_annotation('operation_type', event['operation_type'])
-    xray_recorder.current_subsegment().put_annotation('table_name', event['table_name'])
-    xray_recorder.current_subsegment().put_metadata('record_count', len(event['records']))
-    
-    return result
+@RevBot identify top 10 expansion opportunities based on usage trends
 ```
 
-### CloudWatch Metrics & Alarms
+#### Lead Management
+```
+@RevBot assess if Sarah Johnson from DataTech is a good lead
 
-Key operational metrics are collected and monitored through CloudWatch:
+@RevBot research competing solutions at prospect companies in our pipeline
 
-```python
-import boto3
-
-cloudwatch = boto3.client('cloudwatch')
-
-def emit_operation_metrics(operation_type, table_name, duration_ms, record_count, success):
-    """Emit custom metrics to CloudWatch"""
-    cloudwatch.put_metric_data(
-        Namespace='RevOpsAI/Firebolt',
-        MetricData=[
-            {
-                'MetricName': 'OperationDuration',
-                'Dimensions': [
-                    {'Name': 'OperationType', 'Value': operation_type},
-                    {'Name': 'TableName', 'Value': table_name}
-                ],
-                'Value': duration_ms,
-                'Unit': 'Milliseconds'
-            },
-            {
-                'MetricName': 'RecordCount',
-                'Dimensions': [
-                    {'Name': 'OperationType', 'Value': operation_type},
-                    {'Name': 'TableName', 'Value': table_name}
-                ],
-                'Value': record_count,
-                'Unit': 'Count'
-            },
-            {
-                'MetricName': 'OperationSuccess',
-                'Dimensions': [
-                    {'Name': 'OperationType', 'Value': operation_type},
-                    {'Name': 'TableName', 'Value': table_name}
-                ],
-                'Value': 1 if success else 0,
-                'Unit': 'Count'
-            }
-        ]
-    )
+@RevBot score our MQL leads from this week against ICP criteria
 ```
 
-Example of CloudWatch alarm configuration using AWS CLI:
+#### Deal Analysis
+```
+@RevBot analyze the Microsoft Enterprise deal and provide deal health assessment
 
-```hcl
-resource "aws_cloudwatch_metric_alarm" "firebolt_write_errors" {
-  alarm_name          = "firebolt-write-errors-high"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "OperationSuccess"
-  namespace           = "RevOpsAI/Firebolt"
-  period              = "60"
-  statistic           = "SampleCount"
-  threshold           = "3"
-  alarm_description   = "This metric monitors Firebolt write operation failures"
-  dimensions = {
-    OperationType = "INSERT"
-  }
-  
-  alarm_actions = [aws_sns_topic.alerts.arn]
-}
+@RevBot what are the main risk factors for deals closing this quarter?
+
+@RevBot compare our win rates by deal size and industry vertical
 ```
 
-### Structured Logging
+#### Customer Success
+```
+@RevBot which customers show declining engagement patterns?
 
-The framework implements consistent structured logging across all components:
+@RevBot analyze churn risk indicators for enterprise customers
 
-```python
-import logging
-import json
-import uuid
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-def log_event(event_type, message, **kwargs):
-    """Log a structured event with consistent format"""
-    log_data = {
-        "timestamp": datetime.datetime.utcnow().isoformat(),
-        "event_id": str(uuid.uuid4()),
-        "event_type": event_type,
-        "message": message,
-        **kwargs
-    }
-    
-    logger.info(json.dumps(log_data))
-    return log_data
-
-# Example usage
-log_event(
-    "database_operation",
-    "Executing Firebolt query",
-    operation_type="INSERT",
-    table_name="deal_quality_scores",
-    record_count=25,
-    request_id=context.aws_request_id
-)
+@RevBot identify customers ready for upsell based on consumption patterns
 ```
 
-### Service Health Dashboard
+### Follow-up Conversations
+```
+User: @RevBot analyze EMEA consumption trends
+RevBot: [Provides detailed EMEA analysis]
 
-A real-time service health dashboard is provided for monitoring system status:
+User: Now do the same for JAPAC
+RevBot: [Automatically understands context and provides JAPAC analysis]
 
-```python
-class ServiceHealthCheck:
-    def __init__(self):
-        self.lambda_client = boto3.client('lambda')
-        self.s3_client = boto3.client('s3')
-        self.bedrock_client = boto3.client('bedrock')
-        self.firebolt_connection = FireboltConnection()
-    
-    def check_all_services(self):
-        """Check health of all dependent services"""
-        return {
-            "timestamp": datetime.datetime.utcnow().isoformat(),
-            "overall_status": self._get_overall_status(),
-            "components": {
-                "lambda": self._check_lambda_health(),
-                "s3": self._check_s3_health(),
-                "bedrock": self._check_bedrock_health(),
-                "firebolt": self._check_firebolt_health(),
-            }
-        }
-    
-    def _get_overall_status(self):
-        # Determine overall status based on component health
-        all_statuses = [component["status"] for component in self.check_all_components().values()]
-        if "DOWN" in all_statuses:
-            return "DOWN"
-        elif "DEGRADED" in all_statuses:
-            return "DEGRADED"
-        else:
-            return "HEALTHY"
+User: What's the difference between these two regions?
+RevBot: [Compares both regions with previous context]
 ```
 
-### Performance Profiling
+## Deployment Status
 
-Automated performance profiling identifies optimization opportunities:
+### Current Infrastructure
 
-```python
-from functools import wraps
-import time
-import cProfile
-import io
-import pstats
+| Component | Status | Details |
+|-----------|--------|---------|
+| Decision Agent | Production Ready | SUPERVISOR mode with 3 collaborators |
+| Data Agent | Production Ready | Firebolt, Salesforce, Gong integration |
+| WebSearch Agent | Production Ready | External intelligence gathering |
+| Execution Agent | Production Ready | Webhook and notification capabilities |
+| Knowledge Base | Production Ready | Business logic and schema documentation |
+| Slack Integration | Production Ready | AWS best practices architecture |
 
-def profile_function(func):
-    """Profile function execution time and resource usage"""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        # Simple timing
-        start_time = time.time()
-        
-        # Detailed profiling
-        profiler = cProfile.Profile()
-        profiler.enable()
-        
-        result = func(*args, **kwargs)
-        
-        profiler.disable()
-        end_time = time.time()
-        duration_ms = (end_time - start_time) * 1000
-        
-        # Format profiling stats
-        s = io.StringIO()
-        ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
-        ps.print_stats(20)  # Top 20 functions
-        profile_data = s.getvalue()
-        
-        # Log performance data
-        log_event(
-            "performance_profile",
-            f"Function {func.__name__} execution profile",
-            function=func.__name__,
-            duration_ms=duration_ms,
-            profile_data=profile_data
-        )
-        
-        return result
-    return wrapper
+### Architecture Metrics
+
+- Agent Response Time: 10-60 seconds (depending on query complexity)
+- Data Sources: 4 primary (Firebolt, Salesforce, Gong, Web)
+- Conversation Memory: Native Bedrock session management
+- Error Rate: Less than 1% with automatic retry mechanisms
+- Scalability: Auto-scaling serverless architecture
+- Availability: 99.9% (AWS Service Level Agreement)
+
+## Security and Compliance
+
+### Access Control
+- IAM Roles: Least privilege access for all components
+- Secrets Management: AWS Secrets Manager for credentials
+- API Security: Slack signature verification
+- Network Security: Virtual Private Cloud isolation for sensitive operations
+
+### Data Protection
+- Encryption: At-rest and in-transit encryption
+- Audit Logging: Complete CloudWatch audit trail
+- Data Residency: US-East-1 AWS region
+- Access Monitoring: CloudWatch and CloudTrail integration
+
+### Compliance Features
+- Data Lineage: Tracked through all agent interactions
+- Retention Policies: Configurable log retention (30 days default)
+- Privacy Controls: No Personally Identifiable Information storage in conversation logs
+- Secure Communication: HTTPS/TLS for all integrations
+
+## Development and Maintenance
+
+### Monitoring and Observability
+```bash
+# Agent performance monitoring
+aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow
+
+# System health checks
+cd integrations/slack-bedrock-gateway
+python3 tests/test_integration.py
+
+# Agent collaboration tracing
+aws logs filter-log-events --log-group-name /aws/lambda/revops-slack-bedrock-processor --filter-pattern "collaboration"
 ```
 
-## Troubleshooting
+### Configuration Management
+- **Agent Instructions**: Stored in `agents/*/instructions.md`
+- **Deployment Config**: Centralized in `deployment/config.json`
+- **Infrastructure**: CloudFormation templates for reproducible deployments
 
-### Common Issues
+### Testing Strategy
+- **Unit Tests**: Individual agent function testing
+- **Integration Tests**: End-to-end workflow validation
+- **Performance Tests**: Load testing for scalability
+- **User Acceptance**: Business stakeholder validation
 
-* **Deployment Failures**
-  * Check AWS IAM permissions
-  * Verify connectivity to AWS services
-  * Ensure secrets are properly formatted in the secrets.json file
+## Future Roadmap
 
-* **Agent Execution Errors**
-  * Check CloudWatch logs for Lambda function errors
-  * Verify knowledge base ingestion completed successfully
-  * Ensure Bedrock model access is configured correctly
+### Planned Enhancements
+- Additional Integrations: HubSpot, Outreach, LinkedIn Sales Navigator
+- API Gateway: Public API for third-party integrations
 
-* **Integration Issues**
-  * Validate webhook URLs and authentication
-  * Check API rate limits on external services
-  * Verify network connectivity from AWS to external endpoints
+### Scalability Improvements
+- Batch Processing: Large-scale analysis capabilities
+- Real-time Streaming: Event-driven architecture for immediate insights
 
-### Logging and Monitoring
+## Contributing and Enhancement
 
-* **CloudWatch Logs**
-  * All Lambda functions write logs to CloudWatch
-  * Log groups follow the pattern `/aws/lambda/revops-ai-framework-*`
+### For RevOps Teams - Adding Business Logic
+You can enhance the system's intelligence by adding business rules and context to the knowledge base:
 
-* **Deployment Logs**
-  * Check `deployment/deploy_aws_cli.log` for detailed deployment information
+1. Update Business Logic: Add new rules to `knowledge_base/business_logic/` directory
+2. Add SQL Patterns: Create query templates in `knowledge_base/sql_patterns/` for common analyses  
+3. Enhance ICP Definitions: Update ideal customer profile criteria in `knowledge_base/icp_and_reachout/`
+4. Document Workflows: Add process documentation to `knowledge_base/workflows/`
 
-* **Execution Tracking**
-  * All flow executions are recorded in the `revops_ai_executions` table in Firebolt
+### For Technical Teams - System Extensions
+Software engineers and solution architects can extend the system by:
+
+1. Adding New Data Sources: Create Lambda functions in `tools/` directory for new integrations
+2. Enhancing Agent Capabilities: Update agent instructions in `agents/*/instructions.md`
+3. Building New Integrations: Follow the pattern in `integrations/slack-bedrock-gateway/` for new interfaces
+4. Scaling Infrastructure: Update CloudFormation templates for additional regions or environments
+
+### Development Guidelines
+1. Follow AWS best practices for all integrations
+2. Maintain comprehensive documentation for new features
+3. Include tests for all new capabilities
+4. Use semantic versioning for releases
+5. Ensure security review for all changes
+
+### Architecture Principles
+- Modularity: Each agent handles specific responsibilities
+- Scalability: Serverless-first approach
+- Security: Zero-trust security model
+- Observability: Comprehensive logging and monitoring
+- Maintainability: Clear separation of concerns
+
+## Support
+
+### Documentation
+- Architecture Details: `integrations/slack-bedrock-gateway/README.md`
+- Agent Instructions: `agents/*/instructions.md`
+- Deployment Guide: `deployment/README.md`
+- API Reference: `tools/*/README.md`
+
+### Monitoring
+- CloudWatch Dashboards: Real-time system metrics
+- Log Analysis: Structured logging for troubleshooting
+- Performance Metrics: Agent response times and success rates
+- Error Tracking: Automated alerting for system issues
+
+### Troubleshooting
+- Common Issues: Check CloudWatch logs for error patterns
+- Performance: Monitor Lambda cold starts and memory usage
+- Integration: Verify API credentials and permissions
+- Slack: Confirm app configuration and bot permissions
+
+---
+
+## License
+
+This RevOps AI Framework is proprietary software designed for enterprise revenue operations. All rights reserved.
+
+---
+
+Built for Revenue Teams - Powered by Amazon Bedrock
+
+*Last Updated: July 5, 2025 | Version: 2.0 | Status: Production Ready*

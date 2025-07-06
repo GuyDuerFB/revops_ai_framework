@@ -531,8 +531,37 @@ def lambda_handler(event, context):
     try:
         print(f"Received event: {json.dumps(event)}")
         
-        # Handle Bedrock Agent invocation
-        if 'actionGroup' in event and event.get('actionGroup') == 'gong_retrieval':
+        # 1. Check if this is a new Bedrock Agent format with 'function' field
+        if 'function' in event and event.get('function') == 'get_gong_data' and 'actionGroup' in event:
+            # Handle new Bedrock agent format
+            if 'parameters' in event and isinstance(event['parameters'], list):
+                params = {param.get('name'): param.get('value') for param in event['parameters']}
+                query_type = params.get('query_type', 'calls')
+                date_range = params.get('date_range', {})
+                filters = params.get('filters', {})
+                call_id = params.get('call_id')
+                
+                # Call our function and wrap for Bedrock agent compatibility
+                result = get_gong_data(query_type, date_range, filters, call_id)
+                
+                # Return in new Bedrock agent format
+                return {
+                    'messageVersion': '1.0',
+                    'response': {
+                        'actionGroup': event.get('actionGroup'),
+                        'function': event.get('function'),
+                        'functionResponse': {
+                            'responseBody': {
+                                'TEXT': {
+                                    'body': json.dumps(result)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+        # 2. Handle old Bedrock Agent invocation with 'action' field  
+        elif 'actionGroup' in event and event.get('actionGroup') == 'gong_retrieval' and 'action' in event:
             action_name = event.get('action')
             
             if action_name == 'get_gong_data':
@@ -545,8 +574,17 @@ def lambda_handler(event, context):
                 filters = parameters.get('filters', {})
                 call_id = parameters.get('call_id')
                 
-                # Call our function
-                return get_gong_data(query_type, date_range, filters, call_id)
+                # Call our function and wrap for Bedrock agent compatibility
+                result = get_gong_data(query_type, date_range, filters, call_id)
+                
+                # Return in old Bedrock agent format
+                return {
+                    'actionGroup': event.get('actionGroup'),
+                    'action': action_name,
+                    'actionGroupOutput': {
+                        'body': json.dumps(result)
+                    }
+                }
             else:
                 return {
                     "success": False,

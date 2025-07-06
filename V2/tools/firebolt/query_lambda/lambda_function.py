@@ -477,12 +477,40 @@ def lambda_handler(event, context):
     try:
         print(f"Received event: {json.dumps(event)}")
         
-        # 1. Check if this is a Bedrock Agent invocation
-        if 'actionGroup' in event and event.get('actionGroup') == 'firebolt_query':
-            # This is a Bedrock Agent invocation
+        # 1. Check if this is a new Bedrock Agent format with 'function' field
+        if 'function' in event and event.get('function') in ['query_firebolt', 'query_fire'] and 'actionGroup' in event:
+            # Handle new Bedrock agent format
+            if 'parameters' in event and isinstance(event['parameters'], list):
+                params = {param.get('name'): param.get('value') for param in event['parameters']}
+                query = params.get('query')
+                account_name = params.get('account_name')
+                engine_name = params.get('engine_name')
+                
+                # Call our dedicated function and wrap for Bedrock agent compatibility  
+                result = query_fire(query, account_name, engine_name)
+                
+                # Return in new Bedrock agent format
+                return {
+                    'messageVersion': '1.0',
+                    'response': {
+                        'actionGroup': event.get('actionGroup'),
+                        'function': event.get('function'),
+                        'functionResponse': {
+                            'responseBody': {
+                                'TEXT': {
+                                    'body': json.dumps(result)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+        # 2. Check if this is an old Bedrock Agent invocation with 'action' field
+        elif 'actionGroup' in event and event.get('actionGroup') == 'firebolt_query' and 'action' in event:
+            # This is an old Bedrock Agent invocation
             action_name = event.get('action')
             
-            if action_name == 'query_fire':
+            if action_name in ['query_fire', 'query_firebolt']:
                 api_path = event.get('apiPath')
                 body = event.get('body', {})
                 parameters = body.get('parameters', {})
@@ -492,8 +520,17 @@ def lambda_handler(event, context):
                 account_name = parameters.get('account_name')
                 engine_name = parameters.get('engine_name')
                 
-                # Call our dedicated function
-                return query_fire(query, account_name, engine_name)
+                # Call our dedicated function and wrap for Bedrock agent compatibility
+                result = query_fire(query, account_name, engine_name)
+                
+                # Return in old Bedrock agent format
+                return {
+                    'actionGroup': event.get('actionGroup'),
+                    'action': action_name,
+                    'actionGroupOutput': {
+                        'body': json.dumps(result)
+                    }
+                }
             else:
                 return {
                     "success": False,
@@ -501,16 +538,16 @@ def lambda_handler(event, context):
                     "message": "This Lambda only supports the 'query_fire' action."
                 }
                 
-        # 2. Check if this is a direct invocation with parameters
-        if 'query' in event:
+        # 3. Check if this is a direct invocation with parameters
+        elif 'query' in event:
             # Direct invocation
             query = event.get('query')
             account_name = event.get('account_name')
             engine_name = event.get('engine_name')
             
             return query_fire(query, account_name, engine_name)
-            
-        # 3. Legacy parameter format for backward compatibility
+                
+        # 4. Legacy parameter format for backward compatibility  
         elif 'parameters' in event and isinstance(event['parameters'], list):
             # Handle Bedrock agent parameter format (older versions)
             params = {param.get('name'): param.get('value') for param in event['parameters']}
@@ -520,7 +557,7 @@ def lambda_handler(event, context):
             
             return query_fire(query, account_name, engine_name)
         
-        # 4. No recognizable format
+        # 5. No recognizable format
         return {
             'success': False,
             'error': 'Invalid request format',
