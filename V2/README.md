@@ -215,9 +215,22 @@ python3 deploy.py
 - Install app to workspace
 
 #### 4. Test Integration
+```bash
+# Run integration test
+cd integrations/slack-bedrock-gateway
+python3 tests/test_integration.py
+```
+
+#### 5. Slack Usage
 ```
 @RevBot analyze EMEA customers consumption QoQ and provide main highlights
 ```
+
+### Important Notes
+- The system is fully functional and tested end-to-end
+- Decision Agent configuration has been optimized for SUPERVISOR role
+- All components properly integrated with AWS best practices
+- Comprehensive error handling and monitoring in place
 
 ### Advanced Configuration
 
@@ -337,12 +350,18 @@ RevBot: [Compares both regions with previous context]
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Decision Agent | Production Ready | SUPERVISOR mode with 3 collaborators |
-| Data Agent | Production Ready | Firebolt, Salesforce, Gong integration |
-| WebSearch Agent | Production Ready | External intelligence gathering |
-| Execution Agent | Production Ready | Webhook and notification capabilities |
-| Knowledge Base | Production Ready | Business logic and schema documentation |
-| Slack Integration | Production Ready | AWS best practices architecture |
+| Decision Agent | ✅ Production Ready | SUPERVISOR mode with 3 collaborators (NO action groups) |
+| Data Agent | ✅ Production Ready | Firebolt, Salesforce, Gong integration |
+| WebSearch Agent | ✅ Production Ready | External intelligence gathering |
+| Execution Agent | ✅ Production Ready | Webhook and notification capabilities |
+| Knowledge Base | ✅ Production Ready | Business logic and schema documentation |
+| Slack Integration | ✅ Production Ready | Full end-to-end working integration |
+
+### Recent Fixes Applied (July 6, 2025)
+- ✅ **Fixed Bedrock Agent Permissions**: Created missing IAM service role `AmazonBedrockExecutionRoleForAgents_TCX9CGOKBR`
+- ✅ **Corrected Decision Agent Configuration**: Removed inappropriate action groups, now works exclusively through collaborators
+- ✅ **Resolved Model Compatibility**: Updated alias to use Claude 3.5 Sonnet v1 (compatible with on-demand throughput)
+- ✅ **Validated Complete Flow**: Slack → API Gateway → Lambda → SQS → Processor → Bedrock Agent → Response
 
 ### Architecture Metrics
 
@@ -456,10 +475,31 @@ Software engineers and solution architects can extend the system by:
 - Error Tracking: Automated alerting for system issues
 
 ### Troubleshooting
-- Common Issues: Check CloudWatch logs for error patterns
-- Performance: Monitor Lambda cold starts and memory usage
-- Integration: Verify API credentials and permissions
-- Slack: Confirm app configuration and bot permissions
+
+#### Common Issues Resolution
+- **Bedrock Agent Access Denied**: Ensure `AmazonBedrockExecutionRoleForAgents_TCX9CGOKBR` role exists with proper permissions
+- **Decision Agent Action Groups**: Verify agent has NO action groups (should use collaborators only)
+- **Model Compatibility**: Check agent alias points to version using `anthropic.claude-3-5-sonnet-20240620-v1:0`
+- **Lambda Permissions**: Verify `revops-slack-bedrock-processor` role has `bedrock:InvokeAgent` permission
+
+#### Monitoring Commands
+```bash
+# Check Slack integration flow
+cd integrations/slack-bedrock-gateway
+python3 tests/test_integration.py
+
+# Monitor processor Lambda logs
+aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow --profile FireboltSystemAdministrator-740202120544
+
+# Verify Decision Agent configuration
+aws bedrock-agent get-agent --agent-id TCX9CGOKBR --profile FireboltSystemAdministrator-740202120544 --region us-east-1
+```
+
+#### Performance Monitoring
+- Monitor Lambda cold starts and memory usage
+- Check API Gateway response times
+- Verify SQS queue processing rates
+- Track Bedrock Agent response times
 
 ---
 
@@ -471,4 +511,4 @@ This RevOps AI Framework is proprietary software designed for enterprise revenue
 
 Built for Revenue Teams - Powered by Amazon Bedrock
 
-*Last Updated: July 5, 2025 | Version: 2.0 | Status: Production Ready*
+*Last Updated: July 6, 2025 | Version: 2.1 | Status: Production Ready with Full Slack Integration*
