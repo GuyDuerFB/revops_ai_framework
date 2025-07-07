@@ -13,10 +13,21 @@ from typing import Dict, Any, Optional
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 
-# Initialize AWS clients with explicit region
+# Initialize AWS clients with explicit region and extended timeouts
+from botocore.config import Config
+
 AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+
+# Configure extended timeouts for Bedrock Agent (complex analyses can take 3-4 minutes)
+bedrock_config = Config(
+    region_name=AWS_REGION,
+    read_timeout=240,  # 4 minutes for complex revenue analysis
+    connect_timeout=60,
+    retries={'max_attempts': 2}
+)
+
 secrets_client = boto3.client('secretsmanager', region_name=AWS_REGION)
-bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=AWS_REGION)
+bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', config=bedrock_config)
 
 # Environment variables
 SECRETS_ARN = os.environ['SECRETS_ARN']
