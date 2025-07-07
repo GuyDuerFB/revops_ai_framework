@@ -39,6 +39,11 @@ env/
 *.swp
 *.swo
 .DS_Store
+Thumbs.db
+
+# Local environment files
+.env.local
+.env.*.local
 
 # AWS Lambda package files
 lambda_package/

@@ -85,9 +85,14 @@ def main():
         verification_success = verify_deployment()
         
         if verification_success:
-            logger.info("\n🎉 DEPLOYMENT SUCCESSFUL!")
-            logger.info("✅ All components deployed and verified")
-            logger.info("🚀 RevOps AI Framework V2 is ready for use")
+            logger.info("\n🎉 CORE DEPLOYMENT SUCCESSFUL!")
+            logger.info("✅ All agents and Lambda functions deployed")
+            logger.info("\n📋 Next Steps:")
+            logger.info("1. Deploy Slack integration: cd ../integrations/slack-bedrock-gateway && python3 deploy.py")
+            logger.info("2. Deploy monitoring: cd ../monitoring && python3 deploy-monitoring.py")
+            logger.info("3. Configure Slack app with API Gateway URL")
+            logger.info("4. Test integration: @RevBot test connectivity")
+            logger.info("\n🚀 RevOps AI Framework V2 core is ready!")
             return True
     
     logger.error("❌ Deployment failed")

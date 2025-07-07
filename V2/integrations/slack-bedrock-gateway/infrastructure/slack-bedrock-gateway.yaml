@@ -14,7 +14,7 @@ Parameters:
     
   BedrockAgentAliasId:
     Type: String
-    Default: FUKETW8HXV
+    Default: RSYE8T5V96
     Description: Bedrock Agent Alias ID
     
   SlackSigningSecret:

@@ -185,7 +185,7 @@ def test_bedrock_agent_access():
         
         response = bedrock_runtime.invoke_agent(
             agentId='TCX9CGOKBR',
-            agentAliasId='FUKETW8HXV',
+            agentAliasId='RSYE8T5V96',
             sessionId=test_session_id,
             inputText="Test: Can you confirm you're working?"
         )

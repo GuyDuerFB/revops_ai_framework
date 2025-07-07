@@ -21,7 +21,7 @@ STACK_NAME = f"{PROJECT_NAME}-stack"
 
 # Bedrock Agent configuration from existing setup
 BEDROCK_AGENT_ID = "TCX9CGOKBR"
-BEDROCK_AGENT_ALIAS_ID = "FUKETW8HXV"
+BEDROCK_AGENT_ALIAS_ID = "RSYE8T5V96"
 
 def load_slack_secrets():
     """Load Slack secrets from existing configuration"""
