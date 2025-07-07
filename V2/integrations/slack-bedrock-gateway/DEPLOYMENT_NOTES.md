@@ -4,7 +4,7 @@
 
 ### Decision Agent Configuration
 - **Agent ID**: `TCX9CGOKBR`
-- **Alias ID**: `FUKETW8HXV` 
+- **Alias ID**: `RSYE8T5V96` 
 - **Current Version**: 1 (working)
 - **Foundation Model**: `anthropic.claude-3-5-sonnet-20240620-v1:0`
 - **Role**: `SUPERVISOR` with NO action groups

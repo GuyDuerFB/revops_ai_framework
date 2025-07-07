@@ -1,0 +1,29 @@
+# Secrets and sensitive files
+secrets.json
+*.env
+.env
+.env.local
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# Temporary files
+.DS_Store
+.tmp/
+temp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

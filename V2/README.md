@@ -190,77 +190,140 @@ Output: Usage optimization recommendations and expansion opportunities
 ### Prerequisites
 - AWS Account with appropriate permissions
 - AWS CLI configured with `FireboltSystemAdministrator-740202120544` profile
+- Python 3.9+ with pip
 - Firebolt Data Warehouse access
 - Salesforce integration
 - Gong API access
 - Slack workspace administration rights
 
-### Quick Start
+### Complete Clean Environment Deployment
 
-#### 1. Deploy Core Agent Infrastructure
-```bash
-cd deployment
-python3 deploy_production.py
-```
-
-#### 2. Deploy Slack Integration
-```bash
-cd integrations/slack-bedrock-gateway
-python3 deploy.py
-```
-
-#### 3. Configure Slack App
-- Event Subscriptions URL: `https://your-api-gateway-url/prod/slack-events`
-- Subscribe to: `app_mention`
-- Install app to workspace
-
-#### 4. Test Integration
-```bash
-# Run integration test
-cd integrations/slack-bedrock-gateway
-python3 tests/test_integration.py
-```
-
-#### 5. Slack Usage
-```
-@RevBot analyze EMEA customers consumption QoQ and provide main highlights
-```
-
-### Important Notes
-- The system is fully functional and tested end-to-end
-- Decision Agent configuration has been optimized for SUPERVISOR role
-- All components properly integrated with AWS best practices
-- Comprehensive error handling and monitoring in place
-
-### Advanced Configuration
-
-#### Environment Setup
+#### Step 1: Environment Setup
 ```bash
 # Clone repository
 git clone <repository-url>
 cd revops_ai_framework/V2
 
-# Configure AWS credentials
+# Create Python virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure AWS SSO (recommended)
+aws configure sso --profile FireboltSystemAdministrator-740202120544
+# OR configure with access keys
 aws configure --profile FireboltSystemAdministrator-740202120544
-
-# Deploy infrastructure
-cd deployment
-python3 deploy_production.py
-
-# Deploy Slack integration
-cd ../integrations/slack-bedrock-gateway
-python3 deploy.py
 ```
 
-#### Monitoring Setup
+#### Step 2: Configure Secrets
 ```bash
-# Monitor agent performance
-aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow
+# Copy secrets template
+cp deployment/secrets.template.json deployment/secrets.json
 
-# Check system health
+# Edit secrets.json with your actual credentials:
+# - Firebolt client_id and client_secret
+# - Gong API credentials
+# - Slack signing secret and bot token
+```
+
+#### Step 3: Deploy Core Infrastructure
+```bash
+cd deployment
+
+# Install deployment dependencies
+pip install -r requirements.txt
+
+# Deploy all agents and Lambda functions
+python3 deploy_production.py
+```
+
+#### Step 4: Deploy Slack Integration
+```bash
+cd ../integrations/slack-bedrock-gateway
+
+# Deploy Slack-Bedrock gateway
+python3 deploy.py
+
+# Note the API Gateway URL from output
+```
+
+#### Step 5: Deploy Enhanced Monitoring
+```bash
+cd ../../monitoring
+
+# Deploy comprehensive monitoring and logging
+python3 deploy-monitoring.py
+```
+
+#### Step 6: Configure Slack App
+1. Create Slack App at https://api.slack.com/apps
+2. Configure Event Subscriptions:
+   - URL: `https://YOUR-API-GATEWAY-ID.execute-api.us-east-1.amazonaws.com/prod/slack-events`
+   - Subscribe to: `app_mention`
+3. Install app to workspace
+4. Update secrets in AWS Secrets Manager with Slack credentials
+
+#### Step 7: Test and Validate
+```bash
+# Test Slack integration
 cd integrations/slack-bedrock-gateway
 python3 tests/test_integration.py
+
+# Monitor logs
+aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow --profile FireboltSystemAdministrator-740202120544
+
+# Test in Slack
+@RevBot test connectivity
 ```
+
+### Production Usage
+```bash
+# Complex revenue analysis
+@RevBot analyze Q2-2025 revenue by customer segment with month-over-month trends
+
+# Lead assessment
+@RevBot assess if John Smith from DataCorp is a good lead
+
+# Customer risk analysis
+@RevBot analyze churn risk for enterprise customers with declining usage
+```
+
+### Monitoring and Troubleshooting
+
+#### CloudWatch Dashboard
+Access real-time monitoring at:
+`https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=revops-slack-bedrock-monitoring`
+
+#### Common Commands
+```bash
+# Check system health
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/revops-slack-bedrock-processing-queue \
+  --attribute-names ApproximateNumberOfMessages \
+  --profile FireboltSystemAdministrator-740202120544
+
+# View recent errors
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'ERROR' \
+  --start-time $(date -u -d '1 hour ago' +%s)000 \
+  --profile FireboltSystemAdministrator-740202120544
+
+# Check dead letter queue
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/revops-slack-bedrock-dlq \
+  --attribute-names ApproximateNumberOfMessages \
+  --profile FireboltSystemAdministrator-740202120544
+```
+
+### Important Notes
+- The system is fully production-ready with enterprise monitoring
+- Lambda timeout set to 5 minutes for complex analyses
+- All components follow AWS best practices
+- Comprehensive error handling and dead letter queues
+- Enhanced monitoring with CloudWatch dashboards and alerts
 
 ## Project Structure
 
@@ -268,28 +331,74 @@ python3 tests/test_integration.py
 revops_ai_framework/V2/
 ├── agents/                          # AI Agent Definitions
 │   ├── data_agent/                  # Data retrieval and analysis
+│   │   ├── data_agent.py           # Agent implementation
+│   │   └── instructions.md         # Agent instructions
 │   ├── decision_agent/              # Main orchestrator (SUPERVISOR)
+│   │   ├── decision_agent.py       # Agent implementation  
+│   │   ├── instructions.md         # Current agent instructions
+│   │   └── instructions_concise.md # Concise version
 │   ├── execution_agent/             # Action execution
+│   │   ├── execution_agent.py      # Agent implementation
+│   │   └── instructions.md         # Agent instructions
 │   └── web_search_agent/            # External intelligence
+│       ├── web_search_agent.py     # Agent implementation
+│       └── instructions.md         # Agent instructions
 ├── deployment/                      # Infrastructure deployment
-│   ├── config.json                  # Agent configuration
-│   └── deploy_production.py         # Main deployment script
+│   ├── config.json                 # Agent configuration (git-ignored)
+│   ├── deploy_production.py        # Main deployment script
+│   ├── README.md                   # Deployment documentation
+│   ├── requirements.txt            # Deployment dependencies
+│   └── secrets.template.json      # Secrets template
 ├── integrations/                    # External integrations
 │   └── slack-bedrock-gateway/       # Slack integration (AWS best practices)
-│       ├── infrastructure/          # CloudFormation templates
-│       ├── lambdas/                 # Handler and processor functions
-│       └── tests/                   # Integration tests
+│       ├── config/                 # Configuration files
+│       ├── deploy.py               # Slack integration deployment
+│       ├── DEPLOYMENT_NOTES.md     # Deployment notes
+│       ├── infrastructure/         # CloudFormation templates
+│       ├── lambdas/                # Handler and processor functions
+│       ├── README.md               # Integration documentation
+│       └── tests/                  # Integration tests
 ├── knowledge_base/                  # Knowledge management
-│   ├── business_logic/              # Business rules and logic
-│   ├── firebolt_schema/             # Data warehouse schema
-│   ├── icp_and_reachout/           # Customer profiling
-│   ├── sql_patterns/               # Query templates
-│   └── workflows/                  # Process documentation
-└── tools/                          # Supporting Lambda functions
-    ├── firebolt/                   # Data warehouse integration
-    ├── gong/                       # Conversation intelligence
-    ├── web_search/                 # External search capabilities
-    └── webhook/                    # Action execution functions
+│   ├── business_logic/             # Business rules and logic
+│   │   ├── customer_classification.md
+│   │   ├── revenue_logic.md
+│   │   ├── churn_risk_logic.md
+│   │   └── ... (other business logic files)
+│   ├── firebolt_schema/            # Data warehouse schema
+│   │   ├── firebolt_schema.json
+│   │   └── firebolt_schema.md
+│   ├── icp_and_reachout/          # Customer profiling
+│   │   ├── firebolt_icp.md
+│   │   └── firebolt_messeging.md
+│   ├── sql_patterns/              # Query templates
+│   │   ├── customer_segmentation.md
+│   │   └── temporal_analysis.md
+│   ├── workflows/                 # Process documentation
+│   │   ├── lead_assessment_workflow.md
+│   │   ├── comprehensive_deal_assessment_workflow.md
+│   │   └── ... (other workflow files)
+│   └── schema_knowledge_base.py   # Knowledge base utilities
+├── monitoring/                     # Enhanced monitoring and logging
+│   ├── deploy-monitoring.py       # Monitoring deployment script
+│   ├── enhanced-logging-solution.yaml # CloudFormation template
+│   └── troubleshooting-runbook.md # Operations runbook
+├── tools/                         # Supporting Lambda functions
+│   ├── firebolt/                  # Data warehouse integration
+│   │   ├── metadata_lambda/       # Schema metadata
+│   │   ├── query_lambda/          # SQL query execution
+│   │   └── writer_lambda/         # Data writing
+│   ├── gong/                      # Conversation intelligence
+│   │   └── retrieval_lambda/      # Call data retrieval
+│   ├── web_search/                # External search capabilities
+│   │   └── lambda_function.py     # Web search implementation
+│   └── webhook/                   # Action execution functions
+│       ├── lambda_function.py     # Main webhook handler
+│       ├── modules/               # Supporting modules
+│       ├── requirements.txt       # Dependencies
+│       └── utils/                 # Utility functions
+├── .gitignore                     # Git ignore rules
+├── README.md                      # This file
+└── requirements.txt               # Main project dependencies
 ```
 
 ## Usage Examples
