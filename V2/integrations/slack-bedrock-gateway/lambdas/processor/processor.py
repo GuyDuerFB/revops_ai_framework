@@ -7,6 +7,7 @@ import os
 import boto3
 import time
 import logging
+import requests
 from typing import Dict, Any, Optional
 
 # Configure logging
@@ -56,7 +57,126 @@ def get_slack_secrets():
     
     return _secrets_cache
 
-def invoke_bedrock_agent(user_message: str, session_id: str) -> str:
+def send_progress_update(channel_id: str, message_ts: str, progress_text: str) -> bool:
+    """Send a progress update to Slack by updating the message"""
+    try:
+        secrets = get_slack_secrets()
+        bot_token = secrets.get('bot_token')
+        
+        if not bot_token:
+            logger.error("Bot token not found in secrets")
+            return False
+        
+        
+        # Format with progress indicator
+        formatted_message = f"*RevOps Analysis:* 🤔\n\n{progress_text}"
+        
+        response = requests.post(
+            'https://slack.com/api/chat.update',
+            headers={
+                'Authorization': f'Bearer {bot_token}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'channel': channel_id,
+                'ts': message_ts,
+                'text': formatted_message,
+                'mrkdwn': True
+            },
+            timeout=10
+        )
+        
+        response_data = response.json()
+        if response_data.get('ok'):
+            logger.debug(f"Sent progress update: {progress_text[:50]}...")
+            return True
+        else:
+            logger.warning(f"Failed to send progress update: {response_data.get('error')}")
+            return False
+            
+    except Exception as e:
+        logger.warning(f"Error sending progress update: {e}")
+        return False
+
+def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
+    """Convert Bedrock Agent orchestration trace to human-readable progress message"""
+    try:
+        if 'orchestrationTrace' not in trace_event:
+            return None
+            
+        orch_trace = trace_event['orchestrationTrace']
+        
+        # Agent thinking/reasoning
+        if 'rationale' in orch_trace:
+            rationale = orch_trace['rationale'].get('text', '')
+            if rationale:
+                return f"💭 **Analyzing your request:** {rationale[:200]}{'...' if len(rationale) > 200 else ''}"
+        
+        # Collaborator agent calls
+        if 'invocationInput' in orch_trace:
+            invocation = orch_trace['invocationInput']
+            
+            # Check for collaborator invocation
+            if 'collaboratorInvocationInput' in invocation:
+                collab = invocation['collaboratorInvocationInput']
+                agent_name = collab.get('collaboratorName', 'agent')
+                input_text = collab.get('input', '')
+                
+                # Map agent names to user-friendly descriptions
+                agent_descriptions = {
+                    'DataAgent': '📊 **Calling Data Agent** to query Firebolt Data Warehouse and analyze revenue data',
+                    'WebSearchAgent': '🔍 **Calling Research Agent** to gather external company intelligence',
+                    'ExecutionAgent': '⚡ **Calling Execution Agent** to perform actions and send notifications'
+                }
+                
+                base_message = agent_descriptions.get(agent_name, f'🤖 **Calling {agent_name}**')
+                
+                # Add context from the input if it provides insight
+                if 'revenue' in input_text.lower():
+                    return f"{base_message} - analyzing revenue trends and patterns"
+                elif 'query' in input_text.lower() or 'sql' in input_text.lower():
+                    return f"{base_message} - executing database queries"
+                elif 'customer' in input_text.lower():
+                    return f"{base_message} - analyzing customer data and segmentation"
+                else:
+                    return base_message
+            
+            # Function calling within agents
+            elif 'actionGroupInvocationInput' in invocation:
+                action = invocation['actionGroupInvocationInput']
+                action_group = action.get('actionGroupName', '')
+                function_name = action.get('function', '')
+                
+                # Map function calls to progress messages
+                if function_name == 'query_fire':
+                    return "🔍 **Running SQL query** on Firebolt Data Warehouse to retrieve revenue data"
+                elif function_name == 'get_gong_data':
+                    return "📞 **Retrieving conversation data** from Gong to analyze customer interactions"
+                elif function_name == 'search_web':
+                    return "🌐 **Searching the web** for company intelligence and market information"
+                elif function_name == 'research_company':
+                    return "🏢 **Researching company details** and business intelligence"
+                elif action_group and function_name:
+                    return f"⚙️ **Executing {function_name}** in {action_group}"
+        
+        # Observation/results processing
+        if 'observation' in orch_trace:
+            observation = orch_trace['observation']
+            if 'actionGroupInvocationOutput' in observation:
+                output = observation['actionGroupInvocationOutput']
+                if 'text' in output:
+                    # Don't show raw data, just indicate processing
+                    return "📈 **Processing results** and analyzing the data patterns"
+            elif 'collaboratorInvocationOutput' in observation:
+                return "🧠 **Analyzing findings** from collaborator agent and preparing insights"
+        
+        return None
+        
+    except Exception as e:
+        logger.warning(f"Error parsing trace: {e}")
+        return None
+
+def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = None, message_ts: str = None) -> str:
     """
     Invoke Bedrock Agent with session management for conversation continuity
     Following AWS best practices for direct agent invocation
@@ -64,6 +184,10 @@ def invoke_bedrock_agent(user_message: str, session_id: str) -> str:
     try:
         logger.info(f"Invoking Bedrock Agent for session: {session_id}")
         logger.info(f"Message preview: {user_message[:100]}...")
+        
+        # Send initial progress update
+        if channel_id and message_ts:
+            send_progress_update(channel_id, message_ts, "🤔 **Processing your request** - I'm understanding what you need and planning my approach...")
         
         # Direct agent invocation with streaming support
         response = bedrock_agent_runtime.invoke_agent(
@@ -76,6 +200,8 @@ def invoke_bedrock_agent(user_message: str, session_id: str) -> str:
         # Process the response stream
         agent_response = ""
         completion_events = []
+        last_progress_time = time.time()
+        progress_throttle = 3  # Minimum seconds between progress updates
         
         # Stream processing for real-time response building
         for event in response['completion']:
@@ -87,8 +213,18 @@ def invoke_bedrock_agent(user_message: str, session_id: str) -> str:
                     logger.debug(f"Received chunk: {chunk_text[:50]}...")
             
             elif 'trace' in event:
-                # Log trace information for debugging
+                # Parse trace for progress updates
                 trace = event['trace']
+                current_time = time.time()
+                
+                # Throttle progress updates to avoid spam
+                if current_time - last_progress_time >= progress_throttle:
+                    progress_message = parse_trace_to_progress(trace)
+                    if progress_message and channel_id and message_ts:
+                        if send_progress_update(channel_id, message_ts, progress_message):
+                            last_progress_time = current_time
+                
+                # Log trace information for debugging
                 if 'orchestrationTrace' in trace:
                     orch_trace = trace['orchestrationTrace']
                     if 'invocationInput' in orch_trace:
@@ -124,10 +260,9 @@ def update_slack_message(channel_id: str, message_ts: str, new_text: str) -> boo
             logger.error("Bot token not found in secrets")
             return False
         
-        import requests
         
-        # Format the response with RevOps branding
-        formatted_response = f"*RevOps Analysis:*\n\n{new_text}"
+        # Format the response with RevOps branding and completion indicator
+        formatted_response = f"*RevOps Analysis:* ✅\n\n{new_text}"
         
         response = requests.post(
             'https://slack.com/api/chat.update',
@@ -166,9 +301,8 @@ def send_slack_message(channel_id: str, text: str) -> bool:
             logger.error("Bot token not found in secrets")
             return False
         
-        import requests
         
-        formatted_response = f"*RevOps Analysis:*\n\n{text}"
+        formatted_response = f"*RevOps Analysis:* ✅\n\n{text}"
         
         response = requests.post(
             'https://slack.com/api/chat.postMessage',
@@ -210,8 +344,13 @@ def process_app_mention(event_data: Dict[str, Any]) -> bool:
         # Format: user_id:channel_id for consistent sessions
         session_id = f"{user_id}:{channel_id}"
         
-        # Invoke Bedrock Agent with session management
-        agent_response = invoke_bedrock_agent(message_text, session_id)
+        # Invoke Bedrock Agent with session management and progress tracking
+        agent_response = invoke_bedrock_agent(
+            user_message=message_text, 
+            session_id=session_id,
+            channel_id=channel_id,
+            message_ts=response_message_ts
+        )
         
         # Send response back to Slack
         success = False
