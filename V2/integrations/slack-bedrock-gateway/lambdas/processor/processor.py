@@ -106,11 +106,20 @@ def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
             
         orch_trace = trace_event['orchestrationTrace']
         
-        # Agent thinking/reasoning
+        # Agent thinking/reasoning (highest priority)
         if 'rationale' in orch_trace:
             rationale = orch_trace['rationale'].get('text', '')
-            if rationale:
-                return f"💭 **Analyzing your request:** {rationale[:200]}{'...' if len(rationale) > 200 else ''}"
+            if rationale and len(rationale.strip()) > 10:
+                # Clean up the rationale text
+                clean_rationale = rationale.replace('\n', ' ').strip()
+                return f"💭 *Thinking:* {clean_rationale[:180]}{'...' if len(clean_rationale) > 180 else ''}"
+        
+        # Pre-processing or planning phase
+        if 'modelInvocationInput' in orch_trace:
+            model_input = orch_trace['modelInvocationInput']
+            if model_input and 'text' in model_input:
+                # This indicates the agent is processing the user's request
+                return "🧠 *Planning my approach* - breaking down your request into actionable steps"
         
         # Collaborator agent calls
         if 'invocationInput' in orch_trace:
@@ -124,20 +133,22 @@ def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
                 
                 # Map agent names to user-friendly descriptions
                 agent_descriptions = {
-                    'DataAgent': '📊 **Calling Data Agent** to query Firebolt Data Warehouse and analyze revenue data',
-                    'WebSearchAgent': '🔍 **Calling Research Agent** to gather external company intelligence',
-                    'ExecutionAgent': '⚡ **Calling Execution Agent** to perform actions and send notifications'
+                    'DataAgent': '📊 *Calling Data Agent* to query Firebolt Data Warehouse and analyze revenue data',
+                    'WebSearchAgent': '🔍 *Calling Research Agent* to gather external company intelligence',
+                    'ExecutionAgent': '⚡ *Calling Execution Agent* to perform actions and send notifications'
                 }
                 
-                base_message = agent_descriptions.get(agent_name, f'🤖 **Calling {agent_name}**')
+                base_message = agent_descriptions.get(agent_name, f'🤖 *Calling {agent_name}*')
                 
                 # Add context from the input if it provides insight
-                if 'revenue' in input_text.lower():
+                if 'revenue' in input_text.lower() or 'billing' in input_text.lower():
                     return f"{base_message} - analyzing revenue trends and patterns"
                 elif 'query' in input_text.lower() or 'sql' in input_text.lower():
                     return f"{base_message} - executing database queries"
-                elif 'customer' in input_text.lower():
+                elif 'customer' in input_text.lower() or 'account' in input_text.lower():
                     return f"{base_message} - analyzing customer data and segmentation"
+                elif 'opportunit' in input_text.lower() or 'pipeline' in input_text.lower():
+                    return f"{base_message} - analyzing sales pipeline and opportunities"
                 else:
                     return base_message
             
@@ -149,26 +160,39 @@ def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
                 
                 # Map function calls to progress messages
                 if function_name == 'query_fire':
-                    return "🔍 **Running SQL query** on Firebolt Data Warehouse to retrieve revenue data"
+                    return "🔍 *Running SQL query* on Firebolt Data Warehouse to retrieve data"
                 elif function_name == 'get_gong_data':
-                    return "📞 **Retrieving conversation data** from Gong to analyze customer interactions"
+                    return "📞 *Retrieving conversation data* from Gong to analyze customer interactions"
                 elif function_name == 'search_web':
-                    return "🌐 **Searching the web** for company intelligence and market information"
+                    return "🌐 *Searching the web* for company intelligence and market information"
                 elif function_name == 'research_company':
-                    return "🏢 **Researching company details** and business intelligence"
+                    return "🏢 *Researching company details* and business intelligence"
                 elif action_group and function_name:
-                    return f"⚙️ **Executing {function_name}** in {action_group}"
+                    return f"⚙️ *Executing {function_name}* in {action_group}"
         
-        # Observation/results processing
+        # Observation/results processing - capture different types
         if 'observation' in orch_trace:
             observation = orch_trace['observation']
+            
+            # Function execution results
             if 'actionGroupInvocationOutput' in observation:
                 output = observation['actionGroupInvocationOutput']
                 if 'text' in output:
-                    # Don't show raw data, just indicate processing
-                    return "📈 **Processing results** and analyzing the data patterns"
+                    return "📈 *Processing query results* - analyzing the data patterns and trends"
+            
+            # Collaborator responses
             elif 'collaboratorInvocationOutput' in observation:
-                return "🧠 **Analyzing findings** from collaborator agent and preparing insights"
+                collab_output = observation['collaboratorInvocationOutput']
+                if 'text' in collab_output:
+                    return "🧠 *Analyzing findings* from specialist agent and preparing insights"
+            
+            # Model processing results
+            elif 'modelInvocationOutput' in observation:
+                return "⚡ *Synthesizing information* - combining data to create comprehensive analysis"
+        
+        # Final processing phase
+        if 'modelInvocationOutput' in orch_trace:
+            return "📝 *Finalizing analysis* - preparing comprehensive summary and recommendations"
         
         return None
         
@@ -187,7 +211,7 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
         
         # Send initial progress update
         if channel_id and message_ts:
-            send_progress_update(channel_id, message_ts, "🤔 **Processing your request** - I'm understanding what you need and planning my approach...")
+            send_progress_update(channel_id, message_ts, "🤔 *Processing your request* - I'm understanding what you need and planning my approach...")
         
         # Direct agent invocation with streaming support
         response = bedrock_agent_runtime.invoke_agent(
@@ -201,7 +225,7 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
         agent_response = ""
         completion_events = []
         last_progress_time = time.time()
-        progress_throttle = 3  # Minimum seconds between progress updates
+        progress_throttle = 2  # Minimum seconds between progress updates (reduced for more granular traces)
         
         # Stream processing for real-time response building
         for event in response['completion']:
@@ -217,10 +241,17 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
                 trace = event['trace']
                 current_time = time.time()
                 
+                # Debug: Log trace structure to understand what we're getting
+                logger.debug(f"Trace event keys: {list(trace.keys())}")
+                if 'orchestrationTrace' in trace:
+                    orch_keys = list(trace['orchestrationTrace'].keys())
+                    logger.debug(f"Orchestration trace keys: {orch_keys}")
+                
                 # Throttle progress updates to avoid spam
                 if current_time - last_progress_time >= progress_throttle:
                     progress_message = parse_trace_to_progress(trace)
                     if progress_message and channel_id and message_ts:
+                        logger.info(f"Sending progress update: {progress_message}")
                         if send_progress_update(channel_id, message_ts, progress_message):
                             last_progress_time = current_time
                 
