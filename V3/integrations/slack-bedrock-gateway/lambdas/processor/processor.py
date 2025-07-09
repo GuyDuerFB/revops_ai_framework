@@ -102,7 +102,7 @@ def send_progress_update(channel_id: str, message_ts: str, progress_text: str, t
         
         
         # Format with progress indicator
-        formatted_message = f"*RevOps Analysis:* 🤔\n\n{progress_text}"
+        formatted_message = f"*RevOps Analysis:* 🔍\n\n{progress_text}"
         
         # Build the update payload
         payload = {
@@ -199,7 +199,7 @@ def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
                 
                 # Map function calls to progress messages
                 if function_name == 'query_fire':
-                    return "🔍 *Running SQL query* on Firebolt Data Warehouse to retrieve data"
+                    return "🔍 *Running SQL query* on Firebolt Data Warehouse to retrieve your data"
                 elif function_name == 'get_gong_data':
                     return "📞 *Retrieving conversation data* from Gong to analyze customer interactions"
                 elif function_name == 'search_web':
@@ -217,21 +217,21 @@ def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
             if 'actionGroupInvocationOutput' in observation:
                 output = observation['actionGroupInvocationOutput']
                 if 'text' in output:
-                    return "📈 *Processing query results* - analyzing the data patterns and trends"
+                    return "📈 *Processing query results* - analyzing the data patterns and trends for you"
             
             # Collaborator responses
             elif 'collaboratorInvocationOutput' in observation:
                 collab_output = observation['collaboratorInvocationOutput']
                 if 'text' in collab_output:
-                    return "🧠 *Analyzing findings* from specialist agent and preparing insights"
+                    return "🧠 *Analyzing findings* from specialist agent and preparing your insights"
             
             # Model processing results
             elif 'modelInvocationOutput' in observation:
-                return "⚡ *Synthesizing information* - combining data to create comprehensive analysis"
+                return "⚡ *Synthesizing information* - combining data to create your comprehensive analysis"
         
         # Final processing phase
         if 'modelInvocationOutput' in orch_trace:
-            return "📝 *Finalizing analysis* - preparing comprehensive summary and recommendations"
+            return "📝 *Finalizing your analysis* - preparing comprehensive summary and recommendations"
         
         return None
         
@@ -251,7 +251,7 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
         
         # Send initial progress update
         if channel_id and message_ts:
-            send_progress_update(channel_id, message_ts, "🤔 *Processing your request* - I'm understanding what you need and planning my approach...", thread_ts)
+            send_progress_update(channel_id, message_ts, "🧠 *Getting started* - I'm understanding what you need and planning my approach...", thread_ts)
         
         # Direct agent invocation with streaming support
         logger.info("Calling bedrock_agent_runtime.invoke_agent...")
@@ -367,7 +367,7 @@ def update_slack_message(channel_id: str, message_ts: str, new_text: str, thread
         
         
         # Format the response with RevOps branding and completion indicator
-        formatted_response = f"*RevOps Analysis:* ✅\n\n{new_text}"
+        formatted_response = f"*RevOps Analysis:* ✨\n\n{new_text}"
         
         # Build the update payload
         payload = {
@@ -413,7 +413,7 @@ def send_slack_message(channel_id: str, text: str, thread_ts: str = None) -> boo
             return False
         
         
-        formatted_response = f"*RevOps Analysis:* ✅\n\n{text}"
+        formatted_response = f"*RevOps Analysis:* ✨\n\n{text}"
         
         # Build the message payload
         payload = {
