@@ -112,7 +112,10 @@ def send_immediate_slack_response(channel_id, user_id, thread_ts=None, message="
             logger.error("Bot token not found in secrets")
             return False
         
-        import requests
+        # Use urllib instead of requests (built-in Python library)
+        import urllib.request
+        import urllib.parse
+        import json
         
         # Build the message payload
         payload = {
@@ -128,17 +131,22 @@ def send_immediate_slack_response(channel_id, user_id, thread_ts=None, message="
         else:
             logger.info(f"Sending immediate response to channel {channel_id}")
         
-        response = requests.post(
-            'https://slack.com/api/chat.postMessage',
-            headers={
-                'Authorization': f'Bearer {bot_token}',
-                'Content-Type': 'application/json'
-            },
-            json=payload,
-            timeout=10
-        )
+        # Prepare the request
+        url = 'https://slack.com/api/chat.postMessage'
+        headers = {
+            'Authorization': f'Bearer {bot_token}',
+            'Content-Type': 'application/json'
+        }
         
-        response_data = response.json()
+        data = json.dumps(payload).encode('utf-8')
+        
+        # Create the request
+        req = urllib.request.Request(url, data=data, headers=headers)
+        
+        # Send the request
+        with urllib.request.urlopen(req, timeout=10) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+        
         if response_data.get('ok'):
             logger.info(f"Sent immediate response to channel {channel_id}")
             return response_data.get('ts')  # Return message timestamp for updates
