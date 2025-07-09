@@ -53,5 +53,51 @@ python3 deploy_production.py
 - Rotate credentials regularly
 - Follow principle of least privilege for IAM roles
 
+## Knowledge Base Sync Script
+
+### Overview
+The `sync_knowledge_base.py` script automatically synchronizes local knowledge base files with AWS S3 and triggers Amazon Bedrock knowledge base ingestion.
+
+### Features
+- **File Change Detection**: Uses MD5 hashing to detect only changed files
+- **S3 Upload**: Uploads changed files to the configured S3 bucket
+- **Knowledge Base Sync**: Triggers Amazon Bedrock ingestion job
+- **Progress Tracking**: Maintains sync state between runs
+- **Comprehensive Reporting**: Generates detailed operation summaries
+
+### Usage
+```bash
+cd deployment
+python3 sync_knowledge_base.py
+```
+
+### Configuration
+The script is configured for the RevOps AI Framework with the following settings:
+- **Knowledge Base ID**: `F61WLOYZSW`
+- **S3 Bucket**: `revops-ai-framework-kb-740202120544`
+- **Data Source ID**: `0HMI5RHYUS`
+- **AWS Profile**: `FireboltSystemAdministrator-740202120544`
+- **Region**: `us-east-1`
+
+### Supported File Types
+- `.txt` - Plain text files
+- `.md` - Markdown files
+- `.pdf` - PDF documents
+- `.doc/.docx` - Microsoft Word documents
+- `.html` - HTML files
+- `.csv` - CSV files
+- `.json` - JSON files
+
+### Operation Flow
+1. **Verify S3 Access**: Checks that the S3 bucket exists and is accessible
+2. **Detect Changes**: Scans knowledge base directory for changed files
+3. **Upload Files**: Uploads only changed files to S3
+4. **Sync Knowledge Base**: Triggers Bedrock ingestion job
+5. **Generate Summary**: Creates detailed operation report
+
+### Output Files
+- `kb_sync_state.json` - Maintains sync state between runs
+- `kb_sync_summary_YYYYMMDD_HHMMSS.txt` - Operation summary
+
 ## Clean Architecture
 This directory contains only essential deployment files. All debugging, testing, and archived scripts have been removed to maintain clarity and security.
