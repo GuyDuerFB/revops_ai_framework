@@ -102,8 +102,8 @@ def send_to_processing_queue(event_data):
         logger.error(f"Error sending to SQS: {e}")
         return False
 
-def send_immediate_slack_response(channel_id, user_id, message="🤔 Processing your request..."):
-    """Send immediate acknowledgment to Slack"""
+def send_immediate_slack_response(channel_id, user_id, thread_ts=None, message="🤔 Processing your request..."):
+    """Send immediate acknowledgment to Slack, optionally in a thread"""
     try:
         secrets = get_slack_secrets()
         bot_token = secrets.get('bot_token')
@@ -114,17 +114,27 @@ def send_immediate_slack_response(channel_id, user_id, message="🤔 Processing 
         
         import requests
         
+        # Build the message payload
+        payload = {
+            'channel': channel_id,
+            'text': message,
+            'mrkdwn': True
+        }
+        
+        # Add thread_ts if this is a thread reply
+        if thread_ts:
+            payload['thread_ts'] = thread_ts
+            logger.info(f"Sending immediate response in thread {thread_ts}")
+        else:
+            logger.info(f"Sending immediate response to channel {channel_id}")
+        
         response = requests.post(
             'https://slack.com/api/chat.postMessage',
             headers={
                 'Authorization': f'Bearer {bot_token}',
                 'Content-Type': 'application/json'
             },
-            json={
-                'channel': channel_id,
-                'text': message,
-                'mrkdwn': True
-            },
+            json=payload,
             timeout=10
         )
         
@@ -204,8 +214,10 @@ def lambda_handler(event, context):
                 user_id = event_data.get('user')
                 channel_id = event_data.get('channel')
                 text = event_data.get('text', '')
+                thread_ts = event_data.get('thread_ts')  # Extract thread timestamp
+                ts = event_data.get('ts')  # Message timestamp
                 
-                logger.info(f"App mention details - User: {user_id}, Channel: {channel_id}, Original text: {text}")
+                logger.info(f"App mention details - User: {user_id}, Channel: {channel_id}, Thread: {thread_ts}, Original text: {text}")
                 
                 # Remove bot mention from text (any bot mention pattern)
                 import re
@@ -215,8 +227,12 @@ def lambda_handler(event, context):
                 if user_message:
                     logger.info(f"Processing app mention from {user_id} in {channel_id}")
                     
-                    # Send immediate acknowledgment to Slack
-                    message_ts = send_immediate_slack_response(channel_id, user_id)
+                    # Determine if this is a thread reply
+                    # If thread_ts exists, reply in thread. If not, this becomes the thread root
+                    reply_thread_ts = thread_ts if thread_ts else ts
+                    
+                    # Send immediate acknowledgment to Slack (in thread if applicable)
+                    message_ts = send_immediate_slack_response(channel_id, user_id, reply_thread_ts)
                     
                     # Prepare data for processor
                     processing_data = {
@@ -224,6 +240,7 @@ def lambda_handler(event, context):
                         'user_id': user_id,
                         'channel_id': channel_id,
                         'message_text': user_message,
+                        'thread_ts': reply_thread_ts,  # Thread timestamp for replies
                         'original_event': event_data,
                         'response_message_ts': message_ts,  # For updating the message later
                         'timestamp': int(time.time())

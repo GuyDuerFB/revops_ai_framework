@@ -22,6 +22,7 @@ Slack Events → API Gateway → Handler Lambda → SQS → Processor Lambda →
 ## 🚀 Features
 
 - ✅ **AWS Best Practices Architecture**: Follows official AWS recommendations
+- ✅ **Thread-Based Conversations**: Intelligent thread creation and participation
 - ✅ **Conversation Continuity**: Built-in Bedrock session management
 - ✅ **Async Processing**: Handles Slack's 3-second timeout requirement
 - ✅ **Error Handling**: Dead letter queues and retry mechanisms
@@ -31,6 +32,7 @@ Slack Events → API Gateway → Handler Lambda → SQS → Processor Lambda →
 - ✅ **Cost Optimization**: Pay-per-use serverless architecture
 - ✅ **Date Context Injection**: Automatic temporal awareness for all requests
 - ✅ **Enhanced Reasoning**: Support for complex multi-agent workflows
+- ✅ **Multi-User Collaboration**: Multiple users can participate in thread conversations
 
 ## 📁 Directory Structure
 
@@ -154,20 +156,55 @@ The deployment automatically configures these environment variables:
 @RevBot which customers are at highest churn risk this quarter?
 ```
 
+### Thread-Based Conversations
+
+**Creating a New Thread:**
+```
+Channel: #revenue-analysis
+User: @RevBot What were our Q4 2023 revenue numbers?
+├─ RevBot: *RevOps Analysis:* ✅
+   Based on our Firebolt data warehouse, Q4 2023 revenue was $2.3M...
+```
+
+**Continuing in Thread:**
+```
+Channel: #revenue-analysis
+User: @RevBot What were our Q4 2023 revenue numbers?
+├─ RevBot: *RevOps Analysis:* ✅
+   Based on our Firebolt data warehouse, Q4 2023 revenue was $2.3M...
+├─ User: @RevBot How does that compare to Q3?
+├─ RevBot: *RevOps Analysis:* ✅
+   Q3 2023 revenue was $2.1M, so Q4 showed a 9.5% increase...
+```
+
+**Multi-User Collaboration:**
+```
+Channel: #revenue-analysis
+User1: @RevBot What were our Q4 2023 revenue numbers?
+├─ RevBot: *RevOps Analysis:* ✅
+   Based on our Firebolt data warehouse, Q4 2023 revenue was $2.3M...
+├─ User2: @RevBot Can you break that down by product line?
+├─ RevBot: *RevOps Analysis:* ✅
+   Q4 2023 revenue breakdown by product line...
+```
+
 ### Conversation Flow
 
-1. **User mentions @RevBot** in Slack channel
-2. **Handler Lambda** validates request and sends "🤔 Processing..." 
-3. **SQS Queue** receives processing request
+1. **User mentions @RevBot** in Slack channel or thread
+2. **Handler Lambda** validates request and sends "🤔 Processing..." in thread
+3. **SQS Queue** receives processing request with thread context
 4. **Processor Lambda** invokes Bedrock Agent with session context
 5. **Bedrock Agent** (SUPERVISOR) orchestrates DataAgent, WebSearchAgent, ExecutionAgent as needed
-6. **Response** updates the original "Processing..." message
+6. **Response** updates the original "Processing..." message in the thread
 
 ### Session Management
 
-- **Session ID**: `{user_id}:{channel_id}` for conversation continuity
+- **Thread Sessions**: `{user_id}:{channel_id}:{thread_ts}` for thread-scoped conversations
+- **Channel Sessions**: `{user_id}:{channel_id}` for non-thread conversations
 - **Context Retention**: Bedrock maintains context for 1 hour of inactivity
-- **Multi-turn Conversations**: Automatic context preservation across messages
+- **Multi-turn Conversations**: Automatic context preservation within threads
+- **Thread Isolation**: Each thread maintains independent conversation context
+- **Multi-User Support**: Multiple users can participate in the same thread
 
 ## 🔍 Monitoring
 
@@ -247,10 +284,12 @@ aws logs filter-log-events \
 This implementation replaces the previous `tools/slack/` directory with:
 
 - ✅ **Better Architecture**: API Gateway + SQS instead of Function URL
+- ✅ **Thread-Based Conversations**: Organized thread creation and participation
 - ✅ **Improved Performance**: Direct Bedrock Agent invocation vs broken Flow
 - ✅ **Enhanced Security**: Proper IAM roles and signature verification
 - ✅ **Better Monitoring**: CloudWatch integration and structured logging
 - ✅ **Conversation Management**: Native Bedrock sessions vs manual DynamoDB
+- ✅ **Multi-User Collaboration**: Support for multiple users in threads
 
 ### Migration Steps
 
@@ -267,6 +306,8 @@ This implementation replaces the previous `tools/slack/` directory with:
 | Processing | Synchronous | Asynchronous (SQS) |
 | Agent Integration | Broken Flow | Direct Agent |
 | Conversation Context | Manual DynamoDB | Native Bedrock Sessions |
+| Thread Support | No | Thread-based conversations |
+| Multi-User Support | Limited | Full thread collaboration |
 | Error Handling | Basic try/catch | Dead Letter Queues |
 | Monitoring | Limited | Full CloudWatch |
 | Security | Basic | IAM + Signature Verification |
@@ -277,6 +318,7 @@ This implementation replaces the previous `tools/slack/` directory with:
 - [Architecture Details](docs/architecture.md)
 - [Troubleshooting Guide](docs/troubleshooting.md)
 - [API Reference](docs/api-reference.md)
+- [Thread Behavior Guide](THREAD_BEHAVIOR.md) - **NEW**: Comprehensive guide to thread-based conversations
 
 ## 🤝 Support
 

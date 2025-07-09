@@ -90,7 +90,7 @@ def get_slack_secrets():
     
     return _secrets_cache
 
-def send_progress_update(channel_id: str, message_ts: str, progress_text: str) -> bool:
+def send_progress_update(channel_id: str, message_ts: str, progress_text: str, thread_ts: str = None) -> bool:
     """Send a progress update to Slack by updating the message"""
     try:
         secrets = get_slack_secrets()
@@ -104,18 +104,24 @@ def send_progress_update(channel_id: str, message_ts: str, progress_text: str) -
         # Format with progress indicator
         formatted_message = f"*RevOps Analysis:* 🤔\n\n{progress_text}"
         
+        # Build the update payload
+        payload = {
+            'channel': channel_id,
+            'ts': message_ts,
+            'text': formatted_message,
+            'mrkdwn': True
+        }
+        
+        # Note: thread_ts is not needed for chat.update as it updates the specific message
+        # The message already exists in the correct thread context
+        
         response = requests.post(
             'https://slack.com/api/chat.update',
             headers={
                 'Authorization': f'Bearer {bot_token}',
                 'Content-Type': 'application/json'
             },
-            json={
-                'channel': channel_id,
-                'ts': message_ts,
-                'text': formatted_message,
-                'mrkdwn': True
-            },
+            json=payload,
             timeout=10
         )
         
@@ -233,7 +239,7 @@ def parse_trace_to_progress(trace_event: dict) -> Optional[str]:
         logger.warning(f"Error parsing trace: {e}")
         return None
 
-def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = None, message_ts: str = None) -> str:
+def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = None, message_ts: str = None, thread_ts: str = None) -> str:
     """
     Invoke Bedrock Agent with session management for conversation continuity
     Following AWS best practices for direct agent invocation
@@ -245,7 +251,7 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
         
         # Send initial progress update
         if channel_id and message_ts:
-            send_progress_update(channel_id, message_ts, "🤔 *Processing your request* - I'm understanding what you need and planning my approach...")
+            send_progress_update(channel_id, message_ts, "🤔 *Processing your request* - I'm understanding what you need and planning my approach...", thread_ts)
         
         # Direct agent invocation with streaming support
         logger.info("Calling bedrock_agent_runtime.invoke_agent...")
@@ -314,7 +320,7 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
                     progress_message = parse_trace_to_progress(trace)
                     if progress_message and channel_id and message_ts:
                         logger.info(f"Sending progress update: {progress_message}")
-                        if send_progress_update(channel_id, message_ts, progress_message):
+                        if send_progress_update(channel_id, message_ts, progress_message, thread_ts):
                             last_progress_time = current_time
                 
                 # Log trace information for debugging
@@ -349,7 +355,7 @@ def invoke_bedrock_agent(user_message: str, session_id: str, channel_id: str = N
             logger.error(f"AWS Error response: {e.response}")
         return f"I apologize, but I encountered an error processing your request: {str(e)[:100]}. Please try again later."
 
-def update_slack_message(channel_id: str, message_ts: str, new_text: str) -> bool:
+def update_slack_message(channel_id: str, message_ts: str, new_text: str, thread_ts: str = None) -> bool:
     """Update an existing Slack message with the agent response"""
     try:
         secrets = get_slack_secrets()
@@ -363,18 +369,24 @@ def update_slack_message(channel_id: str, message_ts: str, new_text: str) -> boo
         # Format the response with RevOps branding and completion indicator
         formatted_response = f"*RevOps Analysis:* ✅\n\n{new_text}"
         
+        # Build the update payload
+        payload = {
+            'channel': channel_id,
+            'ts': message_ts,
+            'text': formatted_response,
+            'mrkdwn': True
+        }
+        
+        # Note: thread_ts is not needed for chat.update as it updates the specific message
+        # The message already exists in the correct thread context
+        
         response = requests.post(
             'https://slack.com/api/chat.update',
             headers={
                 'Authorization': f'Bearer {bot_token}',
                 'Content-Type': 'application/json'
             },
-            json={
-                'channel': channel_id,
-                'ts': message_ts,
-                'text': formatted_response,
-                'mrkdwn': True
-            },
+            json=payload,
             timeout=30
         )
         
@@ -390,7 +402,7 @@ def update_slack_message(channel_id: str, message_ts: str, new_text: str) -> boo
         logger.error(f"Error updating Slack message: {e}")
         return False
 
-def send_slack_message(channel_id: str, text: str) -> bool:
+def send_slack_message(channel_id: str, text: str, thread_ts: str = None) -> bool:
     """Send a new message to Slack (fallback if update fails)"""
     try:
         secrets = get_slack_secrets()
@@ -403,17 +415,25 @@ def send_slack_message(channel_id: str, text: str) -> bool:
         
         formatted_response = f"*RevOps Analysis:* ✅\n\n{text}"
         
+        # Build the message payload
+        payload = {
+            'channel': channel_id,
+            'text': formatted_response,
+            'mrkdwn': True
+        }
+        
+        # Add thread_ts if this is a thread reply
+        if thread_ts:
+            payload['thread_ts'] = thread_ts
+            logger.info(f"Sending fallback message in thread {thread_ts}")
+        
         response = requests.post(
             'https://slack.com/api/chat.postMessage',
             headers={
                 'Authorization': f'Bearer {bot_token}',
                 'Content-Type': 'application/json'
             },
-            json={
-                'channel': channel_id,
-                'text': formatted_response,
-                'mrkdwn': True
-            },
+            json=payload,
             timeout=30
         )
         
@@ -430,7 +450,7 @@ def send_slack_message(channel_id: str, text: str) -> bool:
         return False
 
 def process_app_mention(event_data: Dict[str, Any]) -> bool:
-    """Process an app mention event"""
+    """Process an app mention event with thread support"""
     try:
         logger.info(f"Starting process_app_mention with data keys: {list(event_data.keys())}")
         
@@ -438,14 +458,22 @@ def process_app_mention(event_data: Dict[str, Any]) -> bool:
         channel_id = event_data['channel_id']
         message_text = event_data['message_text']
         response_message_ts = event_data.get('response_message_ts')
+        thread_ts = event_data.get('thread_ts')  # Thread timestamp for thread-based conversations
         
         logger.info(f"Processing mention from user {user_id} in channel {channel_id}")
         logger.info(f"Message text: {message_text[:100]}...")
         logger.info(f"Response message TS: {response_message_ts}")
+        logger.info(f"Thread TS: {thread_ts}")
         
         # Create session ID for conversation continuity
-        # Format: user_id:channel_id for consistent sessions
-        session_id = f"{user_id}:{channel_id}"
+        # Use thread_ts in session ID to maintain thread-scoped conversations
+        # This allows different threads to have independent conversation contexts
+        if thread_ts:
+            session_id = f"{user_id}:{channel_id}:{thread_ts}"
+            logger.info(f"Thread-based session ID: {session_id}")
+        else:
+            session_id = f"{user_id}:{channel_id}"
+            logger.info(f"Channel-based session ID: {session_id}")
         
         # Inject current date context into the user message
         date_context = get_current_date_context()
@@ -459,7 +487,8 @@ def process_app_mention(event_data: Dict[str, Any]) -> bool:
             user_message=enhanced_message, 
             session_id=session_id,
             channel_id=channel_id,
-            message_ts=response_message_ts
+            message_ts=response_message_ts,
+            thread_ts=thread_ts
         )
         logger.info(f"Got response from Bedrock Agent: {len(agent_response)} chars")
         
@@ -469,17 +498,17 @@ def process_app_mention(event_data: Dict[str, Any]) -> bool:
         if response_message_ts:
             # Try to update the existing "processing" message
             logger.info(f"Attempting to update existing message {response_message_ts}")
-            success = update_slack_message(channel_id, response_message_ts, agent_response)
+            success = update_slack_message(channel_id, response_message_ts, agent_response, thread_ts)
             logger.info(f"Update message result: {success}")
         
         if not success:
-            # Fallback: send a new message
-            logger.info("Attempting to send new message as fallback")
-            success = send_slack_message(channel_id, agent_response)
+            # Fallback: send a new message (in thread if applicable)
+            logger.info(f"Attempting to send new message as fallback{' in thread' if thread_ts else ''}")
+            success = send_slack_message(channel_id, agent_response, thread_ts)
             logger.info(f"Send new message result: {success}")
         
         if success:
-            logger.info(f"Successfully sent response to channel {channel_id}")
+            logger.info(f"Successfully sent response to channel {channel_id}{' in thread' if thread_ts else ''}")
         else:
             logger.error(f"Failed to send response to channel {channel_id}")
         
