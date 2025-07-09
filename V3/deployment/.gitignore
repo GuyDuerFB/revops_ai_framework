@@ -27,3 +27,7 @@ temp/
 .idea/
 *.swp
 *.swo
+
+# Knowledge base sync files
+kb_sync_summary_*.txt
+kb_sync_state.json
