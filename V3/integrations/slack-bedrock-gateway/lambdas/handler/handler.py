@@ -102,7 +102,7 @@ def send_to_processing_queue(event_data):
         logger.error(f"Error sending to SQS: {e}")
         return False
 
-def send_immediate_slack_response(channel_id, user_id, thread_ts=None, message="🤔 Processing your request..."):
+def send_immediate_slack_response(channel_id, user_id, thread_ts=None, message="👋 Hey there! I'm on it - analyzing your data now..."):
     """Send immediate acknowledgment to Slack, optionally in a thread"""
     try:
         secrets = get_slack_secrets()
@@ -240,7 +240,7 @@ def lambda_handler(event, context):
                     reply_thread_ts = thread_ts if thread_ts else ts
                     
                     # Send immediate acknowledgment to Slack (in thread if applicable)
-                    message_ts = send_immediate_slack_response(channel_id, user_id, reply_thread_ts)
+                    message_ts = send_immediate_slack_response(channel_id, user_id, reply_thread_ts, "👋 Hey there! I'm diving into your data right now...")
                     
                     # Prepare data for processor
                     processing_data = {
