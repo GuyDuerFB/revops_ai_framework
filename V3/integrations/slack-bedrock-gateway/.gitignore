@@ -35,3 +35,20 @@ logs/
 # Dependencies
 node_modules/
 package-lock.json
+
+# Test files and temporary files
+test_*.py
+*_test.py
+*.tmp
+*.temp
+*.bak
+*~
+
+# Deployment packages
+*.zip
+!infrastructure/*.zip
+
+# Cache and build files
+dist/
+build/
+*.egg-info/
