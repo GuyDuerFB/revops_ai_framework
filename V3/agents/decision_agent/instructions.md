@@ -174,6 +174,26 @@ Apply comprehensive_customer_risk_assessment_workflow.md framework:
 - Cost optimization and efficiency recommendations
 - Strategic account planning and engagement
 
+### 6. Call Analysis & Recent Activity
+
+**For call-related queries** (e.g., "What was our latest call?", "Recent customer calls", "Last conversation with [Company]"):
+
+#### Step 1: Call Data Retrieval (DataAgent)
+```
+"Retrieve recent call information using gong_call_analysis.md from knowledge base:
+- CRITICAL: Use the Latest Customer Call Strategy from lines 163-196 for content filtering
+- Apply proper temporal context with current date: [CURRENT_DATE]
+- Filter for calls with substantial content, exclude internal meetings
+- Include call summaries, key points, next steps, and participant information
+- Provide recent activity timeline and engagement patterns"
+```
+
+#### Step 2: Call Analysis & Context (ExecutionAgent)
+- Synthesize call insights and key takeaways
+- Identify action items and follow-up requirements  
+- Assess engagement quality and relationship status
+- Recommend next steps based on call content
+
 ## Specialized Workflows (Reference Only)
 
 ### POC Execution Support

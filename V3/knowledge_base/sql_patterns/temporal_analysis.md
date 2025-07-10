@@ -1,11 +1,5 @@
 # Temporal Analysis SQL Patterns
 
-## Current Date Context
-Today: July 5, 2025
-- Q3 2025: 5 days of 92 (5.4% complete)
-- July 2025: 5 days of 31 (16.1% complete)
-- 2025: 186 days of 365 (51.0% complete)
-
 ## Daily Rate Calculations
 
 ```sql

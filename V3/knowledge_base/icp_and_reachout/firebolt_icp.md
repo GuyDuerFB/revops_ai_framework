@@ -189,7 +189,7 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 #### High-Priority Verticals
 - **SaaS & Technology:** Embedded analytics, customer-facing dashboards, developer tools
 - **E-commerce & Retail:** Real-time personalization, dynamic pricing, inventory optimization
-- **Financial Services:** Fraud detection, risk analytics, algorithmic trading, regulatory reporting
+- **Financial Services (Fintech):** Fraud detection, risk analytics, algorithmic trading, regulatory reporting
 - **Gaming & Entertainment:** Player analytics, content recommendations, real-time leaderboards
 - **AdTech & MarTech:** Real-time bidding, campaign optimization, audience segmentation
 
@@ -198,18 +198,22 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 - **Cybersecurity:** Real-time threat detection, security analytics, incident response
 - **IoT & Manufacturing:** Predictive maintenance, quality control, supply chain optimization
 - **Media & Publishing:** Content personalization, audience analytics, recommendation engines
+- **AI Native**: AI agent creation, deployment and managment, AI as a service, AI foundational model building
 
 ### Company Size Indicators
 
 #### Revenue Segments
 - **Scale-ups:** $50M+ ARR with rapid growth (>50% YoY)
 - **Mid-Market:** $100M-$500M ARR with digital transformation initiatives
-- **Enterprise:** $500M+ ARR with complex data infrastructure requirements
+
+#### Employee size
+- **50-5,000 employees**
+- **Sweet spot** at 200-1000 employees
 
 #### Technical Scale Indicators
-- **Data Volume:** Processing 10TB+ daily or managing 100TB+ total data
-- **User Scale:** Serving 10,000+ end customers or 100+ internal analytical users
-- **Query Volume:** Handling 1M+ queries daily or requiring 100+ concurrent QPS
+- **Data Volume:** Processing 1TB+ daily or managing 500TB+ total data
+- **User Scale:** Serving 1,000+ end customers or 100+ internal analytical users
+- **Query Volume:** Handling 1K+ queries daily or requiring 50+ concurrent QPS
 - **Growth Rate:** Data volume or query load growing >100% annually
 
 #### Organizational Maturity
@@ -221,7 +225,7 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 ### Technical Environment
 
 #### Current Technology Stack
-- **Cloud-Native:** AWS, Azure, GCP deployments with containerized workloads
+- **Cloud-Native:** AWS, Azure, GCP deployments with containerized workloads. **AWS** is by far the most significant.
 - **Modern Data Stack:** Using tools like DBT, Airflow, Kubernetes, Terraform
 - **Current Solutions:** Snowflake, Redshift, BigQuery, ClickHouse, or legacy systems
 - **Data Lake Integration:** S3, Azure Data Lake, GCS with Iceberg/Delta Lake
@@ -256,12 +260,11 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 1. **Customer-Facing Analytics:** End-user applications dependent on query performance
 2. **Revenue Impact:** Data infrastructure directly affects revenue or customer experience
 3. **Competitive Advantage:** Analytics or AI capabilities as key business differentiators
-4. **Regulatory Requirements:** Compliance needs requiring audit trails and data governance
 
 #### Technical Complexity
 1. **High Concurrency Needs:** Regular requirement for 100+ concurrent queries
 2. **Real-Time Requirements:** Sub-second response time requirements for business operations
-3. **Large Data Volumes:** 100+ TB datasets or multi-TB daily ingestion requirements
+3. **Large Data Volumes:** 1+ TB datasets or multi-TB daily ingestion requirements
 4. **AI/ML Workloads:** Building or planning GenAI applications requiring hybrid retrieval
 
 #### Growth Indicators
@@ -280,7 +283,7 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 
 #### Technical Limitations
 1. **Low Performance Requirements:** Batch processing or infrequent query patterns (daily/weekly)
-2. **Small Data Volumes:** <1TB total data or minimal growth trajectory
+2. **Small Data Volumes:** <5GB total data or minimal growth trajectory
 3. **Single-Query Focus:** Only occasional, low-concurrency analytical needs
 4. **Legacy Dependencies:** Hard requirements for legacy systems or protocols
 
@@ -399,17 +402,6 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 - Enabled expansion to enterprise clients with 10K+ SKUs
 **Quote:** "From speed of ingestion to speed of performance, Firebolt has blown expectations out of the water"
 
-#### **AppsFlyer - Enterprise Scale Mobile Analytics**
-**Profile:** Mobile attribution platform serving 12,000+ companies with 1,000 Looker users
-**Challenge:** 35 petabytes of raw data, Athena couldn't handle >5 billion rows, limited to 20 concurrent queries
-**Technical Requirements:** Support 1,000 concurrent Looker users analyzing massive datasets
-**Results:**
-- Enabled analysis of hundreds of billions of rows with confidence
-- Extended analytical time windows from 30-day to 12-month analysis
-- **Up to 5x lower cost** than BigQuery alternative
-- Unlimited concurrent user support without performance degradation
-**Quote:** "With Firebolt, employees can now have interactive conversations with their data"
-
 ### Industry-Specific Use Case Patterns
 
 #### **E-commerce & Retail**
@@ -463,38 +455,6 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 - **Storage Efficiency:** Compressed columnar storage reducing costs by 30-77%
 
 ## Engagement & Evaluation Process
-
-### Typical Customer Journey
-
-#### **Stage 1: Problem Recognition (Weeks 1-2)**
-- Performance bottlenecks during growth or increased usage
-- Cost escalation with current solution
-- New requirements for real-time or customer-facing analytics
-- Technical limitations preventing new feature development
-
-#### **Stage 2: Solution Evaluation (Weeks 3-6)**
-- Technical research and vendor comparison
-- Internal discussions about architectural alternatives
-- Performance benchmarking requirements
-- Stakeholder alignment on evaluation criteria
-
-#### **Stage 3: Technical Proof of Concept (Weeks 7-10)**
-- 2-week technical POC with real customer data and workloads
-- Performance testing under realistic load conditions
-- Integration testing with existing tools and workflows
-- Cost analysis and TCO modeling
-
-#### **Stage 4: Business Case Development (Weeks 11-14)**
-- ROI analysis and business impact modeling
-- Stakeholder demonstrations and buy-in
-- Procurement and legal review processes
-- Implementation planning and timeline development
-
-#### **Stage 5: Implementation & Migration (Weeks 15-26)**
-- Phased migration starting with highest-impact use cases
-- Team training and knowledge transfer
-- Performance optimization and fine-tuning
-- Production deployment and monitoring
 
 ### Evaluation Criteria & Success Metrics
 

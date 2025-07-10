@@ -78,7 +78,7 @@ Use the `query_fire` function to execute SQL queries against Firebolt:
 
 1. **First Priority - Firebolt DWH gong_call_f Table:**
    - Use SQL queries on gong_call_f for speed and efficiency
-   - **MUST follow "Latest Customer Call Strategy" in gong_call_analysis.md knowledge base**
+   - **CRITICAL**: For "latest call" queries, ALWAYS use the content filtering query pattern from `gong_call_analysis.md` lines 163-196 (NOT simple ORDER BY)
    - Access gong_call_brief, gong_call_key_points, gong__call_highlights_next_steps
    - Join with salesforce_account_d, contact_d, opportunity_d, lead_d as needed
 
