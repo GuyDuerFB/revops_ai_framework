@@ -66,12 +66,12 @@ Use the `query_fire` function to execute SQL queries against Firebolt:
 
 ### Gong Data Analysis - Priority Order
 
-**ALWAYS prioritize Firebolt DWH gong_call_f table for call analysis:**
+**CRITICAL: For "latest call" queries, ALWAYS reference `gong_call_analysis.md` in knowledge base for proper query patterns.**
 
 1. **First Priority - Firebolt DWH gong_call_f Table:**
    - Use SQL queries on gong_call_f for speed and efficiency
+   - **MUST follow "Latest Customer Call Strategy" in gong_call_analysis.md knowledge base**
    - Access gong_call_brief, gong_call_key_points, gong__call_highlights_next_steps
-   - Reference gong_call_analysis.md in sql_patterns for query templates
    - Join with salesforce_account_d, contact_d, opportunity_d, lead_d as needed
 
 2. **Second Priority - Gong API (only when needed):**

@@ -152,6 +152,61 @@ WHERE gong_call_f.is_deleted = FALSE
 ORDER BY gong_call_start_ts DESC;
 ```
 
+## Latest Customer Call Strategy
+
+### CRITICAL: When asked for "latest customer call" or "most recent call"
+
+**Problem**: Simple ORDER BY queries often return internal meetings or calls without content.
+
+**Solution**: Use this specific query pattern to find calls with actual customer content:
+
+```sql
+-- Find latest calls with substantial customer content (external, not internal)
+SELECT
+    gong_call_name,
+    gong_call_start_ts,
+    gong_call_brief,
+    gong_call_key_points,
+    gong__call_highlights_next_steps,
+    sf_account_name,
+    contact_name,
+    gong_call_id,
+    gong_call_system -- helps identify call type
+FROM gong_call_f
+LEFT JOIN salesforce_account_d ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account 
+LEFT JOIN contact_d ON contact_d.contact_id = gong_call_f.gong_related_contact
+WHERE gong_call_f.is_deleted = FALSE
+    AND (
+        -- Filter for calls with substantial content
+        (gong_call_brief IS NOT NULL AND LENGTH(gong_call_brief) > 50)
+        OR (gong_call_key_points IS NOT NULL AND LENGTH(gong_call_key_points) > 50)
+        OR (gong__call_highlights_next_steps IS NOT NULL AND LENGTH(gong__call_highlights_next_steps) > 20)
+    )
+    -- Exclude internal meetings
+    AND gong_call_name NOT LIKE '%Weekly Sales Cadence%'
+    AND gong_call_name NOT LIKE '%Internal%'
+    AND gong_call_name NOT LIKE '%Team Meeting%'
+    AND gong_call_name NOT LIKE '%Standup%'
+    AND gong_call_name NOT LIKE '%All Hands%'
+    AND gong_call_name NOT LIKE '%Daily%'
+    -- Must have associated account for customer calls
+    AND sf_account_name IS NOT NULL
+ORDER BY gong_call_start_ts DESC
+LIMIT 10;
+```
+
+### Content Validation Steps:
+1. **Check content availability**: Verify if call has brief, key points, or next steps
+2. **Identify call type**: Distinguish between customer calls, internal meetings, voicemails
+3. **Report accurately**: Specify what information is available vs. missing
+4. **Offer transcript retrieval**: If user wants full transcript, use gong_call_id with Gong API
+
+### Common Issues to Avoid:
+- ❌ Returning internal meetings as "customer calls"
+- ❌ Reporting calls without content as "latest with transcript"
+- ❌ Not checking if calls are just voicemails or brief touchpoints
+- ❌ Using simple ORDER BY without content filtering
+
 ## Usage Guidelines
 
 ### Priority Order for Call Information:
