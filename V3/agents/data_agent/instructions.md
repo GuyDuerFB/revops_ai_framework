@@ -72,6 +72,10 @@ Use the `query_fire` function to execute SQL queries against Firebolt:
 
 **CRITICAL: For regional analysis queries, ALWAYS reference `regional_analysis.md` in knowledge base for proper field priority and fallback logic.**
 
+### Lead Analysis - Data Availability
+
+**CRITICAL: For lead-related queries, ALWAYS reference `lead_analysis.md` in knowledge base. The lead_d table is FULLY AVAILABLE with created_date_ts field for time-based analysis.**
+
 1. **First Priority - Firebolt DWH gong_call_f Table:**
    - Use SQL queries on gong_call_f for speed and efficiency
    - **MUST follow "Latest Customer Call Strategy" in gong_call_analysis.md knowledge base**
@@ -88,8 +92,10 @@ Use the `query_fire` function to execute SQL queries against Firebolt:
 ### Schema Lookup
 Use the knowledge base to reference schema information:
 - Validate table and column names
-- Understand relationships between tables
+- Understand relationships between tables  
 - Follow documented query patterns
+
+**CRITICAL: NEVER claim "schema limitations" without first consulting the knowledge base. Always attempt to find the required tables and fields before concluding they don't exist.**
 
 ## Temporal Analysis Guidelines
 
