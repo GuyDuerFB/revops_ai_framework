@@ -268,6 +268,30 @@ Worth a brief conversation about how this could accelerate [company's] growth?
 **Results:** Unlimited concurrent users, 5x cost savings, 12-month analysis capabilities
 **Messaging:** "AppsFlyer transformed from being limited to 20 concurrent queries to supporting 1,000 Looker users analyzing unlimited data volumes in seconds"
 
+### **Aviation Intelligence - WingX**
+**Situation:** Processing 400M rows daily, 168B rows scanned, SQL Server performance degradation
+**Business Context:** Aviation intelligence company processing flight and market data during pandemic surge
+**Results:** 70-77% reduction in processing time, daily processing reduced from 16 hours to 4 hours, millisecond queries
+**Messaging:** "WingX boosted data processing efficiency by 70%, reducing daily processing time from 16 hours to 4 hours while handling 400M rows of aviation data daily"
+
+### **Gaming Platform - Lurkit**
+**Situation:** 50,000 users, 80,000 complex queries daily, MongoDB costs becoming prohibitive
+**Business Context:** Swedish gaming tech platform connecting developers, publishers, and content creators
+**Results:** 16.5x-32.1x query performance improvement, 40% cost reduction, near real-time insights every 10 minutes
+**Messaging:** "Lurkit achieved 32x faster gaming analytics while reducing costs by 40%, enabling real-time insights for 50,000 creators across millions of gaming channels"
+
+### **Food & Beverage Finance - Ezora**
+**Situation:** F&B franchise financial reconciliation, Aurora Postgres limitations, pre-aggregation requirements
+**Business Context:** SaaS platform serving franchise operators with financial analytics and reporting
+**Results:** 10x data ingestion improvement, 30x query performance, 40% faster time-to-market
+**Messaging:** "Ezora accelerated F&B financial analytics 30x while achieving 40% faster time-to-market, enabling sub-second drill-downs for franchise operators"
+
+### **Automotive Trading - Dealer Trade Network**
+**Situation:** 4,000+ dealerships, slow dealer-specific reports, limited to 30-day data retention
+**Business Context:** Largest new car dealer-to-dealer trading network in the United States
+**Results:** 60x faster analytics, report generation from 1+ hour to 2 minutes, 12-month data retention
+**Messaging:** "Dealer Trade Network achieved 60x faster analytics, reducing dealer report generation from over an hour to 2 minutes while enabling 12-month historical analysis"
+
 ### **SimilarWeb - Internet-Scale Performance**
 **Situation:** Internet-scale analytics, 5TB daily ingestion, millions of users
 **Business Context:** Web analytics platform serving global marketers and brands  
@@ -442,6 +466,128 @@ Most teams end up managing separate vector databases and data warehouses, creati
 The unified approach supports both vector similarity search and structured data queries in a single SQL statement, dramatically simplifying RAG pipelines.
 
 Worth exploring how this could streamline [their AI architecture]?
+
+[Your name]
+```
+
+### **Aviation & Transportation**
+
+#### Pain Points to Address
+- "Flight data processing taking hours when operations need real-time insights"
+- "Historical trend analysis limited by data retention and query performance"
+- "Pandemic-driven data volume increases overwhelming existing infrastructure"
+- "Difficulty onboarding new data suppliers due to performance constraints"
+
+#### Value Propositions
+- **Real-Time Operations:** "Process 400M+ rows of flight data daily with millisecond query response"
+- **Historical Analysis:** "Analyze 15 years of aviation data with 70% faster processing times"
+- **Scalable Architecture:** "Handle data volume surges without performance degradation"
+- **Rapid Integration:** "Onboard new data suppliers in weeks instead of months"
+
+#### Proof Points & Examples
+- **WingX:** "70-77% reduction in processing time, from 16 hours to 4 hours daily"
+- **Scale:** "Daily ingestion of 400M rows, scanning 168B rows for analysis"
+- **Performance:** "Millisecond query responses on massive transportation datasets"
+
+#### Email Framework Example
+```
+Subject: [Company] aviation data processing optimization
+
+Hi [First Name],
+
+How long does it take [company] to process daily flight operations data for actionable insights?
+
+WingX was struggling with 16-hour daily processing cycles that couldn't keep up with pandemic-driven data volume increases. After implementing Firebolt, they achieved:
+
+- 70% reduction in data processing time (16 hours to 4 hours)
+- Millisecond query responses on 400M daily rows
+- Ability to analyze 15 years of historical data efficiently
+
+Result: Real-time aviation intelligence instead of day-old insights.
+
+Worth exploring for [their aviation/transportation platform]?
+
+[Your name]
+```
+
+### **Automotive & Dealership Networks**
+
+#### Pain Points to Address
+- "Dealer reports taking hours to generate, missing critical trading windows"
+- "Limited data retention preventing historical market analysis"
+- "Inventory analytics can't scale to thousands of dealerships"
+- "Revenue opportunities missed due to slow lead identification"
+
+#### Value Propositions
+- **Instant Market Intelligence:** "Generate dealer-specific reports in minutes instead of hours"
+- **Extended Analytics:** "Analyze 12-month historical data for market trend identification"
+- **Network Scale:** "Support 4,000+ dealerships with consistent performance"
+- **Revenue Generation:** "Enable new revenue streams through real-time market insights"
+
+#### Proof Points & Examples
+- **Dealer Trade Network:** "60x faster analytics, report generation from 1+ hour to 2 minutes"
+- **Scale:** "Serving 4,000+ dealerships across the largest trading network in the US"
+- **Business Impact:** "2x revenue increase through automated email marketing insights"
+
+#### Email Framework Example
+```
+Subject: [Company] automotive analytics acceleration
+
+Hi [First Name],
+
+How quickly can [platform] generate dealer-specific market reports during peak trading hours?
+
+Dealer Trade Network was losing revenue opportunities with report generation taking over an hour. After moving to Firebolt, they achieved:
+
+- 60x faster analytics performance
+- Report generation reduced from 1+ hour to 2 minutes
+- 12-month data retention enabling historical market analysis
+- 2x revenue increase through automated lead identification
+
+Their dealers now get real-time market intelligence instead of stale hour-old data.
+
+Worth exploring for [their automotive platform]?
+
+[Your name]
+```
+
+### **Food & Beverage / Franchise Management**
+
+#### Pain Points to Address
+- "Financial reconciliation taking too long for daily franchise operations"
+- "Pre-aggregated data limiting drill-down analysis capabilities"
+- "Slow time-to-market for new financial analytics features"
+- "Multi-system integration creating performance bottlenecks"
+
+#### Value Propositions
+- **Real-Time Finance:** "Sub-second financial analytics for franchise operators"
+- **Flexible Analysis:** "Eliminate pre-aggregation requirements with direct raw data queries"
+- **Faster Development:** "40% faster time-to-market for new financial features"
+- **Unified Platform:** "Single platform for all franchise financial data integration"
+
+#### Proof Points & Examples
+- **Ezora:** "30x query performance improvement, 40% faster feature development"
+- **Technical:** "10x improvement in data ingestion speeds"
+- **Business Impact:** "Expanded enterprise client base through improved performance"
+
+#### Email Framework Example
+```
+Subject: [Company] franchise financial analytics optimization
+
+Hi [First Name],
+
+How quickly can [platform] provide financial insights to franchise operators for daily decision-making?
+
+Ezora's F&B franchise platform was limited by Aurora Postgres performance, requiring pre-aggregated data that restricted analysis flexibility. After implementing Firebolt:
+
+- 30x improvement in query response times
+- 10x faster data ingestion from multiple franchise systems
+- 40% faster time-to-market for new financial features
+- Sub-second drill-downs on raw transactional data
+
+Franchise operators now get instant financial insights instead of waiting for pre-computed reports.
+
+Worth exploring for [their franchise management platform]?
 
 [Your name]
 ```
