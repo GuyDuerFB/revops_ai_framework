@@ -6,6 +6,23 @@ This document contains detailed schema information for the Firebolt data warehou
 
 ## Core Revenue and Customer Tables
 
+### salesforce_account_d
+Account dimension table with all Salesforce account data:
+- **sf_account_id**: Primary key - Salesforce account ID
+- **sf_x18_digit_id**: 18-digit Salesforce ID
+- **sf_account_name**: Name of the account
+- **organization_id**: Foreign key to organization_d.organization_id
+- **sf_account_type_custom**: Custom account type (e.g., 'PLG Customer', 'Commit Customer')
+- **account_region**: Geographic region of the account
+- **sf_industry**: Industry of the account
+- **sf_sub_industry**: Sub-industry categorization
+- **sf_owner_id**: Foreign key to employee_d.sf_user_id
+- **sf_open_opportunities**: Count of open opportunities
+- **billing_country**: Country for billing
+- **potential_account_spend_usd**: Potential spending in USD
+- **sf_company_domain**: Company's domain name
+- **created_at_ts**: Timestamp when account was created
+
 ### billing_event_f
 Billing events fact table with all revenue data:
 - **organization_id**: Foreign key to organization_d.organization_id
@@ -40,23 +57,6 @@ Organization dimension table with all customer organizations:
 - **is_verified**: Boolean indicating if the organization is verified
 - **verified_at**: Timestamp when the organization was verified
 
-### salesforce_account_d
-Account dimension table with all Salesforce account data:
-- **sf_account_id**: Primary key - Salesforce account ID
-- **sf_x18_digit_id**: 18-digit Salesforce ID
-- **sf_account_name**: Name of the account
-- **organization_id**: Foreign key to organization_d.organization_id
-- **sf_account_type_custom**: Custom account type (e.g., 'PLG Customer', 'Commit Customer')
-- **account_region**: Geographic region of the account
-- **sf_industry**: Industry of the account
-- **sf_sub_industry**: Sub-industry categorization
-- **sf_owner_id**: Foreign key to employee_d.sf_user_id
-- **sf_open_opportunities**: Count of open opportunities
-- **billing_country**: Country for billing
-- **potential_account_spend_usd**: Potential spending in USD
-- **sf_company_domain**: Company's domain name
-- **created_at_ts**: Timestamp when account was created
-
 ### firebolt_account_d
 Firebolt account dimension table:
 - **account_id**: Primary key - unique account identifier
@@ -73,7 +73,7 @@ Firebolt 1.0 account dimension table:
 ### gong_call_f
 Gong sales calls fact table with comprehensive call data and AI-generated summaries:
 - **sf_gong_call_id**: Primary key - Salesforce Gong call ID
-- **gong_call_id**: Gong's internal call ID
+- **gong_call_id**: Gong's internal call ID - use for Gong API transcript when detailed accuracy is needed
 - **gong_call_name**: Name/title of the call
 - **gong_title**: Call title from Gong
 - **sf_owner_id**: Foreign key to employee_d.sf_user_id (call owner)
@@ -107,7 +107,7 @@ Gong sales calls fact table with comprehensive call data and AI-generated summar
 - **gong_opp_amount_time_of_call**: Opportunity amount at the time of the call (USD)
 - **gong_opp_close_date_time_of_call**: Opportunity close date at the time of the call
 - **gong_opp_probability_time_of_call**: Opportunity probability at the time of the call (percentage)
-- **gong_call_brief**: AI-generated brief summary of the call content - overall summary
+- **gong_call_brief**: AI-generated brief summary of the call content - overall summary - fastest to process
 - **gong_call_key_points**: AI-generated key points and takeaways from the call - main issues and topics discussed
 - **gong__call_highlights_next_steps**: Next steps agreed during the call - action items and follow-up tasks
 - **gong_related_participants_json**: JSON structure containing detailed participant information
@@ -115,33 +115,30 @@ Gong sales calls fact table with comprehensive call data and AI-generated summar
 - **source_file_timestamp**: Timestamp of the source file
 - **dbt_last_updated_ts**: Timestamp when the record was last updated by dbt
 
-### gong_call_f Table Joins
-**IMPORTANT**: Use these joins to get comprehensive call information:
-
-```sql
--- Join with account information
-LEFT JOIN salesforce_account_d 
-    ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account
-
--- Join with contact information  
-LEFT JOIN contact_d 
-    ON contact_d.contact_id = gong_call_f.gong_related_contact
-
--- Join with opportunity information
-LEFT JOIN opportunity_d 
-    ON opportunity_d.opportunity_id = gong_call_f.gong_related_opportunity
-
--- Join with lead information
-LEFT JOIN lead_d 
-    ON lead_d.lead_id = gong_call_f.gong_related_lead
-```
-
 ### gong_call_f Usage Priority
 **For efficiency and speed, prioritize these fields in order:**
 1. **gong_call_brief** - Use for quick call summaries
 2. **gong_call_key_points** - Use for main topics and issues
 3. **gong__call_highlights_next_steps** - Use for action items
 4. **gong_call_id** - Use only when detailed transcript is needed from Gong API
+
+### When to Use Gong API:
+- When you need verbatim quotes from the call
+- When the brief/key points don't contain sufficient detail
+- When specifically asked for "transcript" or "exact words"
+- When high accuracy is critical for sensitive topics
+
+### Search Patterns:
+- Use LOWER() for case-insensitive searches
+- Search both account name and call name fields
+- Use LIKE '%keyword%' for partial matching
+- Consider date ranges for performance
+
+### Performance Tips:
+- Always include `is_deleted = FALSE` filter
+- Use date ranges to limit results
+- Limit results with LIMIT clause when appropriate
+- Index on gong_call_start_ts for better performance
 
 ## Contacts, Leads, and People
 
@@ -180,7 +177,7 @@ Opportunity dimension table with all Salesforce opportunity data:
 - **opportunity_type**: Type of opportunity (e.g., 'New Business', 'Upsell')
 - **sf_account_id**: Foreign key to salesforce_account_d.sf_account_id
 - **stage_name**: Current stage of opportunity (e.g., 'Closed Won', 'Closed Lost')
-- **amount**: Opportunity amount in USD
+- **amount**: TCV amount in USD
 - **contract_duration_months**: Duration of contract in months
 - **probability**: Probability of closing (percentage)
 - **close_date**: Expected or actual close date
@@ -190,6 +187,26 @@ Opportunity dimension table with all Salesforce opportunity data:
 - **owner_id**: Foreign key to employee_d.sf_user_id
 - **campaign_id**: Foreign key to campaign_d.campaign_id
 - **contact_id**: Foreign key to contact_d.contact_id
+
+### opportunity_stage_f
+
+Fact table capturing each transition of a Salesforce opportunity from one stage to the next. One record represents the time the opportunity **left** the `from_stage` and entered the `to_stage`.
+
+- **opportunity_stage_id**: Surrogate primary key for this fact record.
+- **opportunity_id**: Foreign key to `opportunity_d.opportunity_id`.
+- **owner_id**: Foreign key to `employee_d.sf_user_id` of the opportunity owner at the time of the transition.
+- **created_by_id**: Foreign key to `employee_d.sf_user_id` of the user who created the stage change record.
+- **from_stage**: Stage that the opportunity was *in* before the transition.
+- **to_stage**: Stage that the opportunity was moved *to*.
+- **days_in_stage**: Number of days the opportunity spent in `from_stage` (inclusive).
+- **started_at_ts**: Timestamp when the opportunity **entered** `from_stage`.
+- **ended_at_ts**: Timestamp when the opportunity **left** `from_stage` and entered `to_stage`.
+- **is_first_stage**: `TRUE` if `from_stage` is the first lifecycle stage (initial creation of the opportunity).
+- **is_last_stage**: `TRUE` if `to_stage` is a terminal stage (e.g., *Closed Won* or *Closed Lost*).
+- **is_active_stage**: `TRUE` if this row represents the **current** stage of the opportunity (i.e., it has not yet moved to a later stage).
+- **is_deleted**: Flag indicating that the record was deleted in the source system.
+- **system_modified_at_ts**: Timestamp captured from Salesforce *SystemModstamp* (last system modification).
+- **dbt_last_updated_ts**: Timestamp when dbt last updated this record.
 
 ### agreement_f
 Agreements fact table with contract details:
@@ -427,6 +444,7 @@ Employee dimension table:
 - **first_name**: First name of the employee
 - **last_name**: Last name of the employee
 - **user_email**: Email of the employee
+- **NOTE**: No sales territory or regional assignment fields available
 
 ### user_d
 User dimension table:
@@ -507,6 +525,7 @@ Account forecast dimension table:
 - Join agreements to Salesforce accounts: `agreement_f.sf_account_id = salesforce_account_d.sf_account_id`
 - Join Gong calls to accounts: `gong_call_f.gong_primary_account = salesforce_account_d.sf_account_id`
 - Join Gong calls to opportunities: `gong_call_f.gong_related_opportunity = opportunity_d.opportunity_id`
+- Join Opportunity stages to Opportunity to get Opportunity information: `opportunity_stage_f.opportunity_id = opportunity_d.opportunity_id`
 
 ### FB1/FB2 Bridge Relationships
 - FB1 to Salesforce bridge: `firebolt_fb1_account_d.sf_account_id = salesforce_account_d.sf_account_id`
@@ -515,7 +534,6 @@ Account forecast dimension table:
 - Amberflo customer connection: `billing_event_f.aflo_customer_id = amberflo_customer_d.aflo_customer_id`
 - FB2 consumption to accounts: `firebolt_account_d.account_id = consumption_event_f.account_id`
 - Join FB 1.0 accounts to Salesforce accounts: `firebolt_fb1_account_d.sf_account_id = salesforce_account_d.sf_account_id`
-
 
 ### User and Employee Relationships
 - Join account owners to Salesforce accounts: `employee_d.sf_user_id = salesforce_account_d.sf_owner_id`
@@ -528,6 +546,17 @@ Account forecast dimension table:
 - Join discounts to invoices: `customer_discount_f.organization_id = customer_invoice_line_f.organization_id AND invoice_started_at BETWEEN valid_from AND valid_to`
 - Join invoices to Salesforce accounts: `customer_invoice_line_f.organization_id = salesforce_account_d.organization_id`
 
+### Call and Opportunity Analysis Relationship
+
+### gong_call_f Table Joins
+**IMPORTANT**: Use these joins to get comprehensive call information:
+
+- Join call with account information: `salesforce_account_d.sf_account_id = gong_call_f.gong_related_account`
+- Join call with contact information: `contact_d.contact_id = gong_call_f.gong_related_contact`
+- Join call with opportunity information:
+`opportunity_d.opportunity_id = gong_call_f.gong_related_opportunity`
+--Join call with lead information:
+    `lead_d.lead_id = gong_call_f.gong_related_lead`
 
 ## Common Query Patterns
 
@@ -543,7 +572,7 @@ GROUP BY 1, 2
 ORDER BY 1, 2
 ```
 
-### Monthly Revenue by Account and Owner
+### Monthly Revenue by Account, Region and Owner
 ```sql
 SELECT
     COALESCE(salesforce_account_d.sf_account_id,sf_acc.sf_account_id) as "salesforce_account_d.sf_account_id",
@@ -607,6 +636,7 @@ GROUP BY 1, 2
 ```sql
 SELECT
     salesforce_account_d.sf_account_name,
+    salesforce_account_d.account_region,
     opportunity_d.opportunity_name,
     opportunity_d.stage_name,
     opportunity_d.amount AS tcv,
@@ -616,6 +646,28 @@ JOIN salesforce_account_d ON opportunity_d.sf_account_id = salesforce_account_d.
 WHERE opportunity_d.stage_name NOT IN ('Closed Lost')
     AND [additional_filters]
 ORDER BY opportunity_d.amount DESC
+```
+### Opportunity Stages 
+
+```sql
+SELECT 
+    sf_account_id,
+    sf_account_name,
+    account_region,
+    opportunity_id,
+    opportunity_name,
+    opportunity_d.created_at,
+    from_stage,
+    to_stage,
+    days_in_stage,
+    started_at_ts,
+    ended_at_ts,
+    is_first_stage,
+    is_last_stage,
+    is_active_stage
+FROM opportunity_stage_f
+JOIN opportunity_d ON opportunity_d.opportunity_id = opportunity_stage_f.opportunity_id
+JOIN salesforce_account_d ON salesforce_account_d.sf_account_id = opportunity_d.sf_account_id;
 ```
 
 ### Gong Calls Analysis
@@ -648,3 +700,155 @@ FROM gong_call_f gc
 WHERE gc.gong_call_start_ts >= CURRENT_DATE - INTERVAL 90 DAY
 GROUP BY gc.gong_opportunity_stage_now
 ORDER BY call_count DESC
+```
+
+#### Basic Call Information Query
+
+```sql
+-- Get comprehensive call information with related entities
+SELECT
+    gong_call_name, -- name of the call
+    gong_call_start_ts, -- when the call started - timestamp
+    gong_call_end_ts, -- when the call ended - timestamp
+    gong_call_duration, -- length of the call
+    gong_opportunity_stage_now, -- current opportunity stage, if opportunity was linked
+    gong_opp_stage_time_of_call, -- opportunity stage at time of call
+    gong_opp_amount_time_of_call, -- TCV of the deal at time of call
+    gong_opp_close_date_time_of_call, -- close date at time of call
+    gong_opp_probability_time_of_call, -- probability at time of call
+    gong_call_brief, -- brief of the call - overall summary
+    gong_call_key_points, -- key points during the call - main issues and topics
+    gong__call_highlights_next_steps, -- next steps agreed during the call
+    sf_account_name, -- name of the account, if available
+    contact_name, -- name of the main contact, if available
+    opportunity_name, -- name of the opportunity, if available
+    lead_name, -- name of the lead, if available
+    gong_call_id -- gong call id for API use
+FROM gong_call_f
+LEFT JOIN salesforce_account_d
+    ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account 
+LEFT JOIN contact_d
+    ON contact_d.contact_id = gong_call_f.gong_related_contact
+LEFT JOIN opportunity_d
+    ON opportunity_d.opportunity_id = gong_call_f.gong_related_opportunity
+LEFT JOIN lead_d
+    ON lead_d.lead_id = gong_call_f.gong_related_lead
+WHERE gong_call_f.is_deleted = FALSE
+ORDER BY gong_call_start_ts DESC;
+```
+#### Search Calls by Account/Company
+
+```sql
+-- Find calls for a specific account (e.g., "IXIS")
+SELECT
+    gong_call_name,
+    gong_call_start_ts,
+    gong_call_brief,
+    gong_call_key_points,
+    gong__call_highlights_next_steps,
+    sf_account_name,
+    contact_name,
+    gong_call_id
+FROM gong_call_f
+LEFT JOIN salesforce_account_d
+    ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account 
+LEFT JOIN contact_d
+    ON contact_d.contact_id = gong_call_f.gong_related_contact
+WHERE gong_call_f.is_deleted = FALSE
+    AND (
+        LOWER(sf_account_name) LIKE '%ixis%' 
+        OR LOWER(gong_call_name) LIKE '%ixis%'
+    )
+ORDER BY gong_call_start_ts DESC;
+```
+
+#### Recent Calls for Account
+
+```sql
+-- Get recent calls for an account within date range
+SELECT
+    gong_call_name,
+    gong_call_start_ts,
+    gong_call_duration,
+    gong_call_brief,
+    gong_call_key_points,
+    gong__call_highlights_next_steps,
+    sf_account_name,
+    contact_name,
+    gong_call_id
+FROM gong_call_f
+LEFT JOIN salesforce_account_d
+    ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account 
+LEFT JOIN contact_d
+    ON contact_d.contact_id = gong_call_f.gong_related_contact
+WHERE gong_call_f.is_deleted = FALSE
+    AND LOWER(sf_account_name) = 'ixis'
+    AND gong_call_start_ts >= CURRENT_DATE - INTERVAL '90 days'
+ORDER BY gong_call_start_ts DESC
+LIMIT 10;
+```
+
+#### Last Call with Account
+
+```sql
+-- Get the most recent call with a specific account
+SELECT
+    gong_call_name,
+    gong_call_start_ts,
+    gong_call_brief,
+    gong_call_key_points,
+    gong__call_highlights_next_steps,
+    sf_account_name,
+    contact_name,
+    gong_call_id -- Use this ID for Gong API transcript retrieval
+FROM gong_call_f
+LEFT JOIN salesforce_account_d
+    ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account 
+LEFT JOIN contact_d
+    ON contact_d.contact_id = gong_call_f.gong_related_contact
+WHERE gong_call_f.is_deleted = FALSE
+    AND LOWER(sf_account_name) = 'ixis'
+ORDER BY gong_call_start_ts DESC
+LIMIT 1;
+```
+
+#### Calls by Opportunity Stage
+
+```sql
+-- Analyze calls by opportunity stage
+SELECT
+    gong_opp_stage_time_of_call,
+    COUNT(*) as call_count,
+    AVG(gong_opp_probability_time_of_call) as avg_probability,
+    SUM(gong_opp_amount_time_of_call) as total_tcv
+FROM gong_call_f
+WHERE gong_call_f.is_deleted = FALSE
+    AND gong_opp_stage_time_of_call IS NOT NULL
+    AND gong_call_start_ts >= CURRENT_DATE - INTERVAL '90 days'
+GROUP BY gong_opp_stage_time_of_call
+ORDER BY call_count DESC;
+```
+
+#### Calls with Key Topics
+
+```sql
+-- Search calls by key topics or keywords
+SELECT
+    gong_call_name,
+    gong_call_start_ts,
+    gong_call_brief,
+    gong_call_key_points,
+    sf_account_name,
+    gong_call_id
+FROM gong_call_f
+LEFT JOIN salesforce_account_d
+    ON salesforce_account_d.sf_account_id = gong_call_f.gong_related_account 
+WHERE gong_call_f.is_deleted = FALSE
+    AND (
+        LOWER(gong_call_key_points) LIKE '%pricing%'
+        OR LOWER(gong_call_key_points) LIKE '%contract%'
+        OR LOWER(gong_call_key_points) LIKE '%technical%'
+    )
+    AND gong_call_start_ts >= CURRENT_DATE - INTERVAL '30 days'
+ORDER BY gong_call_start_ts DESC;
+```
