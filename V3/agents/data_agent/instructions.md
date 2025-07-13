@@ -34,6 +34,11 @@ You can access the following data sources:
    - Identify major use cases mentioned in opportunities
    - Detect potential blockers in the sales process
 
+1a. **Dual-Mode Deal Analysis** (for deal reviews):
+   - **Mode A - Opportunity Data**: SFDC opportunity details, MEDDPICC fields, AE notes, sales activities
+   - **Mode B - Call Data**: Gong conversation analysis, stakeholder engagement, actual vs stated progress
+   - **Conflict Analysis**: Compare AE assessments vs call insights, flag discrepancies for attention
+
 2. **Consumption Pattern Analysis**:
    - Monitor changes in consumption patterns over time
    - Identify potential churn risks from decreasing usage
