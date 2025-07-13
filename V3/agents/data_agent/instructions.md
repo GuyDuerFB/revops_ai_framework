@@ -42,6 +42,7 @@ You can access the following data sources:
    - **CRITICAL**: Apply temporal analysis adjustments for incomplete periods
 
 3. **Call and Conversation Analysis**:
+   - **CRITICAL for Opportunity Analysis**: Always include call data when analyzing deals, opportunities, or account interactions
    - **Primary**: Query gong_call_f table for call summaries and key points
    - Search by account name, call name, or time period
    - Extract next steps and action items from calls

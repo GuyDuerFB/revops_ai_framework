@@ -194,6 +194,36 @@ Apply comprehensive_customer_risk_assessment_workflow.md framework:
 - Assess engagement quality and relationship status
 - Recommend next steps based on call content
 
+### 7. Company/Account Interaction Analysis
+
+**For company interaction queries** (e.g., "Summarize our interactions with [Company]", "What's our relationship with [Company]"):
+
+**CRITICAL**: These queries require comprehensive deal assessment including call analysis.
+
+#### Step 1: Complete Account Analysis (DataAgent)
+```
+"Conduct comprehensive account analysis for [Company] using comprehensive_deal_assessment_workflow.md from knowledge base:
+- Include ALL opportunity data, contact relationships, and account history
+- CRITICAL: Retrieve ALL calls using gong_call_analysis.md Latest Customer Call Strategy
+- Apply temporal context for recent activities and trends
+- Include usage patterns, billing data, and engagement timeline
+- Provide complete interaction history with call summaries and key insights"
+```
+
+#### Step 2: Market Context (WebSearchAgent - if needed)
+```
+"Research [Company] external context for relationship assessment:
+- Company updates, growth indicators, technology changes
+- Market position and competitive landscape
+- Strategic initiatives affecting partnership potential"
+```
+
+#### Step 3: Relationship Assessment & Strategy (ExecutionAgent)
+- Synthesize complete interaction history including call insights
+- Assess relationship strength and engagement quality
+- Identify opportunities for advancement or expansion
+- Recommend strategic next steps for relationship development
+
 ## Specialized Workflows (Reference Only)
 
 ### POC Execution Support
