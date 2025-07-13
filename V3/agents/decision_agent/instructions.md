@@ -197,18 +197,20 @@ Apply comprehensive_customer_risk_assessment_workflow.md framework:
 
 ### 7. Deal Review & Assessment
 
-**For deal review queries** (e.g., "What is the status of the [Company] deal?", "Assess the probability of [Deal]", "Deal review for [Company]", "Analyze [Company] opportunity"):
+**For deal review queries** (e.g., "What is the status of the [Company] deal?", "Assess the probability of [Deal]", "Deal review for [Company]", "Analyze [Company] opportunity", "Status of [Company]", "[Company] deal status"):
 
 **CRITICAL**: These queries require comprehensive deal assessment with dual data collection and conflict analysis.
 
 #### Step 1A: Opportunity & SFDC Data Collection (DataAgent)
 ```
-"Retrieve comprehensive opportunity data for [Company/Deal]:
+"Retrieve comprehensive opportunity data for [Company/Deal] with proper temporal context:
 - ALL opportunity details: stage, amount, close date, probability, next steps
 - MEDDPICC fields: Metrics, Economic Buyer, Decision Criteria, Decision Process, Paper Process, Identify Pain, Champion, Competition
 - Account information: type, industry, size, key contacts, relationship history
 - Sales activity: tasks, notes, recent updates, AE assessments
-- Pipeline position and historical progression"
+- Pipeline position and historical progression
+- CRITICAL: Resolve ALL owner IDs to names using employee_d joins
+- CRITICAL: Apply current date context for date comparisons and age calculations"
 ```
 
 #### Step 1B: Call & Conversation Analysis (DataAgent)
