@@ -22,7 +22,7 @@ class DecisionAgent:
         self,
         agent_id: str = None,
         agent_alias_id: str = None,
-        foundation_model: str = "anthropic.claude-3-sonnet-20240229-v1:0",
+        foundation_model: str = "anthropic.claude-sonnet-4-20250514-v1:0",
         region_name: str = 'us-east-1',
         profile_name: Optional[str] = None
     ):
@@ -226,7 +226,7 @@ class DecisionAgent:
             agent_id=config.get('decision_agent', {}).get('agent_id'),
             agent_alias_id=config.get('decision_agent', {}).get('agent_alias_id'),
             foundation_model=config.get('decision_agent', {}).get('foundation_model', 
-                                       "anthropic.claude-3-sonnet-20240229-v1:0"),
+                                       "anthropic.claude-sonnet-4-20250514-v1:0"),
             region_name=config.get('region_name', 'us-east-1'),
             profile_name=config.get('profile_name')
         )

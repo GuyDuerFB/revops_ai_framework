@@ -5,7 +5,7 @@
   "data_agent": {
     "agent_id": "9B8EGU46UV",
     "agent_alias_id": "Z2UM7QDWEW",
-    "foundation_model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "foundation_model": "anthropic.claude-sonnet-4-20250514-v1:0",
     "description": "Data Analysis Agent for RevOps AI Framework with temporal analysis and business logic awareness",
     "instructions_file": "agents/data_agent/instructions.md",
     "action_groups": [
@@ -29,7 +29,7 @@
   "decision_agent": {
     "agent_id": "TCX9CGOKBR",
     "agent_alias_id": "RSYE8T5V96",
-    "foundation_model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "foundation_model": "anthropic.claude-sonnet-4-20250514-v1:0",
     "description": "Decision Agent for RevOps AI Framework with temporal analysis and business logic awareness",
     "instructions_file": "agents/decision_agent/instructions.md",
     "agent_collaboration": "SUPERVISOR",
@@ -63,7 +63,7 @@
   "web_search_agent": {
     "agent_id": "83AGBVJLEB",
     "agent_alias_id": "B4PGWCU1FH",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "foundation_model": "anthropic.claude-sonnet-4-20250514-v1:0",
     "description": "WebSearch Agent V2 - Clean implementation",
     "instructions_file": "agents/web_search_agent/instructions.md",
     "action_groups": [
@@ -78,7 +78,7 @@
   "execution_agent": {
     "agent_id": "UWMCP4AYZX",
     "agent_alias_id": "BBXJDI18C5",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "foundation_model": "anthropic.claude-sonnet-4-20250514-v1:0",
     "description": "Execution Agent for RevOps AI Framework - Action execution and integration",
     "instructions_file": "agents/execution_agent/instructions.md",
     "action_groups": [

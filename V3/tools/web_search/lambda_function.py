@@ -11,8 +11,20 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import re
+import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+# Import agent tracer for debugging
+try:
+    import sys
+    sys.path.append('/opt/python')
+    from agent_tracer import trace_data_operation, trace_error, get_tracer
+except ImportError:
+    # Fallback if agent_tracer not available
+    def trace_data_operation(*args, **kwargs): pass
+    def trace_error(*args, **kwargs): pass
+    def get_tracer(): return None
 
 def search_web(query: str, num_results: int = 5, region: str = "us") -> Dict[str, Any]:
     """
@@ -26,6 +38,7 @@ def search_web(query: str, num_results: int = 5, region: str = "us") -> Dict[str
     Returns:
         Dict[str, Any]: Search results in structured format
     """
+    start_time = time.time()
     try:
         print(f"Performing web search for: {query}")
         
@@ -89,6 +102,17 @@ def search_web(query: str, num_results: int = 5, region: str = "us") -> Dict[str
                         'source': 'DuckDuckGo Search'
                     })
                 
+                # Trace successful operation
+                execution_time_ms = int((time.time() - start_time) * 1000)
+                
+                trace_data_operation(
+                    operation_type="WEB_SEARCH",
+                    data_source="DUCKDUCKGO",
+                    query_summary=f"web_search: {query[:50]}...",
+                    result_count=len(results),
+                    execution_time_ms=execution_time_ms
+                )
+                
                 return {
                     'success': True,
                     'query': query,
@@ -102,6 +126,14 @@ def search_web(query: str, num_results: int = 5, region: str = "us") -> Dict[str
                 
     except Exception as e:
         print(f"Error in web search: {str(e)}")
+        
+        # Trace the error
+        trace_error(
+            error_type=type(e).__name__,
+            error_message=str(e),
+            agent_context=f"WebSearchAgent.search_web"
+        )
+        
         return {
             'success': False,
             'error': str(e),
@@ -131,8 +163,24 @@ def research_company(company_name: str, focus_area: str = "general") -> Dict[str
         "news": f"{company_name} news recent updates 2024 2025"
     }
     
+    start_time = time.time()
+    
     query = focus_queries.get(focus_area, f"{company_name} {focus_area}")
-    return search_web(query, num_results=3)
+    result = search_web(query, num_results=3)
+    
+    # Trace company research operation
+    execution_time_ms = int((time.time() - start_time) * 1000)
+    result_count = result.get('result_count', 0) if result.get('success') else 0
+    
+    trace_data_operation(
+        operation_type="COMPANY_RESEARCH",
+        data_source="DUCKDUCKGO",
+        query_summary=f"research_company: {company_name} ({focus_area})",
+        result_count=result_count,
+        execution_time_ms=execution_time_ms
+    )
+    
+    return result
 
 def lambda_handler(event, context):
     """

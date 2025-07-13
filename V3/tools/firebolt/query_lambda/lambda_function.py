@@ -13,8 +13,20 @@ import re
 import urllib.request
 import urllib.error
 import urllib.parse
+import time
 from datetime import datetime, date
 from typing import Dict, Any, List, Optional, Union
+
+# Import agent tracer for debugging
+try:
+    import sys
+    sys.path.append('/opt/python')
+    from agent_tracer import trace_data_operation, trace_error, get_tracer
+except ImportError:
+    # Fallback if agent_tracer not available
+    def trace_data_operation(*args, **kwargs): pass
+    def trace_error(*args, **kwargs): pass
+    def get_tracer(): return None
 
 # Helpers for query parsing and validation
 def extract_sql_from_markdown(input_text: str) -> str:
@@ -435,6 +447,7 @@ def query_fire(query=None, account_name=None, engine_name=None):
     Returns:
         dict: Results from the Firebolt query in a structured format
     """
+    start_time = time.time()
     try:
         if not query:
             return {
@@ -450,6 +463,9 @@ def query_fire(query=None, account_name=None, engine_name=None):
         secret_name = os.environ.get('FIREBOLT_CREDENTIALS_SECRET', 'firebolt-credentials')
         region_name = os.environ.get('AWS_REGION', 'us-east-1')
         
+        # Trace the data operation
+        query_summary = query[:100] + "..." if len(query) > 100 else query
+        
         # Execute the query
         result = execute_firebolt_query(
             query, 
@@ -459,10 +475,30 @@ def query_fire(query=None, account_name=None, engine_name=None):
             engine_name
         )
         
+        # Trace successful operation
+        execution_time_ms = int((time.time() - start_time) * 1000)
+        result_count = result.get('row_count', 0) if result.get('success') else 0
+        
+        trace_data_operation(
+            operation_type="SQL_QUERY",
+            data_source="FIREBOLT",
+            query_summary=query_summary,
+            result_count=result_count,
+            execution_time_ms=execution_time_ms
+        )
+        
         return result
         
     except Exception as e:
         print(f"Error in query_fire: {str(e)}")
+        
+        # Trace the error
+        trace_error(
+            error_type=type(e).__name__,
+            error_message=str(e),
+            agent_context="DataAgent.query_fire"
+        )
+        
         return {
             "success": False,
             "error": str(e),
@@ -474,6 +510,7 @@ def lambda_handler(event, context):
     AWS Lambda handler for Firebolt queries
     Compatible with Bedrock Agent function calling format
     """
+    start_time = time.time()
     try:
         print(f"Received event: {json.dumps(event)}")
         
