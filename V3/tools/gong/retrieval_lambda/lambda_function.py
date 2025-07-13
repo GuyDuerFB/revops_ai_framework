@@ -18,6 +18,18 @@ import hashlib
 from datetime import datetime, timedelta, date
 from typing import Dict, Any, List, Optional, Union
 import re
+import time
+
+# Import agent tracer for debugging
+try:
+    import sys
+    sys.path.append('/opt/python')
+    from agent_tracer import trace_data_operation, trace_error, get_tracer
+except ImportError:
+    # Fallback if agent_tracer not available
+    def trace_data_operation(*args, **kwargs): pass
+    def trace_error(*args, **kwargs): pass
+    def get_tracer(): return None
 
 # Utility functions
 def parse_date_range_string(date_range_str: str) -> Dict[str, str]:
@@ -579,6 +591,7 @@ def get_gong_data(
     Returns:
         Dict[str, Any]: Structured data from Gong
     """
+    start_time = time.time()
     try:
         # Set up default values
         if date_range is None:
@@ -609,7 +622,21 @@ def get_gong_data(
         
         # Call appropriate function based on query type
         if query_type == 'calls':
-            return get_calls(credentials, params)
+            result = get_calls(credentials, params)
+            
+            # Trace successful operation
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            result_count = result.get('count', 0) if result.get('success') else 0
+            
+            trace_data_operation(
+                operation_type="GONG_API_CALL",
+                data_source="GONG",
+                query_summary=f"get_calls with filters: {str(params)[:50]}...",
+                result_count=result_count,
+                execution_time_ms=execution_time_ms
+            )
+            
+            return result
             
         elif query_type == 'call_details':
             if not call_id:
@@ -618,7 +645,19 @@ def get_gong_data(
                     "error": "call_id is required for call_details query",
                     "message": "Please provide a call_id to get detailed call information"
                 }
-            return get_call_details(credentials, call_id)
+            result = get_call_details(credentials, call_id)
+            
+            # Trace operation
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            trace_data_operation(
+                operation_type="GONG_API_CALL",
+                data_source="GONG",
+                query_summary=f"get_call_details for call_id: {call_id}",
+                result_count=1 if result.get('success') else 0,
+                execution_time_ms=execution_time_ms
+            )
+            
+            return result
             
         elif query_type == 'transcript':
             if not call_id:
@@ -627,7 +666,19 @@ def get_gong_data(
                     "error": "call_id is required for transcript query",
                     "message": "Please provide a call_id to get transcript"
                 }
-            return get_call_transcript(credentials, call_id)
+            result = get_call_transcript(credentials, call_id)
+            
+            # Trace operation
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            trace_data_operation(
+                operation_type="GONG_API_CALL",
+                data_source="GONG",
+                query_summary=f"get_call_transcript for call_id: {call_id}",
+                result_count=1 if result.get('success') else 0,
+                execution_time_ms=execution_time_ms
+            )
+            
+            return result
             
         elif query_type == 'search_company':
             if not company_name:
@@ -637,13 +688,54 @@ def get_gong_data(
                     "message": "Please provide a company_name to search for calls"
                 }
             limit = filters.get('limit', 10)
-            return search_calls_by_company(credentials, company_name, limit)
+            result = search_calls_by_company(credentials, company_name, limit)
+            
+            # Trace operation
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            result_count = result.get('count', 0) if result.get('success') else 0
+            
+            trace_data_operation(
+                operation_type="GONG_API_CALL",
+                data_source="GONG",
+                query_summary=f"search_calls_by_company for: {company_name}",
+                result_count=result_count,
+                execution_time_ms=execution_time_ms
+            )
+            
+            return result
             
         elif query_type == 'topics':
-            return get_call_topics(credentials, params)
+            result = get_call_topics(credentials, params)
+            
+            # Trace operation
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            result_count = result.get('count', 0) if result.get('success') else 0
+            
+            trace_data_operation(
+                operation_type="GONG_API_CALL",
+                data_source="GONG",
+                query_summary=f"get_call_topics for call_id: {params.get('call_id', 'unknown')}",
+                result_count=result_count,
+                execution_time_ms=execution_time_ms
+            )
+            
+            return result
             
         elif query_type == 'stats':
-            return get_call_stats(credentials, params)
+            result = get_call_stats(credentials, params)
+            
+            # Trace operation
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            trace_data_operation(
+                operation_type="GONG_API_CALL",
+                data_source="GONG",
+                query_summary=f"get_call_stats with params: {str(params)[:50]}...",
+                result_count=1 if result.get('success') else 0,
+                execution_time_ms=execution_time_ms
+            )
+            
+            return result
             
         else:
             return {
@@ -653,6 +745,13 @@ def get_gong_data(
             }
             
     except Exception as e:
+        # Trace the error
+        trace_error(
+            error_type=type(e).__name__,
+            error_message=str(e),
+            agent_context=f"DataAgent.get_gong_data.{query_type}"
+        )
+        
         return {
             "success": False,
             "error": str(e),
