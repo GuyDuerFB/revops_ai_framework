@@ -10,6 +10,8 @@ Unified methodology for analyzing opportunities combining discovery assessment, 
 - Manual assessment requests for specific deals
 - Executive/forecast review preparation
 - Risk threshold alerts
+- **Deal review queries**: "What is the status of [Company] deal?", "Assess probability of [Deal]"
+- **Interaction analysis**: "Summarize our interactions with [Company]"
 
 ## Core Discovery Framework
 
@@ -594,7 +596,46 @@ Score Categories:
 - **Cross-functional Alignment**: Marketing support, customer success preparation, product coordination
 - **Escalation Protocols**: Management involvement triggers, expert resource requests
 
-### 8.3 Success Metrics & KPIs
+### 8.3 4-Part Deal Review Analysis Framework
+
+**For deal status and probability assessment queries, structure response with:**
+
+#### **1. True Deal Probability Assessment**
+- Cross-reference AE-stated probability with actual engagement evidence from calls
+- Validate MEDDPICC completion against real stakeholder involvement patterns
+- Assess decision timeline realism based on process insights from conversations
+- **Output**: Realistic probability percentage with specific justification
+
+#### **2. Risk Analysis** (Technical, Engagement, Competition, Process)
+- **Technical Risks**: Unresolved objections, integration concerns, performance questions from calls
+- **Engagement Risks**: Stakeholder accessibility, champion strength, decision maker involvement
+- **Competitive Risks**: Threats mentioned in calls, pricing pressure, alternative evaluations
+- **Process Risks**: Unclear criteria, extended timelines, procurement challenges
+- **Output**: Prioritized risk list with specific evidence from SFDC and call data
+
+#### **3. Opportunity Analysis**
+- Expansion potential beyond initial use case (from calls and SFDC notes)
+- Strong technical alignment and demonstrated value recognition
+- Champion advocacy and internal selling capability evidence
+- Favorable competitive positioning demonstrated in conversations
+- **Output**: Specific opportunities with supporting evidence
+
+#### **4. Bottom Line & Next Steps**
+- **Clear Probability**: Final assessment with confidence level
+- **Priority Actions**: Specific next steps to advance the deal
+- **Risk Mitigation**: Immediate actions to address top risks
+- **Timeline**: Realistic expectations with key milestones
+- **Output**: Actionable recommendations with ownership and timing
+
+### 8.4 Data Conflict Resolution Guidelines
+
+**When SFDC data conflicts with call insights:**
+- **Prioritize**: Recent call data and actual stakeholder behavior
+- **Flag**: Discrepancies for sales team attention and follow-up
+- **Weight**: Technical conversations and decision maker engagement heavily
+- **Document**: Specific examples of conflicts for coaching opportunities
+
+### 8.5 Success Metrics & KPIs
 
 #### **Assessment Quality Metrics**
 - **Completeness**: Percentage of discovery framework coverage achieved

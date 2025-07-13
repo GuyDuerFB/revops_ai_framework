@@ -108,11 +108,11 @@ Process: Decision Agent → Data Agent (CRM check) → WebSearch Agent (research
 Output: Comprehensive lead score with ICP alignment and engagement strategy
 ```
 
-### 3. Deal Health and Risk Assessment
+### 3. Deal Review & Status Assessment
 ```
-Query: "Analyze the Acme Corp opportunity and assess deal risk"
-Process: Decision Agent → Data Agent (Salesforce + Gong) → Analysis → Risk scoring
-Output: Deal health assessment with risk factors and mitigation strategies
+Query: "What is the status of the Acme Corp deal?" or "Assess the probability of the TechCorp opportunity"
+Process: Decision Agent → Data Agent (Step 1A: SFDC + Step 1B: Gong calls) → Dual analysis → Assessment
+Output: Structured 4-part analysis: true probability, risks, opportunities, next steps
 ```
 
 ### 4. Customer Churn Risk Analysis
@@ -439,9 +439,13 @@ revops_ai_framework/V2/
 @RevBot score our MQL leads from this week against ICP criteria
 ```
 
-#### Deal Analysis
+#### Deal Analysis & Review
 ```
-@RevBot analyze the Microsoft Enterprise deal and provide deal health assessment
+@RevBot what is the status of the Microsoft Enterprise deal?
+
+@RevBot assess the probability and risks of the TechCorp opportunity
+
+@RevBot analyze our interactions with Nexxen and provide deal assessment
 
 @RevBot what are the main risk factors for deals closing this quarter?
 
@@ -491,7 +495,14 @@ RevBot: [Compares both regions with previous context]
 | Knowledge Base | ✅ Production Ready | Business logic and schema documentation |
 | Slack Integration | ✅ Production Ready | Full end-to-end working integration |
 
-### Recent Enhancements Applied (July 9, 2025)
+### Recent Enhancements Applied (July 13, 2025)
+- ✅ **Comprehensive Deal Review Workflow**: Added structured 4-part deal assessment framework
+- ✅ **Dual Data Analysis**: Implemented Step 1A (Opportunity/SFDC) + Step 1B (Call/Gong) data collection
+- ✅ **Enhanced Pattern Matching**: Now recognizes deal status, probability assessment, and interaction summary queries
+- ✅ **Data Conflict Resolution**: Prioritizes call insights over AE notes when discrepancies exist
+- ✅ **Clear Communication Guidelines**: Updated tone for direct, data-driven, actionable responses
+
+### Previous Enhancements (July 9, 2025)
 - ✅ **Enhanced Date Context Awareness**: Implemented automatic date/time injection for accurate temporal analysis
 - ✅ **Improved Gong API Integration**: Enhanced transcript retrieval with priority-based data access (Firebolt DWH → Gong API)
 - ✅ **Competitive Intelligence Analysis**: Added automated competitor mention detection from sales call transcripts
@@ -653,4 +664,4 @@ This RevOps AI Framework is proprietary software designed for enterprise revenue
 
 Built for Revenue Teams - Powered by Amazon Bedrock
 
-*Last Updated: July 9, 2025 | Version: 2.2 | Status: Production Ready with Enhanced Competitive Intelligence and Temporal Analysis*
+*Last Updated: July 13, 2025 | Version: 2.3 | Status: Production Ready with Comprehensive Deal Review Capabilities*
