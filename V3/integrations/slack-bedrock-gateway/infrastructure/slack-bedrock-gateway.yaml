@@ -148,7 +148,9 @@ Resources:
                 Action:
                   - bedrock:InvokeAgent
                   - bedrock-agent-runtime:InvokeAgent
-                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent-alias/${BedrockAgentId}/${BedrockAgentAliasId}'
+                Resource: 
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent-alias/${BedrockAgentId}/${BedrockAgentAliasId}'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent-alias/*/*'
               - Effect: Allow
                 Action:
                   - sqs:ReceiveMessage

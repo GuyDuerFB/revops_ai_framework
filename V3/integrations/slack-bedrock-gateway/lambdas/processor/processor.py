@@ -272,9 +272,11 @@ class CompleteSlackBedrockProcessor:
             
             # Trace conversation end
             processing_time_ms = int((time.time() - start_time) * 1000)
+            # Calculate actual agents used from response traces
+            agents_used = self._count_agents_used(response)
             self.tracer.trace_conversation_end(
                 response_summary=agent_response[:200],
-                total_agents_used=1,  # At minimum, the Decision Agent
+                total_agents_used=agents_used,
                 processing_time_ms=processing_time_ms,
                 success=success
             )
@@ -396,6 +398,41 @@ class CompleteSlackBedrockProcessor:
                     agent_context="BedrockAgentInvocation"
                 )
             raise
+    
+    def _count_agents_used(self, response: Dict[str, Any]) -> int:
+        """Count the number of agents used based on response traces"""
+        try:
+            agents_invoked = set(['DecisionAgent'])  # Always includes the main agent
+            
+            # Parse through completion traces to find agent invocations
+            if 'completion' in response:
+                for event in response['completion']:
+                    if 'trace' in event and 'orchestrationTrace' in event['trace']:
+                        orch_trace = event['trace']['orchestrationTrace']
+                        
+                        # Check for collaborator invocations
+                        if 'invocationInput' in orch_trace:
+                            invocation = orch_trace['invocationInput']
+                            if 'collaboratorInvocationInput' in invocation:
+                                collab = invocation['collaboratorInvocationInput']
+                                agent_name = collab.get('collaboratorName', '')
+                                if agent_name:
+                                    agents_invoked.add(agent_name)
+                                    
+                                    # Trace the collaboration
+                                    if self.tracer:
+                                        self.tracer.trace_agent_invocation(
+                                            source_agent="DecisionAgent",
+                                            target_agent=agent_name,
+                                            collaboration_type="AGENT_COLLABORATION",
+                                            reasoning=f"Decision Agent calling {agent_name} for specialized task"
+                                        )
+            
+            return len(agents_invoked)
+            
+        except Exception as e:
+            print(f"Error counting agents used: {e}")
+            return 1  # Default to 1 if counting fails
     
     def _parse_trace_to_progress(self, trace_event: dict) -> Optional[str]:
         """Convert Bedrock Agent orchestration trace to progress message"""
