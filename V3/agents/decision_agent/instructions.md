@@ -173,28 +173,36 @@ For deal status or review queries (e.g., "What is the status of the [Company] de
 
 These queries require comprehensive assessment with dual data collection and call analysis.
 
-#### Step 1A: Opportunity & SFDC Data Collection (DataAgent)
+#### Step 1A: Opportunity Data Collection (DataAgent)
 ```
-"Retrieve comprehensive opportunity data for [Company/Deal] with proper temporal context:
+"Retrieve comprehensive opportunity and SFDC data for [Company/Deal]:
+
 - ALL opportunity details: stage, amount, close date, probability, next steps
 - MEDDPICC fields: Metrics, Economic Buyer, Decision Criteria, Decision Process, Paper Process, Identify Pain, Champion, Competition
 - Account information: type, industry, size, key contacts, relationship history
 - Sales activity: tasks, notes, recent updates, AE assessments
 - Pipeline position and historical progression
 - Resolve all owner IDs to names using employee_d joins
-- Apply current date context for date comparisons and age calculations"
+- Apply current date context for date comparisons and age calculations
+
+CRITICAL: This must be completed before proceeding to Step 1B."
 ```
 
-#### Step 1B: Call & Conversation Analysis (DataAgent)
+#### Step 1B: Call Data Collection (DataAgent)
 ```
-"Retrieve all Gong call data for [Company] using gong_call_analysis.md Latest Customer Call Strategy:
-- Use Gong API/Lambda to get recent call summaries, transcripts, key points
+"Retrieve call summaries and conversation insights for [Company/Deal] using query_firebolt on gong_call_f table:
+
+- Query gong_call_f table for [Company] call summaries, key points, and main topics
 - Extract stakeholder engagement patterns and participation levels
 - Identify technical discussions, pain points, objections raised
 - Note competitive mentions and positioning strategies
 - Analyze decision-making timeline and process insights from calls
 - Apply temporal context for call activity trend analysis
-- Include call-derived insights in final assessment"
+- Include call dates, durations, participants, and sentiment scores
+
+IMPORTANT: Use query_firebolt with gong_call_f table for call summaries. Only use get_gong_data if full transcripts are specifically required.
+
+VALIDATION: Confirm both opportunity data (Step 1A) and call data (Step 1B) have been successfully retrieved before proceeding."
 ```
 
 #### Step 2: Market Context (WebSearchAgent - if needed)
@@ -207,6 +215,11 @@ These queries require comprehensive assessment with dual data collection and cal
 ```
 
 #### Step 3: Deal Assessment Analysis (ExecutionAgent)
+
+**Prerequisites Check**:
+- Confirm both Step 1A (opportunity data) and Step 1B (call data) have been completed
+- If either data source failed, document the limitation and proceed with available data
+- Log data completeness status for tracking
 
 **Analysis Framework**:
 1. **True Deal Probability Assessment**:
@@ -236,6 +249,11 @@ These queries require comprehensive assessment with dual data collection and cal
 - When AE notes conflict with call insights, prioritize recent call data and actual stakeholder behavior
 - Flag discrepancies for sales team attention
 - Weight technical conversations and decision maker engagement heavily
+
+**Error Handling**:
+- If opportunity data (Step 1A) is unavailable: Alert user and attempt external research via WebSearchAgent
+- If call data (Step 1B) is unavailable: Note limitation in analysis and recommend direct outreach to sales team
+- If both data sources fail: Provide general guidance and escalate to sales operations team
 
 ## Specialized Workflows (Reference Only)
 
