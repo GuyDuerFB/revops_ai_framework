@@ -1,117 +1,198 @@
-# RevOps AI Framework - Deployment
+# RevOps AI Framework - Deployment Guide
 
-Clean deployment directory for the RevOps AI Framework V2.
+## Overview
 
-## Recent Updates (July 14, 2025)
-- ✅ Complete Slack-Bedrock processor with full tracing and working responses
-- ✅ Embedded AgentTracer for comprehensive debugging without import issues
-- ✅ Real-time progress updates during agent processing ("Planning approach", "Calling Data Agent", etc.)
-- ✅ Hybrid architecture combining working Slack integration with enhanced tracing
-- ✅ Fixed IXIS deal analysis issues: date logic, call retrieval, and owner name resolution
-- ✅ Deployed enhanced Decision Agent (TCX9CGOKBR) and Data Agent (9B8EGU46UV) with Claude Sonnet 4
+This directory contains deployment scripts and configuration for the RevOps AI Framework V3. The framework provides comprehensive revenue operations analysis through specialized AI agents.
 
-## Previous Updates (July 13, 2025)
-- ✅ Comprehensive deal review workflow with dual data analysis
-- ✅ Enhanced agent pattern matching for deal status and probability queries
-- ✅ Data conflict resolution framework prioritizing call insights
-- ✅ Structured 4-part deal assessment framework
+## Core Components
 
-## Previous Updates (July 9, 2025)
-- ✅ Enhanced date context awareness for temporal analysis
-- ✅ Improved Gong API integration with priority-based data access
-- ✅ Competitive intelligence analysis from sales call transcripts
-- ✅ Expanded knowledge base with comprehensive schema documentation
+### Production Deployment Scripts
 
-## Files
+- **`deploy_production.py`** - Main deployment script for core framework components
+- **`update_agent_with_alias.py`** - Update Decision Agent instructions and alias routing
+- **`sync_knowledge_base.py`** - Synchronize knowledge base content with AWS Bedrock
 
-### Core Deployment
-- **`deploy_production.py`** - Main production deployment script
-- **`config.json`** - Agent and infrastructure configuration
-- **`requirements.txt`** - Python dependencies for deployment
+### Configuration Files
 
-### Configuration
-- **`secrets.json`** - Contains actual secrets for deployment (git-ignored for security)
-- **`secrets.template.json`** - Template for new environments
+- **`config.json`** - Core AWS configuration (agent IDs, regions, profiles)
+- **`secrets.template.json`** - Template for required secrets configuration
+- **`kb_sync_state.json`** - Knowledge base synchronization state tracking
 
-## Usage
+### Documentation
 
-### Prerequisites
-1. AWS CLI configured with `FireboltSystemAdministrator-740202120544` profile
-2. Python 3.9+ with dependencies installed
-3. Secrets file configured
+- **`UPDATE_AGENT_INSTRUCTIONS.md`** - Comprehensive guide for updating agent instructions
+- **`SECURITY_CONFIG.md`** - Security configuration and best practices
 
-### Quick Deployment
+## Quick Start
+
+### 1. Initial Deployment
+
 ```bash
-cd deployment
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Secrets are already configured in secrets.json (git-ignored)
-# For new environments, copy from template:
-# cp secrets.template.json secrets.json
-
-# Run deployment
+# Deploy core framework
 python3 deploy_production.py
+
+# Deploy Slack integration
+cd ../integrations/slack-bedrock-gateway
+python3 deploy.py
+
+# Deploy monitoring infrastructure  
+cd ../../monitoring
+python3 deploy-agent-tracing.py
+python3 deploy_enhanced_monitoring.py
 ```
 
-### Configuration
-- All agent IDs, Lambda ARNs, and infrastructure details are in `config.json`
-- Deployment status is tracked within the configuration file
-- Secrets should be stored in AWS Secrets Manager for production use
+### 2. Update Agent Instructions
 
-## Security Notes
-- **`secrets.json` is git-ignored** - contains actual secrets for deployment
-- **`secrets.template.json`** - safe template for new environments  
-- Use AWS Secrets Manager for production credentials
-- Rotate credentials regularly
-- Follow principle of least privilege for IAM roles
-
-## Knowledge Base Sync Script
-
-### Overview
-The `sync_knowledge_base.py` script automatically synchronizes local knowledge base files with AWS S3 and triggers Amazon Bedrock knowledge base ingestion.
-
-### Features
-- **File Change Detection**: Uses MD5 hashing to detect only changed files
-- **S3 Upload**: Uploads changed files to the configured S3 bucket
-- **Knowledge Base Sync**: Triggers Amazon Bedrock ingestion job
-- **Progress Tracking**: Maintains sync state between runs
-- **Comprehensive Reporting**: Generates detailed operation summaries
-
-### Usage
 ```bash
-cd deployment
+# Update Decision Agent with new instructions
+python3 update_agent_with_alias.py
+
+# Or update without alias changes
+python3 update_agent_with_alias.py --no-alias
+```
+
+### 3. Sync Knowledge Base
+
+```bash
+# Synchronize knowledge base content
 python3 sync_knowledge_base.py
 ```
 
-### Configuration
-The script is configured for the RevOps AI Framework with the following settings:
-- **Knowledge Base ID**: `F61WLOYZSW`
-- **S3 Bucket**: `revops-ai-framework-kb-740202120544`
-- **Data Source ID**: `0HMI5RHYUS`
-- **AWS Profile**: `FireboltSystemAdministrator-740202120544`
-- **Region**: `us-east-1`
+## Architecture
 
-### Supported File Types
-- `.txt` - Plain text files
-- `.md` - Markdown files
-- `.pdf` - PDF documents
-- `.doc/.docx` - Microsoft Word documents
-- `.html` - HTML files
-- `.csv` - CSV files
-- `.json` - JSON files
+### Multi-Agent System
 
-### Operation Flow
-1. **Verify S3 Access**: Checks that the S3 bucket exists and is accessible
-2. **Detect Changes**: Scans knowledge base directory for changed files
-3. **Upload Files**: Uploads only changed files to S3
-4. **Sync Knowledge Base**: Triggers Bedrock ingestion job
-5. **Generate Summary**: Creates detailed operation report
+The framework uses a supervisor pattern with these agents:
 
-### Output Files
-- `kb_sync_state.json` - Maintains sync state between runs
-- `kb_sync_summary_YYYYMMDD_HHMMSS.txt` - Operation summary
+- **Decision Agent** (`TCX9CGOKBR`) - Orchestrates workflows and makes strategic decisions
+- **Data Agent** (`9B8EGU46UV`) - Queries Firebolt DWH, Gong calls, and Salesforce
+- **WebSearch Agent** (`83AGBVJLEB`) - Gathers external intelligence and research
+- **Execution Agent** (`UWMCP4AYZX`) - Performs operational actions and notifications
 
-## Clean Architecture
-This directory contains only essential deployment files. All debugging, testing, and archived scripts have been removed to maintain clarity and security.
+### Core Workflows
+
+1. **Deal Assessment** - Comprehensive deal status analysis with dual data collection
+2. **Lead Assessment** - ICP alignment scoring and qualification
+3. **Customer Risk Assessment** - Churn risk and usage pattern analysis
+4. **Pipeline Reviews** - Forecasting and opportunity analysis
+5. **Consumption Analysis** - FBU utilization and optimization
+
+## Enhanced Deal Review Flow
+
+The framework implements a robust deal review process:
+
+### Step 1A: Opportunity Data Collection
+- SFDC opportunity details, MEDDPICC fields, account information
+- Sales activity tracking and owner resolution
+
+### Step 1B: Call Data Collection  
+- Gong call summaries via `gong_call_f` table
+- Stakeholder engagement patterns and conversation insights
+
+### Step 2: Market Context (Optional)
+- External company research and competitive intelligence
+
+### Step 3: Deal Assessment Analysis
+- Risk analysis across technical, engagement, and competitive dimensions
+- Data conflict resolution and comprehensive recommendations
+
+## Monitoring and Observability
+
+### CloudWatch Integration
+
+- **Log Groups**: Structured logging across conversation, collaboration, data operations
+- **Dashboards**: Real-time monitoring of agent performance and deal assessments
+- **Alarms**: Automated alerts for failure rates and performance issues
+
+### Enhanced Monitoring
+
+```bash
+# Generate deal assessment report
+cd ../monitoring
+python3 enhanced_deal_monitoring.py --report
+
+# Analyze specific conversation
+python3 enhanced_deal_monitoring.py --correlation-id <correlation_id>
+```
+
+## Configuration Management
+
+### AWS Profile Setup
+
+The framework uses the `FireboltSystemAdministrator-740202120544` profile:
+
+```bash
+# Configure AWS SSO
+aws configure sso --profile FireboltSystemAdministrator-740202120544
+
+# Login when needed
+aws sso login --profile FireboltSystemAdministrator-740202120544
+```
+
+### Environment Variables
+
+Key configuration parameters are stored in `config.json`:
+
+```json
+{
+  "profile_name": "FireboltSystemAdministrator-740202120544",
+  "region_name": "us-east-1",
+  "decision_agent": {
+    "agent_id": "TCX9CGOKBR",
+    "agent_alias_id": "RSYE8T5V96"
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Agent Version Conflicts**
+   - Ensure alias points to correct agent version
+   - Use `update_agent_with_alias.py` to sync versions
+
+2. **Data Retrieval Failures**
+   - Check Firebolt and Gong Lambda permissions
+   - Verify collaborator agent configurations
+
+3. **Monitoring Gaps**
+   - Ensure agent tracing is properly configured
+   - Check CloudWatch log group permissions
+
+### Debug Commands
+
+```bash
+# Check agent status
+aws bedrock-agent get-agent --agent-id TCX9CGOKBR --profile FireboltSystemAdministrator-740202120544
+
+# View recent logs
+aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow --profile FireboltSystemAdministrator-740202120544
+
+# Test integration
+@RevBot could you tell me about the status of the IXIS deal?
+```
+
+## Security
+
+- All secrets managed through AWS Secrets Manager
+- IAM roles follow principle of least privilege
+- Agent collaboration restricted to authorized aliases
+- Comprehensive audit logging enabled
+
+For detailed security configuration, see `SECURITY_CONFIG.md`.
+
+## Support
+
+For deployment issues or questions:
+
+1. Check CloudWatch logs for error details
+2. Review agent tracing dashboards
+3. Use enhanced monitoring tools for deal assessment analysis
+4. Consult knowledge base workflows for process guidance
+
+---
+
+**Framework Version**: V3  
+**Last Updated**: July 2025  
+**Deployment Region**: us-east-1
