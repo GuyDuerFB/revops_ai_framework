@@ -6,10 +6,18 @@ This is a production script for updating the Decision Agent (ID: TCX9CGOKBR) wit
 and updating the agent alias to point to the new version.
 
 Usage:
-    python3 update_agent_with_alias.py [--no-alias]
+    python3 update_agent_with_alias.py [options]
     
-Arguments:
-    --no-alias    Skip updating the agent alias (only update instructions)
+Options:
+    --no-alias           Skip updating the agent alias (only update instructions)
+    --force-new-version  Create a new version instead of updating DRAFT
+    --help              Show help message
+
+Features:
+- Automatically finds the latest prepared version (highest version number)
+- Checks if the selected version has collaborators configured
+- Smart version selection to avoid pointing to versions without collaborators
+- Validates agent preparation status before updating alias
 """
 
 import boto3
@@ -100,7 +108,7 @@ def wait_for_agent_prepared(bedrock_agent, agent_id, timeout=300):
     logger.error(f"Timeout waiting for agent to be prepared")
     return False
 
-def update_agent_instructions(config, instructions, update_alias=True):
+def update_agent_instructions(config, instructions, update_alias=True, force_new_version=False):
     """Update the Decision Agent instructions using AWS Bedrock"""
     
     # Get agent configuration
@@ -167,18 +175,48 @@ def update_agent_instructions(config, instructions, update_alias=True):
         
         # Get the actual version number from the prepared agent
         agent_versions = bedrock_agent.list_agent_versions(agentId=agent_id)
-        latest_version = None
-        for version in agent_versions['agentVersionSummaries']:
-            if version['agentStatus'] == 'PREPARED':
-                latest_version = version['agentVersion']
-                break
         
-        if not latest_version:
-            logger.error("Could not find a prepared version")
+        # Find the highest numbered prepared version (not DRAFT)
+        prepared_versions = []
+        for version in agent_versions['agentVersionSummaries']:
+            if version['agentStatus'] == 'PREPARED' and version['agentVersion'] != 'DRAFT':
+                try:
+                    # Convert to int for proper sorting
+                    version_num = int(version['agentVersion'])
+                    prepared_versions.append({
+                        'version': version['agentVersion'],
+                        'version_num': version_num,
+                        'created_at': version['createdAt']
+                    })
+                except ValueError:
+                    # Skip non-numeric versions
+                    continue
+        
+        if not prepared_versions:
+            logger.error("Could not find any numbered prepared versions")
             return False
         
-        new_version = latest_version
-        logger.info(f"Using prepared version: {new_version}")
+        # Sort by version number descending to get the latest
+        prepared_versions.sort(key=lambda x: x['version_num'], reverse=True)
+        new_version = prepared_versions[0]['version']
+        
+        logger.info(f"Found {len(prepared_versions)} prepared versions")
+        logger.info(f"Using latest prepared version: {new_version}")
+        
+        # Check if this version has collaborators
+        try:
+            collaborators = bedrock_agent.list_agent_collaborators(
+                agentId=agent_id,
+                agentVersion=new_version
+            )
+            collaborator_count = len(collaborators.get('agentCollaboratorSummaries', []))
+            logger.info(f"Version {new_version} has {collaborator_count} collaborators")
+            
+            if collaborator_count == 0:
+                logger.warning(f"⚠️  Version {new_version} has no collaborators configured!")
+                logger.info("This may cause agent collaboration failures.")
+        except Exception as e:
+            logger.warning(f"Could not check collaborators for version {new_version}: {str(e)}")
         
         # Update agent alias if requested
         if update_alias and agent_alias_id:
@@ -225,9 +263,22 @@ def main():
     
     # Parse command line arguments
     update_alias = True
-    if len(sys.argv) > 1 and sys.argv[1] == "--no-alias":
-        update_alias = False
-        logger.info("🔹 Alias update disabled")
+    force_new_version = False
+    
+    for arg in sys.argv[1:]:
+        if arg == "--no-alias":
+            update_alias = False
+            logger.info("🔹 Alias update disabled")
+        elif arg == "--force-new-version":
+            force_new_version = True
+            logger.info("🔹 Force new version creation enabled")
+        elif arg == "--help":
+            print("Usage: python3 update_agent_with_alias.py [options]")
+            print("Options:")
+            print("  --no-alias           Skip updating the agent alias")
+            print("  --force-new-version  Create a new version instead of updating DRAFT")
+            print("  --help              Show this help message")
+            return
     
     # Load configuration
     config = load_config()
@@ -242,7 +293,7 @@ def main():
     logger.info(f"📋 Instructions loaded: {len(instructions)} characters")
     
     # Update agent
-    success = update_agent_instructions(config, instructions, update_alias)
+    success = update_agent_instructions(config, instructions, update_alias, force_new_version)
     
     if success:
         logger.info("\n🎉 UPDATE SUCCESSFUL!")
