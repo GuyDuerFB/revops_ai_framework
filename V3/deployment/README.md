@@ -2,7 +2,15 @@
 
 Clean deployment directory for the RevOps AI Framework V2.
 
-## Recent Updates (July 13, 2025)
+## Recent Updates (July 14, 2025)
+- ✅ Complete Slack-Bedrock processor with full tracing and working responses
+- ✅ Embedded AgentTracer for comprehensive debugging without import issues
+- ✅ Real-time progress updates during agent processing ("Planning approach", "Calling Data Agent", etc.)
+- ✅ Hybrid architecture combining working Slack integration with enhanced tracing
+- ✅ Fixed IXIS deal analysis issues: date logic, call retrieval, and owner name resolution
+- ✅ Deployed enhanced Decision Agent (TCX9CGOKBR) and Data Agent (9B8EGU46UV) with Claude Sonnet 4
+
+## Previous Updates (July 13, 2025)
 - ✅ Comprehensive deal review workflow with dual data analysis
 - ✅ Enhanced agent pattern matching for deal status and probability queries
 - ✅ Data conflict resolution framework prioritizing call insights
