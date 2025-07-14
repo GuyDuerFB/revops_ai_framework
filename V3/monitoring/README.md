@@ -1,145 +1,166 @@
-# Enhanced Monitoring and Logging
+# RevOps AI Framework - Monitoring
 
-Comprehensive monitoring solution for the RevOps AI Framework, providing real-time visibility into system performance, error tracking, and operational insights.
+Comprehensive monitoring and observability solution for the RevOps AI Framework V3.
+
+## Overview
+
+This directory contains monitoring infrastructure for tracking agent performance, debugging conversations, and analyzing system health.
 
 ## Components
 
-### 1. CloudFormation Template
-- **File**: `enhanced-logging-solution.yaml`
-- **Purpose**: Deploys monitoring infrastructure including CloudWatch dashboard, alarms, SNS alerts, and log analysis functions
+### Core Scripts
+- **`deploy-agent-tracing.py`** - Deploy CloudWatch infrastructure and dashboards
+- **`deploy_enhanced_monitoring.py`** - Deploy enhanced deal assessment monitoring
+- **`enhanced_deal_monitoring.py`** - Deal assessment analysis and metrics
+- **`agent_tracer.py`** - Agent tracing library for Lambda functions
 
-### 2. Deployment Script
-- **File**: `deploy-monitoring.py`
-- **Purpose**: Automated deployment of monitoring stack with CloudWatch Insights queries and troubleshooting runbook
+### Infrastructure
+- **`agent-tracing-infrastructure.yaml`** - CloudWatch log groups and dashboard configuration
 
-### 3. Troubleshooting Runbook
-- **File**: `troubleshooting-runbook.md` (auto-generated)
-- **Purpose**: Operational guide with common failure scenarios and diagnostic commands
+## Quick Start
 
-## Features
-
-### Real-time Monitoring
-- **CloudWatch Dashboard**: Lambda performance, SQS metrics, error visualization
-- **Automated Alarms**: Error detection, timeout warnings, dead letter queue alerts
-- **SNS Notifications**: Critical issue alerting
-- **Agent Performance**: Bedrock Agent response times and success rates
-
-### Log Analysis
-- **Scheduled Lambda**: Automated pattern detection every 15 minutes
-- **CloudWatch Insights Queries**: Pre-configured queries for common troubleshooting scenarios
-- **Error Correlation**: Cross-reference errors across all system components
-- **Temporal Analysis Monitoring**: Track date context injection and temporal query patterns
-
-### Operational Tools
-- **Diagnostic Commands**: Ready-to-use AWS CLI commands for health checks
-- **Troubleshooting Runbook**: Step-by-step resolution guides
-- **Performance Baselines**: Historical metrics for comparison
-- **Gong API Integration Monitoring**: Track transcript retrieval performance and success rates
-
-## Deployment
-
+### 1. Deploy Basic Monitoring
 ```bash
-cd monitoring
-python3 deploy-monitoring.py
+# Deploy agent tracing infrastructure
+python3 deploy-agent-tracing.py
+
+# Deploy enhanced deal monitoring
+python3 deploy_enhanced_monitoring.py
 ```
 
-## Accessing Monitoring
+### 2. Access Dashboards
+- **Agent Tracing**: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=revops-ai-agent-tracing
+- **Deal Assessment**: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=revops-ai-enhanced-deal-assessment
 
-### CloudWatch Dashboard
-https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=revops-slack-bedrock-monitoring
-
-### CloudWatch Insights Queries
-- `revops-bedrock-timeout-analysis`: Analyze timeout patterns and user queries
-- `revops-user-request-complexity`: Track query complexity trends
-- `revops-collaboration-patterns`: Monitor agent collaboration efficiency
-- `revops-error-correlation`: Correlate errors across system components
-
-### SNS Alerts
-Subscribe to the `revops-slack-bedrock-alerts` topic for automated notifications.
-
-## Troubleshooting Commands
-
-### Quick Health Check
+### 3. Monitor Deal Assessments
 ```bash
-# Check processing queue
-aws sqs get-queue-attributes \
-  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/revops-slack-bedrock-processing-queue \
-  --attribute-names ApproximateNumberOfMessages
+# Generate assessment report
+python3 enhanced_deal_monitoring.py --report
 
-# Check for recent errors
-aws logs filter-log-events \
-  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
-  --filter-pattern 'ERROR' \
-  --start-time $(date -u -d '1 hour ago' +%s)000
-
-# Check dead letter queue
-aws sqs get-queue-attributes \
-  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/revops-slack-bedrock-dlq \
-  --attribute-names ApproximateNumberOfMessages
+# Analyze specific conversation
+python3 enhanced_deal_monitoring.py --correlation-id <correlation_id>
 ```
 
-### Performance Monitoring
-```bash
-# Lambda duration metrics
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/Lambda \
-  --metric-name Duration \
-  --dimensions Name=FunctionName,Value=revops-slack-bedrock-processor \
-  --start-time $(date -u -d '1 hour ago' --iso-8601) \
-  --end-time $(date -u --iso-8601) \
-  --period 300 \
-  --statistics Maximum,Average
+## Log Groups
 
-# Error rate monitoring
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/Lambda \
-  --metric-name Errors \
-  --dimensions Name=FunctionName,Value=revops-slack-bedrock-processor \
-  --start-time $(date -u -d '1 hour ago' --iso-8601) \
-  --end-time $(date -u --iso-8601) \
-  --period 300 \
-  --statistics Sum
+The monitoring system uses structured CloudWatch log groups:
+
+- `/aws/revops-ai/conversation-trace` - End-to-end conversation tracking
+- `/aws/revops-ai/agent-collaboration` - Agent-to-agent interactions
+- `/aws/revops-ai/data-operations` - SQL queries and data retrieval
+- `/aws/revops-ai/decision-logic` - Decision agent reasoning
+- `/aws/revops-ai/error-analysis` - Errors and failure patterns
+
+## Debugging Workflow
+
+### 1. Find Conversation
+```bash
+# Search conversation logs
+SOURCE /aws/revops-ai/conversation-trace
+| filter user_query like /IXIS/
+| sort @timestamp desc
 ```
 
-## Key Metrics to Monitor
+### 2. Trace Complete Flow
+```bash
+# Multi-source query with correlation ID
+SOURCE /aws/revops-ai/conversation-trace, /aws/revops-ai/agent-collaboration, /aws/revops-ai/data-operations
+| filter correlation_id = "YOUR_CORRELATION_ID"
+| sort @timestamp asc
+```
 
-### Performance Indicators
-- **Lambda Duration**: Should be under 280 seconds (5-minute timeout)
-- **SQS Message Age**: Messages should process within minutes
-- **Error Rate**: Should be less than 1% of total invocations
-- **Dead Letter Queue**: Should remain at 0 under normal operation
+### 3. Analyze Agent Decisions
+```bash
+# Check decision logic
+SOURCE /aws/revops-ai/decision-logic
+| filter correlation_id = "YOUR_CORRELATION_ID"
+| fields @timestamp, decision_point, workflow_selected, reasoning
+```
 
-### Alert Thresholds
-- **Processor Errors**: ≥1 error in 5 minutes
-- **Processor Timeouts**: Duration >290 seconds
-- **Dead Letter Queue**: >0 messages
+## Deal Assessment Monitoring
 
-## Integration with Existing System
+The enhanced monitoring system tracks:
 
-The monitoring solution integrates seamlessly with:
-- **Slack Integration**: Tracks request processing from Slack events
-- **Bedrock Agents**: Monitors agent collaboration and timeouts
-- **Lambda Functions**: Performance and error tracking for all functions
-- **SQS Queues**: Message processing and dead letter queue monitoring
+- **Assessment Status**: Complete, partial, or failed
+- **Data Sources**: SFDC opportunity data and call data retrieval
+- **Processing Time**: End-to-end assessment duration
+- **Agent Collaboration**: Multi-agent workflow execution
+
+### Key Metrics
+- **Completion Rate**: Percentage of assessments with both data sources
+- **Processing Time**: Average time for deal assessments
+- **Error Rate**: Failed assessments requiring intervention
+
+## Common Debug Patterns
+
+### Missing Call Data
+```bash
+# Check data operations for call retrieval
+SOURCE /aws/revops-ai/data-operations
+| filter correlation_id = "CORRELATION_ID" and data_source like /gong/
+```
+
+### SQL Errors
+```bash
+# Check for query errors
+SOURCE /aws/revops-ai/data-operations
+| filter correlation_id = "CORRELATION_ID" and error_message != ""
+```
+
+### Agent Collaboration Issues
+```bash
+# Analyze agent interactions
+SOURCE /aws/revops-ai/agent-collaboration
+| filter correlation_id = "CORRELATION_ID"
+| stats count() by source_agent, target_agent
+```
+
+## Performance Monitoring
+
+### CloudWatch Metrics
+- **RevOpsAI/DealAssessment/AssessmentStatus** - Deal assessment outcomes
+- **RevOpsAI/DealAssessment/ProcessingTimeMs** - Assessment duration
+- **RevOpsAI/DealAssessment/AgentsInvoked** - Multi-agent coordination
+
+### Alarms
+- **RevOpsAI-DealAssessment-HighFailureRate** - Too many failed assessments
+- **RevOpsAI-DealAssessment-SlowProcessing** - Processing time > 30 seconds
+- **RevOpsAI-DealAssessment-DataRetrievalIssues** - Data source failures
 
 ## Maintenance
 
 ### Log Retention
-- Handler logs: 30 days
-- Processor logs: 30 days
-- Detailed monitoring logs: 90 days
+- All log groups: 7-day retention
+- Export critical sessions before purge if needed
+- Monitor log group sizes for cost optimization
 
-### Cost Optimization
-- CloudWatch Insights queries run on-demand
-- Log analysis Lambda executes every 15 minutes
-- SNS notifications only for critical events
-- Dashboard refreshes every 5 minutes
+### Query Performance
+- Use correlation IDs for efficient filtering
+- Apply time ranges to limit scope
+- Use specific log groups when possible
+
+### Dashboard Updates
+- Add widgets for new debug patterns
+- Update queries based on common issues
+- Share dashboard access with debugging team
 
 ## Security
 
 - IAM roles follow least privilege principle
-- No sensitive data logged or exposed
-- Secrets remain in AWS Secrets Manager
-- Monitoring data encrypted at rest and in transit
+- No sensitive data logged in structured events
+- Correlation IDs are UUID-based for security
+- All logging data encrypted at rest and in transit
 
-This monitoring solution provides enterprise-grade observability for the RevOps AI Framework, ensuring reliable operation and rapid issue resolution.
+## Support
+
+For monitoring issues:
+1. Check CloudWatch dashboard for system health
+2. Review agent tracing logs for conversation flow
+3. Use enhanced monitoring for deal assessment analysis
+4. Consult correlation IDs for systematic debugging
+
+---
+
+**Framework Version**: V3  
+**Last Updated**: July 2025  
+**Monitoring Region**: us-east-1
