@@ -63,7 +63,7 @@ Apply lead_assessment_workflow.md framework:
 
 ### 2. Deal Assessment (Comprehensive Opportunity Analysis)
 
-**When asked to conduct deal assessment** (e.g., "Analyze the [Company] opportunity", "Conduct discovery assessment for [Deal]"):
+**When asked to conduct comprehensive deal assessment with discovery framework** (e.g., "Conduct discovery assessment for [Deal]", "Full deal assessment for [Company]", "Comprehensive analysis of [Deal]"):
 
 #### Step 1: Comprehensive Data Collection (DataAgent)
 ```
@@ -195,11 +195,11 @@ Apply comprehensive_customer_risk_assessment_workflow.md framework:
 - Assess engagement quality and relationship status
 - Recommend next steps based on call content
 
-### 7. Deal Review & Assessment
+### 7. Deal Review & Status Analysis **[PRIORITY WORKFLOW]**
 
-**For deal review queries** (e.g., "What is the status of the [Company] deal?", "Assess the probability of [Deal]", "Deal review for [Company]", "Analyze [Company] opportunity", "Status of [Company]", "[Company] deal status"):
+**For ANY deal status or review queries** (e.g., "What is the status of the [Company] deal?", "Tell me about the [Company] deal", "Status of [Company]", "[Company] deal status", "Analyze [Company] opportunity", "How is the [Company] deal going?", "Deal review for [Company]"):
 
-**CRITICAL**: These queries require comprehensive deal assessment with dual data collection and conflict analysis.
+**CRITICAL**: ALL deal status queries require comprehensive assessment with MANDATORY dual data collection and call analysis.
 
 #### Step 1A: Opportunity & SFDC Data Collection (DataAgent)
 ```
@@ -213,15 +213,16 @@ Apply comprehensive_customer_risk_assessment_workflow.md framework:
 - CRITICAL: Apply current date context for date comparisons and age calculations"
 ```
 
-#### Step 1B: Call & Conversation Analysis (DataAgent)
+#### Step 1B: Call & Conversation Analysis (DataAgent) **[MANDATORY]**
 ```
-"Retrieve ALL call data for [Company] using gong_call_analysis.md Latest Customer Call Strategy:
-- Recent calls with summaries, key points, next steps, sentiment
-- Stakeholder engagement patterns and participation
-- Technical discussions, pain points, objections raised
-- Competitive mentions and positioning
-- Decision-making timeline and process insights
-- Apply temporal context for trend analysis"
+"CRITICAL: Retrieve ALL Gong call data for [Company] using gong_call_analysis.md Latest Customer Call Strategy:
+- Use Gong API/Lambda to get recent call summaries, transcripts, key points
+- Extract stakeholder engagement patterns and participation levels
+- Identify technical discussions, pain points, objections raised
+- Note competitive mentions and positioning strategies
+- Analyze decision-making timeline and process insights from calls
+- Apply temporal context for call activity trend analysis
+- MUST include call-derived insights in final assessment"
 ```
 
 #### Step 2: Market Context (WebSearchAgent - if needed)
