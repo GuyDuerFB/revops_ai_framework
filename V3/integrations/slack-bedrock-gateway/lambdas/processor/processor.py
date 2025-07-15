@@ -179,7 +179,7 @@ class CompleteSlackBedrockProcessor:
         
         # Agent configuration
         self.decision_agent_id = os.environ.get('BEDROCK_AGENT_ID', 'TCX9CGOKBR')
-        self.decision_agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', 'RSYE8T5V96')
+        self.decision_agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', 'BKLREFH3L0')
         
         # Cache for secrets
         self._secrets_cache = {}
@@ -252,8 +252,8 @@ class CompleteSlackBedrockProcessor:
                 temporal_context=current_date
             )
             
-            # Create session ID for Bedrock
-            session_id = f"{user_id}:{channel_id}:{thread_ts}" if thread_ts else f"{user_id}:{channel_id}"
+            # Create session ID for Bedrock (minimum 2 characters required)
+            session_id = f"{user_id or 'user'}:{channel_id or 'channel'}:{thread_ts or 'main'}" if thread_ts else f"{user_id or 'user'}:{channel_id or 'channel'}"
             
             # Call Bedrock Agent with progress updates
             response = self._invoke_bedrock_agent_with_progress(
@@ -352,7 +352,8 @@ class CompleteSlackBedrockProcessor:
                 agentId=self.decision_agent_id,
                 agentAliasId=self.decision_agent_alias_id,
                 sessionId=session_id,
-                inputText=query
+                inputText=query,
+                enableTrace=True
             )
             
             # Process streaming response with progress updates

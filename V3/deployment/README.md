@@ -139,7 +139,7 @@ Key configuration parameters are stored in `config.json`:
   "region_name": "us-east-1",
   "decision_agent": {
     "agent_id": "TCX9CGOKBR",
-    "agent_alias_id": "RSYE8T5V96"
+    "agent_alias_id": "BKLREFH3L0"
   }
 }
 ```

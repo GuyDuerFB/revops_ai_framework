@@ -70,7 +70,7 @@ If you prefer to run the AWS CLI commands manually:
 ```bash
 # Set variables
 AGENT_ID="TCX9CGOKBR"
-AGENT_ALIAS_ID="RSYE8T5V96"
+AGENT_ALIAS_ID="BKLREFH3L0"
 PROFILE="FireboltSystemAdministrator-740202120544"
 REGION="us-east-1"
 
@@ -141,7 +141,7 @@ After updating, test the agent with:
 # Test the updated agent
 aws bedrock-agent-runtime invoke-agent \
   --agent-id "TCX9CGOKBR" \
-  --agent-alias-id "RSYE8T5V96" \
+  --agent-alias-id "BKLREFH3L0" \
   --session-id "test-session-$(date +%s)" \
   --input-text "What is the status of the ACME Corp deal?" \
   --profile "FireboltSystemAdministrator-740202120544" \
@@ -177,7 +177,7 @@ aws bedrock-agent get-agent \
 # Check alias status
 aws bedrock-agent get-agent-alias \
   --agent-id "TCX9CGOKBR" \
-  --agent-alias-id "RSYE8T5V96" \
+  --agent-alias-id "BKLREFH3L0" \
   --profile "FireboltSystemAdministrator-740202120544" \
   --region "us-east-1"
 ```
@@ -191,7 +191,7 @@ aws bedrock-agent get-agent-alias \
 ## Agent Configuration
 
 - **Agent ID**: TCX9CGOKBR
-- **Agent Alias ID**: RSYE8T5V96
+- **Agent Alias ID**: BKLREFH3L0
 - **Foundation Model**: anthropic.claude-sonnet-4-20250514-v1:0
 - **Profile**: FireboltSystemAdministrator-740202120544
 - **Region**: us-east-1

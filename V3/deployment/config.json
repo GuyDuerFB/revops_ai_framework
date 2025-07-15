@@ -28,7 +28,7 @@
   },
   "decision_agent": {
     "agent_id": "TCX9CGOKBR",
-    "agent_alias_id": "RSYE8T5V96",
+    "agent_alias_id": "BKLREFH3L0",
     "foundation_model": "anthropic.claude-sonnet-4-20250514-v1:0",
     "description": "Decision Agent for RevOps AI Framework with temporal analysis and business logic awareness",
     "instructions_file": "agents/decision_agent/instructions.md",

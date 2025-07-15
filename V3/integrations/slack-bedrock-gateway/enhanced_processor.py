@@ -42,7 +42,7 @@ class EnhancedSlackBedrockProcessor:
         
         # Agent configuration
         self.decision_agent_id = "TCX9CGOKBR"
-        self.decision_agent_alias_id = "RSYE8T5V96"
+        self.decision_agent_alias_id = "BKLREFH3L0"
         
     def process_slack_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Process Slack event with enhanced tracing"""
