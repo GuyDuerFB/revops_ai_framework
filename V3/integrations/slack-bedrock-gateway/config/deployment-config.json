@@ -12,8 +12,8 @@
   },
   "bedrock": {
     "agent_id": "TCX9CGOKBR",
-    "agent_alias_id": "RSYE8T5V96",
-    "agent_name": "DecisionAgent",
+    "agent_alias_id": "BKLREFH3L0",
+    "agent_name": "DecisionAgent-5",
     "agent_role": "SUPERVISOR",
     "collaborators": [
       {

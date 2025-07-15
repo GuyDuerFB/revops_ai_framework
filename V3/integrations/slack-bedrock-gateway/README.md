@@ -84,7 +84,7 @@ python3 deploy.py
      --parameter-overrides \
        ProjectName=revops-slack-bedrock \
        BedrockAgentId=TCX9CGOKBR \
-       BedrockAgentAliasId=RSYE8T5V96 \
+       BedrockAgentAliasId=BKLREFH3L0 \
        SlackSigningSecret=YOUR_SIGNING_SECRET \
        SlackBotToken=YOUR_BOT_TOKEN \
      --capabilities CAPABILITY_NAMED_IAM \
