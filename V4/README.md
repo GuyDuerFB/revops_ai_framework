@@ -12,13 +12,13 @@ The RevOps AI Framework is a comprehensive, AI-powered revenue operations platfo
 This system acts as your intelligent assistant for revenue operations. Instead of manually analyzing data across multiple systems, you can simply ask questions in plain English through Slack and get comprehensive answers. The system automatically pulls data from your Firebolt Data Warehouse, Salesforce CRM, and Gong call recordings to provide complete insights about customers, deals, and revenue performance.
 
 ### Technical Implementation (V4 Architecture)
-The V4 system introduces a revolutionary **specialized agent architecture** with **all agents powered by Claude 3.7**:
+The V4 system introduces a revolutionary **specialized agent architecture** with **core agents powered by Claude 3.7**:
 
-- **Manager Agent**: Intelligent router that analyzes requests and routes them to specialized agents or handles them directly
-- **Deal Analysis Agent**: Dedicated specialist for comprehensive deal assessment using embedded SQL queries and MEDDPICC evaluation
-- **Data Agent**: Retrieves information from Firebolt Data Warehouse, Salesforce, and Gong
-- **WebSearch Agent**: Researches companies and prospects for market intelligence
-- **Execution Agent**: Takes actions like sending notifications or updating systems
+- **Manager Agent**: Intelligent router that analyzes requests and routes them to specialized agents or handles them directly (Claude 3.7)
+- **Deal Analysis Agent**: Dedicated specialist for comprehensive deal assessment using embedded SQL queries and MEDDPICC evaluation (Claude 3.7)
+- **Data Agent**: Retrieves information from Firebolt Data Warehouse, Salesforce, and Gong (Claude 3.7)
+- **WebSearch Agent**: Researches companies and prospects for market intelligence (Claude 3.5 Sonnet v2)
+- **Execution Agent**: Takes actions like sending notifications or updating systems (Claude 3.5 Sonnet v2)
 
 This specialized approach provides **10x better deal analysis accuracy** with embedded SQL queries and **Claude 3.7's enhanced reasoning** for complex revenue operations insights.
 
@@ -113,9 +113,9 @@ An intelligent AI framework that:
 
 ### Technology Stack
 
-- AI/ML Platform: Amazon Bedrock (Claude 3.7 with Inference Profiles)
+- AI/ML Platform: Amazon Bedrock (Claude 3.7 with Inference Profiles for core agents)
 - Agent Framework: Amazon Bedrock Agents with Specialized Routing Architecture
-- Specialized Analysis: Deal Analysis Agent with embedded SQL and MEDDPICC framework
+- Specialized Analysis: Deal Analysis Agent with embedded SQL and MEDDPICC framework (Claude 3.7)
 - Data Platform: Firebolt Data Warehouse
 - CRM Integration: Salesforce
 - Conversation Intelligence: Gong
@@ -525,15 +525,22 @@ RevBot: [Compares both regions with previous context]
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Manager Agent | ✅ Production Ready | SUPERVISOR mode with intelligent routing |
-| Deal Analysis Agent | 🚧 V4 Ready | Claude 3.7 with embedded SQL and MEDDPICC |
-| Data Agent | ✅ Production Ready | Firebolt, Salesforce, Gong integration |
-| WebSearch Agent | ✅ Production Ready | External intelligence gathering |
-| Execution Agent | ✅ Production Ready | Webhook and notification capabilities |
+| Manager Agent | ✅ Production Ready | SUPERVISOR mode with intelligent routing (Claude 3.7) |
+| Deal Analysis Agent | ✅ Production Ready | Claude 3.7 with embedded SQL and MEDDPICC |
+| Data Agent | ✅ Production Ready | Firebolt, Salesforce, Gong integration (Claude 3.7) |
+| WebSearch Agent | ✅ Production Ready | External intelligence gathering (Claude 3.5 Sonnet v2) |
+| Execution Agent | ✅ Production Ready | Webhook and notification capabilities (Claude 3.5 Sonnet v2) |
 | Knowledge Base | ✅ Production Ready | Business logic and schema documentation |
 | Slack Integration | ✅ Production Ready | Full end-to-end working integration |
 
-### Recent Enhancements Applied (July 15, 2025)
+### Recent Enhancements Applied (July 16, 2025)
+- ✅ **Claude 3.7 Upgrade**: Updated core agents (Manager, Data, Deal Analysis) to use Claude 3.7 inference profiles
+- ✅ **Manager Agent Collaboration**: Fully operational with 4 collaborators (DataAgent, ExecutionAgent, WebSearchAgent, DealAnalysisAgent)
+- ✅ **Slack Integration**: Manager Agent now serves as the primary endpoint for all Slack interactions
+- ✅ **Inference Profile Configuration**: Resolved inference profile permissions and agent preparation issues
+- ✅ **Full V4 Deployment**: Complete working system with specialized agent architecture and Claude 3.7 enhanced reasoning
+
+### Previous Enhancements Applied (July 15, 2025)
 - ✅ **V4 Architecture Implementation**: Created specialized agent architecture with Manager Agent and Deal Analysis Agent
 - ✅ **Deal Analysis Agent**: Implemented Claude 3.7 with inference profiles for enhanced deal assessment
 - ✅ **MEDDPICC Integration**: Added comprehensive deal qualification framework with embedded SQL queries
@@ -709,18 +716,24 @@ This RevOps AI Framework is proprietary software designed for enterprise revenue
 
 Built for Revenue Teams - Powered by Amazon Bedrock
 
-*Last Updated: July 15, 2025 | Version: 4.0 | Status: V4 Architecture with Specialized Agent Framework and Claude 3.7*
+*Last Updated: July 16, 2025 | Version: 4.1 | Status: V4 Architecture with Claude 3.7 Core Agents and Full Collaboration*
 
-## Latest Updates (July 15, 2025)
+## Latest Updates (July 16, 2025)
 
-### 🎉 V4 Architecture Launch
-- **Specialized Agent Framework**: Implemented Manager Agent with intelligent routing to specialized agents
-- **Deal Analysis Agent**: Created dedicated agent with Claude 3.7 inference profiles for enhanced deal assessment
-- **MEDDPICC Integration**: Comprehensive deal qualification framework with embedded SQL queries
-- **Embedded SQL Optimization**: Direct Firebolt queries for 10x faster deal analysis performance
+### 🎉 V4 Architecture Enhancement
+- **Claude 3.7 Core Agents**: Updated Manager, Data, and Deal Analysis agents to use Claude 3.7 inference profiles
+- **Full Collaboration Operational**: Manager Agent now working with 4 collaborators for comprehensive analysis
+- **Slack Integration Complete**: Manager Agent serves as primary endpoint for all user interactions
+- **Inference Profile Resolution**: Resolved AWS Bedrock agent permissions and inference profile access issues
 
 ### 🔧 Technical Improvements
-- **Manager Agent Routing**: Pattern detection for deal analysis requests with automatic routing
-- **Claude 3.7 Inference Profiles**: Enhanced reasoning capabilities for complex deal assessment
-- **Embedded Query Architecture**: Eliminated agent collaboration overhead for core deal analysis
-- **Complete V4 Deployment**: Full infrastructure setup with Lambda functions and agent configuration
+- **Enhanced Reasoning**: Claude 3.7 provides superior analysis capabilities for complex revenue operations
+- **Collaboration Architecture**: Manager Agent intelligently routes requests to specialized agents
+- **Production Ready**: Complete end-to-end system with comprehensive monitoring and error handling
+- **AWS Best Practices**: Full infrastructure deployment with CloudFormation and proper IAM permissions
+
+### Previous Updates (July 15, 2025)
+- **V4 Architecture Launch**: Implemented specialized agent framework with Manager Agent routing
+- **Deal Analysis Agent**: Created dedicated agent with embedded SQL and MEDDPICC evaluation
+- **MEDDPICC Integration**: Comprehensive deal qualification framework with structured assessments
+- **Embedded SQL Optimization**: Direct Firebolt queries for 10x faster deal analysis performance

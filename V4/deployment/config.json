@@ -5,7 +5,7 @@
   "data_agent": {
     "agent_id": "NOJMSQ8JPT",
     "agent_alias_id": "DQQHJQWXFH",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Data Analysis Agent V4 - Claude 3.7 with temporal analysis and business logic awareness",
     "instructions_file": "agents/data_agent/instructions.md",
     "action_groups": [
@@ -28,8 +28,8 @@
   },
   "manager_agent": {
     "agent_id": "PVWGKOWSOT",
-    "agent_alias_id": "KQ3JYQ35RR",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "agent_alias_id": "9MVRKEHMHX",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Manager Agent V4 - Claude 3.7 intelligent router and coordinator",
     "instructions_file": "agents/manager_agent/instructions.md",
     "agent_collaboration": "SUPERVISOR",
@@ -63,7 +63,7 @@
   "deal_analysis_agent": {
     "agent_id": "DBHYUWC6U6",
     "agent_alias_id": "OAQ3FEIF2X",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Deal Analysis Agent V4 - Claude 3.7 specialized deal assessment with MEDDPICC evaluation",
     "instructions_file": "agents/deal_analysis_agent/instructions.md",
     "agent_collaboration": "COLLABORATOR",
@@ -96,7 +96,7 @@
   "web_search_agent": {
     "agent_id": "QKRQXXPJOJ",
     "agent_alias_id": "2VDZRA61PT",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "foundation_model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
     "description": "WebSearch Agent V4 - Claude 3.7 clean implementation",
     "instructions_file": "agents/web_search_agent/instructions.md",
     "action_groups": [
@@ -111,7 +111,7 @@
   "execution_agent": {
     "agent_id": "AINAPUEIZU",
     "agent_alias_id": "8UTY0IVI7I",
-    "foundation_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+    "foundation_model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
     "description": "Execution Agent V4 - Claude 3.7 action execution and integration",
     "instructions_file": "agents/execution_agent/instructions.md",
     "action_groups": [
@@ -240,9 +240,9 @@
   },
   "execution_role_arn": "arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops",
   "inference_profile": {
-    "inference_profile_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
-    "inference_profile_name": "claude-3-5-sonnet-direct",
-    "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    "inference_profile_id": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "inference_profile_name": "claude-3-7-sonnet-inference-profile",
+    "model_id": "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
   },
   "secret_names": {
     "firebolt_credentials": "firebolt-credentials",
@@ -270,8 +270,8 @@
     "phase_5_multi_agent": "completed",
     "phase_6_flow_removal": "completed",
     "status": "v4_architecture_with_specialized_agents",
-    "last_updated": "2025-07-15",
-    "notes": "V4 Architecture: Manager Agent with Deal Analysis Agent routing. Specialized deal assessment with Claude 3.7.",
+    "last_updated": "2025-07-16",
+    "notes": "V4 Architecture: Manager Agent with full collaboration capabilities. Three core agents (Manager, Data, Deal Analysis) using Claude 3.7 inference profile. Slack integration operational.",
     "multi_agent_setup": {
       "supervisor_agent": "TCX9CGOKBR (Manager Agent)",
       "specialized_agents": [
