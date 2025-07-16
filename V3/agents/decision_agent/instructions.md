@@ -175,32 +175,83 @@ These queries require comprehensive assessment with dual data collection and cal
 
 #### Step 1A: Opportunity Data Collection (DataAgent)
 ```
-"Retrieve comprehensive opportunity and SFDC data for [Company/Deal]:
+"Retrieve comprehensive opportunity and SFDC data for [Company/Deal] using query_firebolt:
 
-- ALL opportunity details: stage, amount, close date, probability, next steps
-- MEDDPICC fields: Metrics, Economic Buyer, Decision Criteria, Decision Process, Paper Process, Identify Pain, Champion, Competition
-- Account information: type, industry, size, key contacts, relationship history
-- Sales activity: tasks, notes, recent updates, AE assessments
-- Pipeline position and historical progression
-- Resolve all owner IDs to names using employee_d joins
-- Apply current date context for date comparisons and age calculations
+Use this exact query structure:
+SELECT 
+  o.opportunity_id, 
+  o.opportunity_name, 
+  o.stage_name, 
+  o.amount as tcv,
+  (o.amount/o.contract_duration_months) * 12 as acv,
+  o.closed_at_date, 
+  o.probability, 
+  o.metrics,
+  o.metrics_status,
+  o.economic_buyer,
+  o.economic_buyer_status,
+  o.identify_pain,
+  o.identify_pain_status,
+  o.champion,
+  o.champion_status,
+  o.decision_criteria,
+  o.decision_criteria_status,
+  o.competition,
+  o.competition_status,
+  o.competitors,
+  o.decision_making_process,
+  o.decision_making_process_status,
+  o.decision_timeline_date,
+  o.paper_process,
+  o.paper_process_status,
+  o.next_step,
+  o.created_at_ts, 
+  o.dbt_last_updated_ts, 
+  opp_owner.first_name || ' ' || opp_owner.last_name as opportunity_owner,
+  account_owner.first_name || ' ' || account_owner.last_name as account_owner,
+  s.sf_account_name, 
+  s.sf_account_id 
+FROM 
+  opportunity_d o 
+JOIN 
+  salesforce_account_d s ON s.sf_account_id = o.sf_account_id 
+JOIN
+  employee_d opp_owner ON o.owner_id = opp_owner.sf_user_id
+JOIN 
+  employee_d account_owner ON account_owner.sf_user_id = s.sf_owner_id
+WHERE UPPER(s.sf_account_name) ILIKE '%[COMPANY]%' OR UPPER(o.opportunity_name) ILIKE '%[COMPANY]%' 
+ORDER BY o.dbt_last_updated_ts DESC;
 
-CRITICAL: This must be completed before proceeding to Step 1B."
+CRITICAL: This must be completed before proceeding to Step 1B. Replace [COMPANY] with the actual company name."
 ```
 
 #### Step 1B: Call Data Collection (DataAgent)
 ```
 "Retrieve call summaries and conversation insights for [Company/Deal] using query_firebolt on gong_call_f table:
 
-- Query gong_call_f table for [Company] call summaries, key points, and main topics
-- Extract stakeholder engagement patterns and participation levels
-- Identify technical discussions, pain points, objections raised
-- Note competitive mentions and positioning strategies
-- Analyze decision-making timeline and process insights from calls
-- Apply temporal context for call activity trend analysis
-- Include call dates, durations, participants, and sentiment scores
+Use this exact query structure:
+SELECT 
+  gong_call_name, 
+  gong_call_start_ts, 
+  gong_call_brief, 
+  gong_participants_emails 
+FROM gong_call_f g 
+  left join salesforce_account_d p_sf on p_sf.sf_account_id = g.gong_primary_account 
+  left join salesforce_account_d a_sf on a_sf.sf_account_id = g.gong_related_account 
+  left join opportunity_d a_o on a_o.opportunity_id = g.gong_related_opportunity
+  left join opportunity_d p_o on p_o.opportunity_id = g.gong_primary_opportunity
+  left join lead_d l on l.lead_id = g.gong_related_lead
+  left join contact_d c on c.contact_id = g.gong_related_contact
+  WHERE p_sf.sf_account_name ILIKE '%[COMPANY]%' 
+      OR a_sf.sf_account_name ILIKE '%[COMPANY]%'
+      OR UPPER(gong_title) ILIKE '%[COMPANY]%'
+      OR a_o.opportunity_name ILIKE '%[COMPANY]%'
+      OR p_o.opportunity_name ILIKE '%[COMPANY]%'
+      OR l.email ILIKE '%[COMPANY]%'
+      OR c.contact_email ILIKE '%[COMPANY]%'
+ORDER BY gong_call_start_ts DESC LIMIT 10;
 
-IMPORTANT: Use query_firebolt with gong_call_f table for call summaries. Only use get_gong_data if full transcripts are specifically required.
+IMPORTANT: Replace [COMPANY] with the actual company name. Focus on recent calls (last 90 days) for current engagement patterns.
 
 VALIDATION: Confirm both opportunity data (Step 1A) and call data (Step 1B) have been successfully retrieved before proceeding."
 ```

@@ -187,6 +187,25 @@ Opportunity dimension table with all Salesforce opportunity data:
 - **owner_id**: Foreign key to employee_d.sf_user_id
 - **campaign_id**: Foreign key to campaign_d.campaign_id
 - **contact_id**: Foreign key to contact_d.contact_id
+##### MEDDPICC Fields in opportunity_d
+- **metrics**: Quantifiable business metrics/outcomes the prospect wants to achieve
+- **metrics_status**: Status of metrics qualification (e.g., 'Identified', 'Validated', 'Not Defined')
+- **economic_buyer**: The person with budget authority and final decision-making power
+- **economic_buyer_status**: Status of economic buyer identification (e.g., 'Identified', 'Engaged', 'Unknown')
+- **identify_pain**: The specific business pain or problem the solution addresses
+- **identify_pain_status**: Status of pain identification (e.g., 'Identified', 'Validated', 'Unclear')
+- **champion**: Internal advocate who supports the solution and influences the buying process
+- **champion_status**: Status of champion relationship (e.g., 'Identified', 'Engaged', 'Strong', 'Weak')
+- **decision_criteria**: The specific criteria the prospect will use to make their decision
+- **decision_criteria_status**: Status of decision criteria understanding (e.g., 'Known', 'Partial', 'Unknown')
+- **competition**: Information about competing solutions or vendors
+- **competition_status**: Status of competitive landscape understanding (e.g., 'Known', 'Researched', 'Unknown')
+- **competitors**: Specific competing vendors or solutions identified
+- **decision_making_process**: The formal process the prospect follows to make purchasing decisions
+- **decision_making_process_status**: Status of process understanding (e.g., 'Mapped', 'Partial', 'Unknown')
+- **decision_timeline_date**: Expected date for final decision
+- **paper_process**: The legal, procurement, and contracting process required
+- **paper_process_status**: Status of paper process understanding (e.g., 'Mapped', 'In Progress', 'Unknown')
 
 ### opportunity_stage_f
 
