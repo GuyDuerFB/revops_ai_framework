@@ -25,18 +25,26 @@ except ImportError:
     sys.path.insert(0, "/tmp")
     import requests
 
-# Embedded AgentTracer to avoid import issues
+# Enhanced AgentTracer for comprehensive monitoring
 class EventType(Enum):
     """Types of events to trace"""
     CONVERSATION_START = "CONVERSATION_START"
     CONVERSATION_END = "CONVERSATION_END"
     AGENT_INVOKE = "AGENT_INVOKE"
     AGENT_RESPONSE = "AGENT_RESPONSE"
+    AGENT_REASONING = "AGENT_REASONING"
+    AGENT_TOOL_USE = "AGENT_TOOL_USE"
     DATA_OPERATION = "DATA_OPERATION"
     DECISION_LOGIC = "DECISION_LOGIC"
     ERROR = "ERROR"
     TEMPORAL_CONTEXT = "TEMPORAL_CONTEXT"
     WORKFLOW_SELECTION = "WORKFLOW_SELECTION"
+    SLACK_INCOMING = "SLACK_INCOMING"
+    SLACK_OUTGOING = "SLACK_OUTGOING"
+    BEDROCK_REQUEST = "BEDROCK_REQUEST"
+    BEDROCK_RESPONSE = "BEDROCK_RESPONSE"
+    ROUTING_DECISION = "ROUTING_DECISION"
+    TOOL_EXECUTION = "TOOL_EXECUTION"
 
 class AgentTracer:
     """Enhanced tracing for agent interactions and decisions"""
@@ -128,6 +136,148 @@ class AgentTracer:
         }
         self.data_logger.info(json.dumps(event_data))
     
+    def trace_slack_incoming(self, message_content: str, user_id: str, channel: str, 
+                           message_ts: str, event_type: str = "app_mention"):
+        """Trace incoming Slack messages with full context"""
+        event_data = {
+            "event_type": EventType.SLACK_INCOMING.value,
+            "correlation_id": self.correlation_id,
+            "message_content": message_content,
+            "user_id": user_id,
+            "channel": channel,
+            "message_ts": message_ts,
+            "slack_event_type": event_type,
+            "message_length": len(message_content),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "contains_deal_keywords": self._contains_deal_keywords(message_content),
+            "extracted_entities": self._extract_entities(message_content)
+        }
+        self.conversation_logger.info(json.dumps(event_data))
+    
+    def trace_slack_outgoing(self, response_content: str, channel: str, 
+                           response_type: str, processing_time_ms: int):
+        """Trace outgoing Slack responses"""
+        event_data = {
+            "event_type": EventType.SLACK_OUTGOING.value,
+            "correlation_id": self.correlation_id,
+            "response_content": response_content[:500] + "..." if len(response_content) > 500 else response_content,
+            "response_length": len(response_content),
+            "channel": channel,
+            "response_type": response_type,
+            "processing_time_ms": processing_time_ms,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self.conversation_logger.info(json.dumps(event_data))
+    
+    def trace_bedrock_request(self, agent_id: str, agent_alias_id: str, 
+                            session_id: str, input_text: str, request_metadata: dict = None):
+        """Trace Bedrock agent invocation requests"""
+        event_data = {
+            "event_type": EventType.BEDROCK_REQUEST.value,
+            "correlation_id": self.correlation_id,
+            "agent_id": agent_id,
+            "agent_alias_id": agent_alias_id,
+            "session_id": session_id,
+            "input_text": input_text,
+            "input_length": len(input_text),
+            "request_metadata": request_metadata or {},
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self.collaboration_logger.info(json.dumps(event_data))
+    
+    def trace_bedrock_response(self, agent_id: str, response_text: str, 
+                             response_metadata: dict, processing_time_ms: int):
+        """Trace Bedrock agent responses"""
+        event_data = {
+            "event_type": EventType.BEDROCK_RESPONSE.value,
+            "correlation_id": self.correlation_id,
+            "agent_id": agent_id,
+            "response_text": response_text[:1000] + "..." if len(response_text) > 1000 else response_text,
+            "response_length": len(response_text),
+            "response_metadata": response_metadata,
+            "processing_time_ms": processing_time_ms,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self.collaboration_logger.info(json.dumps(event_data))
+    
+    def trace_agent_reasoning(self, agent_id: str, reasoning_step: str, 
+                            thought_process: str, decision_factors: dict = None):
+        """Trace agent reasoning and thought process"""
+        event_data = {
+            "event_type": EventType.AGENT_REASONING.value,
+            "correlation_id": self.correlation_id,
+            "agent_id": agent_id,
+            "reasoning_step": reasoning_step,
+            "thought_process": thought_process,
+            "decision_factors": decision_factors or {},
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self.decision_logger.info(json.dumps(event_data))
+    
+    def trace_routing_decision(self, router_agent: str, target_agent: str, 
+                             routing_reason: str, query_classification: str):
+        """Trace agent routing decisions"""
+        event_data = {
+            "event_type": EventType.ROUTING_DECISION.value,
+            "correlation_id": self.correlation_id,
+            "router_agent": router_agent,
+            "target_agent": target_agent,
+            "routing_reason": routing_reason,
+            "query_classification": query_classification,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self.decision_logger.info(json.dumps(event_data))
+    
+    def trace_tool_execution(self, agent_id: str, tool_name: str, 
+                           tool_input: dict, tool_output: dict, execution_time_ms: int):
+        """Trace tool execution by agents"""
+        event_data = {
+            "event_type": EventType.TOOL_EXECUTION.value,
+            "correlation_id": self.correlation_id,
+            "agent_id": agent_id,
+            "tool_name": tool_name,
+            "tool_input": str(tool_input)[:500] + "..." if len(str(tool_input)) > 500 else tool_input,
+            "tool_output": str(tool_output)[:500] + "..." if len(str(tool_output)) > 500 else tool_output,
+            "execution_time_ms": execution_time_ms,
+            "success": "error" not in str(tool_output).lower(),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self.data_logger.info(json.dumps(event_data))
+    
+    def _contains_deal_keywords(self, text: str) -> bool:
+        """Check if text contains deal analysis keywords"""
+        deal_keywords = [
+            "status of", "deal with", "deal for", "analyze the", "review the", 
+            "about the", "opportunity", "deal", "assessment", "MEDDPICC", 
+            "probability", "IXIS", "ACME", "Microsoft", "Salesforce"
+        ]
+        text_lower = text.lower()
+        return any(keyword.lower() in text_lower for keyword in deal_keywords)
+    
+    def _extract_entities(self, text: str) -> dict:
+        """Extract entities from text for monitoring"""
+        import re
+        entities = {
+            "company_names": [],
+            "monetary_amounts": [],
+            "time_references": [],
+            "keywords": []
+        }
+        
+        # Extract potential company names (capitalized words)
+        company_pattern = r'\b[A-Z][a-zA-Z]+\b'
+        entities["company_names"] = list(set(re.findall(company_pattern, text)))
+        
+        # Extract monetary amounts
+        money_pattern = r'\$[\d,.]+'
+        entities["monetary_amounts"] = re.findall(money_pattern, text)
+        
+        # Extract time references
+        time_pattern = r'\b(Q[1-4]|quarter|month|year|week|day|today|yesterday|tomorrow)\b'
+        entities["time_references"] = list(set(re.findall(time_pattern, text, re.IGNORECASE)))
+        
+        return entities
+    
     def trace_error(self, error_type: str, error_message: str, 
                    agent_context: str, stack_trace: Optional[str] = None):
         """Trace errors for analysis"""
@@ -178,8 +328,9 @@ class CompleteSlackBedrockProcessor:
         self.bedrock_agent = boto3.client('bedrock-agent-runtime', config=bedrock_config)
         
         # Agent configuration
-        self.decision_agent_id = os.environ.get('BEDROCK_AGENT_ID', 'TCX9CGOKBR')
-        self.decision_agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', 'BKLREFH3L0')
+        # V4 Manager Agent - intelligent router for specialized agent architecture
+        self.decision_agent_id = os.environ.get('BEDROCK_AGENT_ID', 'PVWGKOWSOT')
+        self.decision_agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', 'KQ3JYQ35RR')
         
         # Cache for secrets
         self._secrets_cache = {}
@@ -243,6 +394,15 @@ class CompleteSlackBedrockProcessor:
             enhanced_query = f"{date_context}**USER REQUEST:**\n{user_query}"
             
             print(f"Enhanced query with temporal context: {enhanced_query[:100]}...")
+            
+            # Trace incoming Slack message with comprehensive details
+            self.tracer.trace_slack_incoming(
+                message_content=user_query,
+                user_id=user_id,
+                channel=channel_id,
+                message_ts=thread_ts or response_message_ts or str(int(time.time())),
+                event_type="app_mention"
+            )
             
             # Trace conversation start
             self.tracer.trace_conversation_start(
@@ -335,18 +495,33 @@ class CompleteSlackBedrockProcessor:
         try:
             print(f"Invoking Bedrock agent {self.decision_agent_id} with session {session_id}")
             
-            # Trace agent invocation
+            # Trace Bedrock request
+            bedrock_start_time = time.time()
             if self.tracer:
+                self.tracer.trace_bedrock_request(
+                    agent_id=self.decision_agent_id,
+                    agent_alias_id=self.decision_agent_alias_id,
+                    session_id=session_id,
+                    input_text=query,
+                    request_metadata={
+                        "channel_id": channel_id,
+                        "message_ts": message_ts,
+                        "thread_ts": thread_ts,
+                        "agent_type": "V4_Manager_Agent"
+                    }
+                )
+                
+                # Trace agent invocation
                 self.tracer.trace_agent_invocation(
                     source_agent="SlackProcessor",
-                    target_agent="DecisionAgent",
+                    target_agent=f"ManagerAgent-V4({self.decision_agent_id})",
                     collaboration_type="USER_QUERY_PROCESSING",
-                    reasoning="Processing user query through decision agent workflow"
+                    reasoning="Processing user query through V4 Manager Agent for intelligent routing"
                 )
             
             # Send initial progress update
             if message_ts and channel_id:
-                self._send_progress_update(channel_id, message_ts, "🧠 *Planning my approach* - analyzing your request", thread_ts)
+                self._send_progress_update(channel_id, message_ts, "🧠 *V4 Manager Agent analyzing* - determining best approach", thread_ts)
             
             response = self.bedrock_agent.invoke_agent(
                 agentId=self.decision_agent_id,
@@ -377,13 +552,39 @@ class CompleteSlackBedrockProcessor:
                         except json.JSONDecodeError:
                             output_text += chunk_data.decode('utf-8', errors='ignore')
                 
-                # Parse orchestration traces for more detailed progress
-                if 'trace' in event and message_ts:
-                    progress_msg = self._parse_trace_to_progress(event['trace'])
-                    if progress_msg:
-                        self._send_progress_update(channel_id, message_ts, progress_msg, thread_ts)
+                # Parse orchestration traces for detailed monitoring and progress
+                if 'trace' in event:
+                    trace_data = event['trace']
+                    
+                    # Detailed trace logging for monitoring
+                    if self.tracer:
+                        self._trace_detailed_agent_activity(trace_data)
+                    
+                    # Send progress updates
+                    if message_ts:
+                        progress_msg = self._parse_trace_to_progress(trace_data)
+                        if progress_msg:
+                            self._send_progress_update(channel_id, message_ts, progress_msg, thread_ts)
+            
+            # Calculate processing time and trace response
+            bedrock_processing_time = int((time.time() - bedrock_start_time) * 1000)
             
             print(f"Agent response length: {len(output_text)} characters")
+            print(f"Bedrock processing time: {bedrock_processing_time}ms")
+            
+            # Trace Bedrock response
+            if self.tracer:
+                self.tracer.trace_bedrock_response(
+                    agent_id=self.decision_agent_id,
+                    response_text=output_text,
+                    response_metadata={
+                        "session_id": session_id,
+                        "response_length": len(output_text),
+                        "processing_time_ms": bedrock_processing_time,
+                        "agent_type": "V4_Manager_Agent"
+                    },
+                    processing_time_ms=bedrock_processing_time
+                )
             
             return {
                 'output': {'text': output_text},
@@ -472,6 +673,157 @@ class CompleteSlackBedrockProcessor:
             print(f"Error parsing trace: {e}")
             return None
     
+    def _trace_detailed_agent_activity(self, trace_data: dict):
+        """Parse and trace detailed agent activity from Bedrock traces"""
+        try:
+            if not self.tracer:
+                return
+                
+            # Parse orchestration traces
+            if 'orchestrationTrace' in trace_data:
+                orch_trace = trace_data['orchestrationTrace']
+                
+                # Trace reasoning steps
+                if 'rationale' in orch_trace:
+                    rationale = orch_trace['rationale']
+                    if 'text' in rationale:
+                        self.tracer.trace_agent_reasoning(
+                            agent_id=self.decision_agent_id,
+                            reasoning_step="rationale",
+                            thought_process=rationale['text'],
+                            decision_factors={"trace_type": "orchestration_rationale"}
+                        )
+                
+                # Trace invocation inputs
+                if 'invocationInput' in orch_trace:
+                    inv_input = orch_trace['invocationInput']
+                    if 'invocationType' in inv_input:
+                        invocation_type = inv_input['invocationType']
+                        
+                        # Trace routing decisions for agent collaborations
+                        if invocation_type == "AGENT_COLLABORATOR":
+                            collaborator_name = inv_input.get('collaboratorName', 'Unknown')
+                            input_text = inv_input.get('inputText', '')
+                            
+                            self.tracer.trace_routing_decision(
+                                router_agent=f"ManagerAgent-V4({self.decision_agent_id})",
+                                target_agent=collaborator_name,
+                                routing_reason=f"Manager Agent routing to {collaborator_name}",
+                                query_classification=self._classify_query_for_routing(input_text)
+                            )
+                        
+                        # Trace tool invocations
+                        elif invocation_type == "ACTION_GROUP":
+                            action_group = inv_input.get('actionGroupName', 'Unknown')
+                            function_name = inv_input.get('function', '')
+                            parameters = inv_input.get('parameters', {})
+                            
+                            self.tracer.trace_tool_execution(
+                                agent_id=self.decision_agent_id,
+                                tool_name=f"{action_group}.{function_name}",
+                                tool_input=parameters,
+                                tool_output={"status": "invoked"},
+                                execution_time_ms=0  # Will be updated when response comes
+                            )
+                
+                # Trace model invocation details
+                if 'modelInvocationInput' in orch_trace:
+                    model_input = orch_trace['modelInvocationInput']
+                    if 'text' in model_input:
+                        # This is the actual prompt sent to the model
+                        self.tracer.trace_agent_reasoning(
+                            agent_id=self.decision_agent_id,
+                            reasoning_step="model_prompt",
+                            thought_process=model_input['text'][:1000] + "..." if len(model_input['text']) > 1000 else model_input['text'],
+                            decision_factors={
+                                "trace_type": "model_invocation_input",
+                                "prompt_length": len(model_input['text'])
+                            }
+                        )
+                
+                # Trace model responses
+                if 'modelInvocationOutput' in orch_trace:
+                    model_output = orch_trace['modelInvocationOutput']
+                    if 'rawResponse' in model_output:
+                        response_content = model_output['rawResponse'].get('content', [])
+                        if response_content and len(response_content) > 0:
+                            response_text = response_content[0].get('text', '')
+                            
+                            self.tracer.trace_agent_reasoning(
+                                agent_id=self.decision_agent_id,
+                                reasoning_step="model_response",
+                                thought_process=response_text[:1000] + "..." if len(response_text) > 1000 else response_text,
+                                decision_factors={
+                                    "trace_type": "model_invocation_output",
+                                    "response_length": len(response_text)
+                                }
+                            )
+                
+                # Trace observation details (tool results)
+                if 'observation' in orch_trace:
+                    observation = orch_trace['observation']
+                    if 'actionGroupInvocationOutput' in observation:
+                        action_output = observation['actionGroupInvocationOutput']
+                        tool_response = action_output.get('text', '')
+                        
+                        self.tracer.trace_tool_execution(
+                            agent_id=self.decision_agent_id,
+                            tool_name=observation.get('type', 'unknown_tool'),
+                            tool_input={"observation": True},
+                            tool_output={"response": tool_response[:500] + "..." if len(tool_response) > 500 else tool_response},
+                            execution_time_ms=0
+                        )
+                    
+                    elif 'collaboratorInvocationOutput' in observation:
+                        collab_output = observation['collaboratorInvocationOutput']
+                        collaborator_response = collab_output.get('text', '')
+                        
+                        # Use the agent_response method if it exists, otherwise add it
+                        if hasattr(self.tracer, 'trace_agent_response'):
+                            self.tracer.trace_agent_response(
+                                agent_id=collab_output.get('collaboratorName', 'Unknown'),
+                                response_content=collaborator_response[:1000] + "..." if len(collaborator_response) > 1000 else collaborator_response,
+                                response_metadata={
+                                    "trace_type": "collaborator_response",
+                                    "response_length": len(collaborator_response)
+                                }
+                            )
+                        else:
+                            # Fallback to reasoning trace
+                            self.tracer.trace_agent_reasoning(
+                                agent_id=collab_output.get('collaboratorName', 'Unknown'),
+                                reasoning_step="collaborator_response",
+                                thought_process=collaborator_response[:1000] + "..." if len(collaborator_response) > 1000 else collaborator_response,
+                                decision_factors={
+                                    "trace_type": "collaborator_response",
+                                    "response_length": len(collaborator_response)
+                                }
+                            )
+                        
+        except Exception as e:
+            print(f"Error tracing detailed agent activity: {str(e)}")
+    
+    def _classify_query_for_routing(self, query_text: str) -> str:
+        """Classify query type for routing decisions"""
+        query_lower = query_text.lower()
+        
+        # Deal analysis keywords
+        deal_keywords = ["status of", "deal with", "deal for", "analyze the", "review the", "about the", "opportunity", "deal", "assessment", "meddpicc"]
+        if any(keyword in query_lower for keyword in deal_keywords):
+            return "deal_analysis"
+        
+        # Data analysis keywords  
+        data_keywords = ["consumption", "usage", "trends", "revenue", "pipeline", "forecast", "analytics"]
+        if any(keyword in query_lower for keyword in data_keywords):
+            return "data_analysis"
+        
+        # Research keywords
+        research_keywords = ["research", "company", "competitor", "market", "intelligence"]
+        if any(keyword in query_lower for keyword in research_keywords):
+            return "external_research"
+        
+        return "general_query"
+    
     def _send_progress_update(self, channel_id: str, message_ts: str, progress_text: str, thread_ts: str = None) -> bool:
         """Send a progress update to Slack by updating the message"""
         try:
@@ -514,6 +866,8 @@ class CompleteSlackBedrockProcessor:
     
     def _send_final_slack_response(self, slack_event: Dict[str, Any], response_text: str, message_ts: str = None) -> bool:
         """Send final response back to Slack (update existing or send new)"""
+        response_start_time = time.time()
+        
         try:
             secrets = self._get_slack_secrets()
             bot_token = secrets.get('bot_token')
@@ -532,13 +886,29 @@ class CompleteSlackBedrockProcessor:
             formatted_response = f"*RevOps Analysis:* ✨\n\n{response_text}"
             
             # Try to update existing message first
+            success = False
+            response_type = "update"
             if message_ts:
                 success = self._update_slack_message(channel_id, message_ts, formatted_response)
                 if success:
-                    return True
+                    response_type = "message_update"
+                    
+            if not success:
+                # Fallback: send new message
+                success = self._send_new_slack_message(channel_id, formatted_response, thread_ts)
+                response_type = "new_message"
             
-            # Fallback: send new message
-            return self._send_new_slack_message(channel_id, formatted_response, thread_ts)
+            # Trace outgoing Slack response
+            processing_time_ms = int((time.time() - response_start_time) * 1000)
+            if self.tracer:
+                self.tracer.trace_slack_outgoing(
+                    response_content=response_text,
+                    channel=channel_id,
+                    response_type=response_type,
+                    processing_time_ms=processing_time_ms
+                )
+            
+            return success
                 
         except Exception as e:
             print(f"Error sending final Slack response: {e}")
@@ -576,6 +946,8 @@ class CompleteSlackBedrockProcessor:
     
     def _send_new_slack_message(self, channel_id: str, formatted_response: str, thread_ts: str = None) -> bool:
         """Send a new message to Slack"""
+        message_start_time = time.time()
+        
         try:
             secrets = self._get_slack_secrets()
             bot_token = secrets.get('bot_token')
@@ -600,7 +972,19 @@ class CompleteSlackBedrockProcessor:
             )
             
             response_data = response.json()
-            return response_data.get('ok', False)
+            success = response_data.get('ok', False)
+            
+            # Trace the new message send
+            processing_time_ms = int((time.time() - message_start_time) * 1000)
+            if self.tracer:
+                self.tracer.trace_slack_outgoing(
+                    response_content=formatted_response,
+                    channel=channel_id,
+                    response_type="new_message_standalone",
+                    processing_time_ms=processing_time_ms
+                )
+            
+            return success
             
         except Exception as e:
             print(f"Error sending new Slack message: {e}")
