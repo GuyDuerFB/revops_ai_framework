@@ -55,7 +55,8 @@ class V4Deployer:
         logger.info("🧠 Creating Claude 3.7 Inference Profile")
         
         inference_profile_name = "claude-3-7-revops-profile"
-        model_id = "anthropic.claude-3-7-sonnet-20250219-v1:0"
+        # Note: Claude 3.7 may not be available yet, falling back to Claude 3.5 Sonnet
+        model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
         
         try:
             # Check if inference profile already exists
@@ -117,8 +118,23 @@ class V4Deployer:
         
         # Copy source files
         source_path = Path(source_dir)
+        if not source_path.exists():
+            # Try relative to current working directory
+            source_path = Path.cwd() / source_dir
+        
+        if not source_path.exists():
+            # Try relative to V4 root directory (one level up from deployment)
+            source_path = Path(__file__).parent.parent / source_dir
+        
+        if not source_path.exists():
+            logger.error(f"Source directory does not exist: {source_dir}")
+            logger.error(f"Tried paths: {source_dir}, {Path.cwd() / source_dir}, {Path(__file__).parent.parent / source_dir}")
+            raise FileNotFoundError(f"Source directory does not exist: {source_dir}")
+        
+        logger.info(f"Copying files from: {source_path}")
         for file in source_path.glob("*"):
             if file.is_file():
+                logger.info(f"Copying file: {file.name}")
                 shutil.copy2(file, temp_dir)
         
         # Install requirements if they exist
@@ -188,10 +204,13 @@ class V4Deployer:
                 logger.info(f"Creating new function: {function_name}")
                 
                 with open(deployment_package, 'rb') as f:
+                    # Use Lambda-specific IAM role if specified, otherwise fall back to execution role
+                    lambda_role = function_config.get('iam_role', self.config['execution_role_arn'])
+                    
                     response = self.lambda_client.create_function(
                         FunctionName=function_name,
                         Runtime=function_config['runtime'],
-                        Role=self.config['execution_role_arn'],
+                        Role=lambda_role,
                         Handler=function_config['handler'],
                         Code={'ZipFile': f.read()},
                         Timeout=function_config['timeout'],
@@ -222,8 +241,13 @@ class V4Deployer:
         # Read instructions
         instructions_file = Path(agent_config['instructions_file'])
         if not instructions_file.exists():
-            logger.error(f"Instructions file not found: {instructions_file}")
-            raise FileNotFoundError(f"Instructions file not found: {instructions_file}")
+            # Try relative to V4 root directory (one level up from deployment)
+            instructions_file = Path(__file__).parent.parent / agent_config['instructions_file']
+        
+        if not instructions_file.exists():
+            logger.error(f"Instructions file not found: {agent_config['instructions_file']}")
+            logger.error(f"Tried paths: {agent_config['instructions_file']}, {Path(__file__).parent.parent / agent_config['instructions_file']}")
+            raise FileNotFoundError(f"Instructions file not found: {agent_config['instructions_file']}")
         
         with open(instructions_file, 'r') as f:
             instructions = f.read()
@@ -270,8 +294,13 @@ class V4Deployer:
         # Read instructions
         instructions_file = Path(agent_config['instructions_file'])
         if not instructions_file.exists():
-            logger.error(f"Instructions file not found: {instructions_file}")
-            raise FileNotFoundError(f"Instructions file not found: {instructions_file}")
+            # Try relative to V4 root directory (one level up from deployment)
+            instructions_file = Path(__file__).parent.parent / agent_config['instructions_file']
+        
+        if not instructions_file.exists():
+            logger.error(f"Instructions file not found: {agent_config['instructions_file']}")
+            logger.error(f"Tried paths: {agent_config['instructions_file']}, {Path(__file__).parent.parent / agent_config['instructions_file']}")
+            raise FileNotFoundError(f"Instructions file not found: {agent_config['instructions_file']}")
         
         with open(instructions_file, 'r') as f:
             instructions = f.read()
@@ -318,8 +347,13 @@ class V4Deployer:
         # Read instructions
         instructions_file = Path(agent_config['instructions_file'])
         if not instructions_file.exists():
-            logger.error(f"Instructions file not found: {instructions_file}")
-            raise FileNotFoundError(f"Instructions file not found: {instructions_file}")
+            # Try relative to V4 root directory (one level up from deployment)
+            instructions_file = Path(__file__).parent.parent / agent_config['instructions_file']
+        
+        if not instructions_file.exists():
+            logger.error(f"Instructions file not found: {agent_config['instructions_file']}")
+            logger.error(f"Tried paths: {agent_config['instructions_file']}, {Path(__file__).parent.parent / agent_config['instructions_file']}")
+            raise FileNotFoundError(f"Instructions file not found: {agent_config['instructions_file']}")
         
         with open(instructions_file, 'r') as f:
             instructions = f.read()
@@ -366,8 +400,13 @@ class V4Deployer:
         # Read instructions
         instructions_file = Path(agent_config['instructions_file'])
         if not instructions_file.exists():
-            logger.error(f"Instructions file not found: {instructions_file}")
-            raise FileNotFoundError(f"Instructions file not found: {instructions_file}")
+            # Try relative to V4 root directory (one level up from deployment)
+            instructions_file = Path(__file__).parent.parent / agent_config['instructions_file']
+        
+        if not instructions_file.exists():
+            logger.error(f"Instructions file not found: {agent_config['instructions_file']}")
+            logger.error(f"Tried paths: {agent_config['instructions_file']}, {Path(__file__).parent.parent / agent_config['instructions_file']}")
+            raise FileNotFoundError(f"Instructions file not found: {agent_config['instructions_file']}")
         
         with open(instructions_file, 'r') as f:
             instructions = f.read()
@@ -414,8 +453,13 @@ class V4Deployer:
         # Read instructions
         instructions_file = Path(agent_config['instructions_file'])
         if not instructions_file.exists():
-            logger.error(f"Instructions file not found: {instructions_file}")
-            raise FileNotFoundError(f"Instructions file not found: {instructions_file}")
+            # Try relative to V4 root directory (one level up from deployment)
+            instructions_file = Path(__file__).parent.parent / agent_config['instructions_file']
+        
+        if not instructions_file.exists():
+            logger.error(f"Instructions file not found: {agent_config['instructions_file']}")
+            logger.error(f"Tried paths: {agent_config['instructions_file']}, {Path(__file__).parent.parent / agent_config['instructions_file']}")
+            raise FileNotFoundError(f"Instructions file not found: {agent_config['instructions_file']}")
         
         with open(instructions_file, 'r') as f:
             instructions = f.read()
