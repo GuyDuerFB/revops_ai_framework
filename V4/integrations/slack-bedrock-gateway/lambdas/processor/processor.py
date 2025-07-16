@@ -329,8 +329,9 @@ class CompleteSlackBedrockProcessor:
         
         # Agent configuration
         # V4 Manager Agent - intelligent router for specialized agent architecture
+        # Using Manager Agent with full collaboration capabilities
         self.decision_agent_id = os.environ.get('BEDROCK_AGENT_ID', 'PVWGKOWSOT')
-        self.decision_agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', 'KQ3JYQ35RR')
+        self.decision_agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', '9MVRKEHMHX')
         
         # Cache for secrets
         self._secrets_cache = {}
@@ -516,7 +517,7 @@ class CompleteSlackBedrockProcessor:
                     source_agent="SlackProcessor",
                     target_agent=f"ManagerAgent-V4({self.decision_agent_id})",
                     collaboration_type="USER_QUERY_PROCESSING",
-                    reasoning="Processing user query through V4 Manager Agent for intelligent routing"
+                    reasoning="Processing user query through V4 Manager Agent for intelligent routing and collaboration"
                 )
             
             # Send initial progress update
