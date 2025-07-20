@@ -221,9 +221,60 @@ Please process this query following the comprehensive workflows and provide deta
     
     def _send_slack_response(self, channel: str, message: str, thread_ts: str):
         """Send response to Slack"""
-        # Implementation would use Slack Web API
-        # For now, this is a placeholder
-        print(f"Sending to Slack channel {channel}: {message[:100]}...")
+        try:
+            secrets = self.secrets_client.get_secret_value(
+                SecretId='arn:aws:secretsmanager:us-east-1:740202120544:secret:revops-slack-bedrock-secrets-372buh'
+            )
+            slack_secrets = json.loads(secrets['SecretString'])
+            bot_token = slack_secrets.get('bot_token')
+            
+            if not bot_token:
+                print("Error: Bot token not found in secrets")
+                return False
+            
+            import urllib.request
+            import urllib.parse
+            
+            # Build the message payload
+            payload = {
+                'channel': channel,
+                'text': message,
+                'mrkdwn': True
+            }
+            
+            # Add thread_ts if this is a thread reply
+            if thread_ts:
+                payload['thread_ts'] = thread_ts
+                print(f"Sending response in thread {thread_ts}")
+            else:
+                print(f"Sending response to channel {channel}")
+            
+            # Prepare the request
+            url = 'https://slack.com/api/chat.postMessage'
+            headers = {
+                'Authorization': f'Bearer {bot_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            data = json.dumps(payload).encode('utf-8')
+            
+            # Create the request
+            req = urllib.request.Request(url, data=data, headers=headers)
+            
+            # Send the request
+            with urllib.request.urlopen(req, timeout=30) as response:
+                response_data = json.loads(response.read().decode('utf-8'))
+            
+            if response_data.get('ok'):
+                print(f"Successfully sent response to channel {channel}")
+                return response_data.get('ts')
+            else:
+                print(f"Slack API error: {response_data.get('error')}")
+                return False
+                
+        except Exception as e:
+            print(f"Error sending Slack response: {e}")
+            return False
 
 def lambda_handler(event, context):
     """Lambda handler with enhanced tracing"""
