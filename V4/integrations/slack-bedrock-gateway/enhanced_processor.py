@@ -41,8 +41,8 @@ class EnhancedSlackBedrockProcessor:
         self.secrets_client = boto3.client('secretsmanager', region_name='us-east-1')
         
         # Agent configuration
-        self.decision_agent_id = "TCX9CGOKBR"
-        self.decision_agent_alias_id = "BKLREFH3L0"
+        self.decision_agent_id = "PVWGKOWSOT"
+        self.decision_agent_alias_id = "LH87RBMCUQ"
         
     def process_slack_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Process Slack event with enhanced tracing"""
