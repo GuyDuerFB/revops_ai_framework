@@ -49,10 +49,10 @@ class EnhancedSlackBedrockProcessor:
         
         # Extract event details
         slack_event = json.loads(event.get('Records', [{}])[0].get('body', '{}'))
-        user_query = slack_event.get('text', '')
-        user_id = slack_event.get('user', '')
-        channel = slack_event.get('channel', '')
-        ts = slack_event.get('ts', '')
+        user_query = slack_event.get('message_text', '')
+        user_id = slack_event.get('user_id', '')
+        channel = slack_event.get('channel_id', '')
+        ts = slack_event.get('thread_ts', '')
         
         # Create tracer with correlation ID based on Slack timestamp
         correlation_id = f"slack_{ts}_{user_id}"
