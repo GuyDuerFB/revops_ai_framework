@@ -17,8 +17,8 @@ The V4 system introduces a revolutionary **specialized agent architecture** with
 - **Manager Agent**: Intelligent router that analyzes requests and routes them to specialized agents or handles them directly (Claude 3.7)
 - **Deal Analysis Agent**: Dedicated specialist for comprehensive deal assessment using embedded SQL queries and MEDDPICC evaluation (Claude 3.7)
 - **Data Agent**: Retrieves information from Firebolt Data Warehouse, Salesforce, and Gong (Claude 3.7)
-- **WebSearch Agent**: Researches companies and prospects for market intelligence (Claude 3.5 Sonnet v2)
-- **Execution Agent**: Takes actions like sending notifications or updating systems (Claude 3.5 Sonnet v2)
+- **WebSearch Agent**: Researches companies and prospects for market intelligence (Claude 3.7)
+- **Execution Agent**: Takes actions like sending notifications or updating systems (Claude 3.7)
 
 This specialized approach provides **10x better deal analysis accuracy** with embedded SQL queries and **Claude 3.7's enhanced reasoning** for complex revenue operations insights.
 
@@ -123,6 +123,24 @@ An intelligent AI framework that:
 - Integration Layer: AWS Lambda, API Gateway, SQS
 - User Interface: Slack (AWS best practices architecture)
 - Infrastructure: AWS (CloudFormation, IAM, Secrets Manager, CloudWatch)
+
+### Agent Alias Configuration
+
+Each agent has been configured with separate development and production aliases for safe testing and deployment:
+
+| Agent | Production Alias | Development Alias | Current Version |
+|-------|------------------|-------------------|-----------------|
+| **Manager Agent** | `Manager_Agent_Prod` (LH87RBMCUQ) | `Manager_Agent_Dev` (9MVRKEHMHX) | v4 / v2 |
+| **Deal Analysis Agent** | `Deal_Analysis_Agent_Prod` (SQQLCFQJUA) | `Deal_Analysis_Agent_Dev` (OAQ3FEIF2X) | v5 / v3 |
+| **Data Agent** | `Data_Agent_Prod` (BHFBAW3YMM) | `Data_Agent_Dev` (DQQHJQWXFH) | v2 / v2 |
+| **WebSearch Agent** | `Web_Search_Agent_Prod` (P3UKIIHUPI) | `Web_Search_Agent_Dev` (2VDZRA61PT) | v2 / v1 |
+| **Execution Agent** | `Execution_Agent_Prod` (RD6YGAICP0) | `Execution_Agent_Dev` (8UTY0IVI7I) | v2 / v1 |
+
+**Key Benefits:**
+- **Safe Testing**: Development aliases allow testing new agent versions without affecting production
+- **Version Control**: Clear versioning strategy with separate dev/prod deployment paths
+- **Rollback Capability**: Production aliases can be quickly reverted if issues arise
+- **Format Compliance**: Deal Analysis Agent v5 includes enhanced format enforcement for consistent output
 
 ## Core Use Cases
 
@@ -528,12 +546,19 @@ RevBot: [Compares both regions with previous context]
 | Manager Agent | ✅ Production Ready | SUPERVISOR mode with intelligent routing (Claude 3.7) |
 | Deal Analysis Agent | ✅ Production Ready | Claude 3.7 with embedded SQL and MEDDPICC |
 | Data Agent | ✅ Production Ready | Firebolt, Salesforce, Gong integration (Claude 3.7) |
-| WebSearch Agent | ✅ Production Ready | External intelligence gathering (Claude 3.5 Sonnet v2) |
-| Execution Agent | ✅ Production Ready | Webhook and notification capabilities (Claude 3.5 Sonnet v2) |
+| WebSearch Agent | ✅ Production Ready | External intelligence gathering (Claude 3.7) |
+| Execution Agent | ✅ Production Ready | Webhook and notification capabilities (Claude 3.7) |
 | Knowledge Base | ✅ Production Ready | Business logic and schema documentation |
 | Slack Integration | ✅ Production Ready | Full end-to-end working integration |
 
-### Recent Enhancements Applied (July 16, 2025)
+### Recent Enhancements Applied (July 22, 2025)
+- ✅ **Dev/Prod Alias Structure**: Implemented separate development and production aliases for all agents enabling safe testing
+- ✅ **Deal Analysis Format Compliance**: Enhanced Deal Analysis Agent v5 with strict format enforcement for consistent structured output
+- ✅ **Agent Routing Verification**: Validated Manager Agent correctly routes deal queries to Deal Analysis Agent specialist
+- ✅ **Configuration Updates**: Updated config.json with new alias names and version information
+- ✅ **Codebase Cleanup**: Comprehensive cleanup removing test files, duplicates, and inconsistencies for production readiness
+
+### Previous Enhancements Applied (July 16, 2025)
 - ✅ **Claude 3.7 Upgrade**: Updated core agents (Manager, Data, Deal Analysis) to use Claude 3.7 inference profiles
 - ✅ **Manager Agent Collaboration**: Fully operational with 4 collaborators (DataAgent, ExecutionAgent, WebSearchAgent, DealAnalysisAgent)
 - ✅ **Slack Integration**: Manager Agent now serves as the primary endpoint for all Slack interactions
@@ -716,21 +741,7 @@ This RevOps AI Framework is proprietary software designed for enterprise revenue
 
 Built for Revenue Teams - Powered by Amazon Bedrock
 
-*Last Updated: July 16, 2025 | Version: 4.1 | Status: V4 Architecture with Claude 3.7 Core Agents and Full Collaboration*
-
-## Latest Updates (July 16, 2025)
-
-### 🎉 V4 Architecture Enhancement
-- **Claude 3.7 Core Agents**: Updated Manager, Data, and Deal Analysis agents to use Claude 3.7 inference profiles
-- **Full Collaboration Operational**: Manager Agent now working with 4 collaborators for comprehensive analysis
-- **Slack Integration Complete**: Manager Agent serves as primary endpoint for all user interactions
-- **Inference Profile Resolution**: Resolved AWS Bedrock agent permissions and inference profile access issues
-
-### 🔧 Technical Improvements
-- **Enhanced Reasoning**: Claude 3.7 provides superior analysis capabilities for complex revenue operations
-- **Collaboration Architecture**: Manager Agent intelligently routes requests to specialized agents
-- **Production Ready**: Complete end-to-end system with comprehensive monitoring and error handling
-- **AWS Best Practices**: Full infrastructure deployment with CloudFormation and proper IAM permissions
+*Last Updated: July 22, 2025 | Version: 4.2 | Status: V4 Architecture with Dev/Prod Aliases and Format Compliance Enhancements*
 
 ### Previous Updates (July 15, 2025)
 - **V4 Architecture Launch**: Implemented specialized agent framework with Manager Agent routing
