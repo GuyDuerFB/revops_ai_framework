@@ -2,14 +2,14 @@
 
 ## Overview
 
-This directory contains deployment scripts and configuration for the RevOps AI Framework V3. The framework provides comprehensive revenue operations analysis through specialized AI agents.
+This directory contains deployment scripts and configuration for the RevOps AI Framework V4. The framework provides comprehensive revenue operations analysis through specialized AI agents with dev/prod alias support.
 
 ## Core Components
 
 ### Production Deployment Scripts
 
 - **`deploy_production.py`** - Main deployment script for core framework components
-- **`update_agent_with_alias.py`** - Update Decision Agent instructions and alias routing
+- **`update_agent_with_alias.py`** - Update Manager Agent instructions and alias routing
 - **`sync_knowledge_base.py`** - Synchronize knowledge base content with AWS Bedrock
 
 ### Configuration Files
