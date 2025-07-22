@@ -319,7 +319,7 @@ class CompleteSlackBedrockProcessor:
         # Configure extended timeouts for Bedrock Agent
         bedrock_config = Config(
             region_name=AWS_REGION,
-            read_timeout=240,  # 4 minutes for complex analysis
+            read_timeout=540,  # 9 minutes for complex analysis
             connect_timeout=60,
             retries={'max_attempts': 2}
         )
@@ -835,6 +835,7 @@ class CompleteSlackBedrockProcessor:
                 print("Bot token not found in secrets")
                 return False
             
+            # Progress updates are typically short and don't need markdown conversion
             formatted_message = f"*RevOps Analysis:* 🔍\n\n{progress_text}"
             
             payload = {
@@ -865,6 +866,65 @@ class CompleteSlackBedrockProcessor:
             print(f"Error sending progress update: {e}")
             return False
     
+    def _convert_markdown_to_slack(self, markdown_text: str) -> str:
+        """Convert markdown formatting to Slack mrkdwn format"""
+        import re
+        
+        # Start with the original text
+        slack_text = markdown_text
+        
+        # Convert headers - Slack uses *bold* for headers
+        slack_text = re.sub(r'^### (.*?)$', r'*\1*', slack_text, flags=re.MULTILINE)
+        slack_text = re.sub(r'^## (.*?)$', r'*\1*\n', slack_text, flags=re.MULTILINE)
+        slack_text = re.sub(r'^# (.*?)$', r'*\1*\n', slack_text, flags=re.MULTILINE)
+        
+        # Convert bold text - **text** to *text*
+        slack_text = re.sub(r'\*\*(.*?)\*\*', r'*\1*', slack_text)
+        
+        # Convert tables to formatted text blocks
+        lines = slack_text.split('\n')
+        formatted_lines = []
+        in_table = False
+        
+        for line in lines:
+            # Detect table rows (lines with |)
+            if '|' in line and len(line.split('|')) > 2:
+                if not in_table:
+                    in_table = True
+                    formatted_lines.append('')  # Add spacing before table
+                
+                # Clean up table row - remove outer pipes and format
+                cells = [cell.strip() for cell in line.split('|')[1:-1]]  # Remove first/last empty cells
+                
+                # Skip separator lines (lines with just dashes)
+                if all(cell.replace('-', '').replace(' ', '') == '' for cell in cells):
+                    continue
+                    
+                # Format as aligned text
+                formatted_row = '  '.join(f'{cell:<20}' for cell in cells)
+                formatted_lines.append(f'`{formatted_row}`')
+            else:
+                if in_table:
+                    formatted_lines.append('')  # Add spacing after table
+                    in_table = False
+                formatted_lines.append(line)
+        
+        slack_text = '\n'.join(formatted_lines)
+        
+        # Convert numbered lists - keep as is, Slack handles them
+        # Convert bullet points - ensure consistent formatting
+        slack_text = re.sub(r'^- (.*?)$', r'• \1', slack_text, flags=re.MULTILINE)
+        
+        # Convert code blocks - keep as is, Slack handles ```
+        
+        # Clean up excessive line breaks but preserve intentional spacing
+        slack_text = re.sub(r'\n{4,}', '\n\n\n', slack_text)
+        
+        # Ensure proper spacing around headers and sections
+        slack_text = re.sub(r'(\*[^*]+\*)\n([^*\n])', r'\1\n\n\2', slack_text)
+        
+        return slack_text.strip()
+    
     def _send_final_slack_response(self, slack_event: Dict[str, Any], response_text: str, message_ts: str = None) -> bool:
         """Send final response back to Slack (update existing or send new)"""
         response_start_time = time.time()
@@ -884,7 +944,9 @@ class CompleteSlackBedrockProcessor:
                 print("No channel ID found in slack event")
                 return False
             
-            formatted_response = f"*RevOps Analysis:* ✨\n\n{response_text}"
+            # Convert markdown to Slack format
+            slack_formatted_text = self._convert_markdown_to_slack(response_text)
+            formatted_response = f"*RevOps Analysis:* ✨\n\n{slack_formatted_text}"
             
             # Try to update existing message first
             success = False
