@@ -16,6 +16,7 @@ The V4 system introduces a revolutionary **specialized agent architecture** with
 
 - **Manager Agent**: Intelligent router that analyzes requests and routes them to specialized agents or handles them directly (Claude 3.7)
 - **Deal Analysis Agent**: Dedicated specialist for comprehensive deal assessment using embedded SQL queries and MEDDPICC evaluation (Claude 3.7)
+- **Lead Analysis Agent**: Specialized lead assessment with ICP fit analysis, embedded SQL queries for lead data, and engagement strategy development (Claude 3.7)
 - **Data Agent**: Retrieves information from Firebolt Data Warehouse, Salesforce, and Gong (Claude 3.7)
 - **WebSearch Agent**: Researches companies and prospects for market intelligence (Claude 3.7)
 - **Execution Agent**: Takes actions like sending notifications or updating systems (Claude 3.7)
@@ -64,58 +65,62 @@ An intelligent AI framework that:
 │  └───────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
-            ┌───────────────────┼───────────────────┐
-            ▼                   ▼                   ▼
+        ┌───────────────────────┼───────────────────┐
+        ▼                       ▼                   ▼
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ DEAL ANALYSIS   │  │   DATA AGENT    │  │ WEBSEARCH AGENT │
-│     AGENT       │  │                 │  │                 │
-│ • Claude 3.7    │  │ • Firebolt DWH  │  │ • External      │
-│ • MEDDPICC      │  │ • Salesforce    │  │   Intelligence  │
-│ • Embedded SQL  │  │ • Gong Calls    │  │ • Company       │
-│ • Deal Risk     │  │ • Knowledge     │  │   Research      │
-│ • Opportunity   │  │   Base Queries  │  │ • Market Data   │
-│   Assessment    │  │ • Complex Data  │  │ • Lead Research │
+│ DEAL ANALYSIS   │  │ LEAD ANALYSIS   │  │   DATA AGENT    │
+│     AGENT       │  │     AGENT       │  │                 │
+│ • Claude 3.7    │  │ • Claude 3.7    │  │ • Firebolt DWH  │
+│ • MEDDPICC      │  │ • ICP Analysis  │  │ • Salesforce    │
+│ • Embedded SQL  │  │ • Lead Scoring  │  │ • Gong Calls    │
+│ • Deal Risk     │  │ • Engagement    │  │ • Knowledge     │
+│ • Opportunity   │  │   Strategy      │  │   Base Queries  │
+│   Assessment    │  │ • Outreach      │  │ • Complex Data  │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
-            │                   │                   │
-            ▼                   ▼                   ▼
+        │                       │                   │
+        ▼                       ▼                   ▼
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  DEAL ANALYSIS  │  │ DATA SOURCES    │  │ EXTERNAL APIs   │
+│  DEAL ANALYSIS  │  │ LEAD ASSESSMENT │  │ DATA SOURCES    │
 │                 │  │                 │  │                 │
-│ • IXIS Deal     │  │ • Firebolt DWH  │  │ • Web Search    │
-│ • Microsoft     │  │ • Salesforce    │  │ • Company DBs   │
-│ • TechCorp      │  │ • Gong          │  │ • Market APIs   │
-│ • Structured    │  │ • Knowledge     │  │ • LinkedIn      │
-│   Assessment    │  │   Base          │  │ • News Sources  │
+│ • IXIS Deal     │  │ • ICP Scoring   │  │ • Firebolt DWH  │
+│ • Microsoft     │  │ • Lead Quality  │  │ • Salesforce    │
+│ • TechCorp      │  │ • Persona Match │  │ • Gong          │
+│ • Structured    │  │ • Email Seq.    │  │ • Knowledge     │
+│   Assessment    │  │ • LinkedIn      │  │   Base          │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
                                 │
-                                ▼
-                    ┌─────────────────┐
-                    │ EXECUTION AGENT │
-                    │                 │
-                    │ • Webhooks      │
-                    │ • Notifications │
-                    │ • CRM Updates   │
-                    │ • Data Writes   │
-                    │ • Triggers      │
-                    └─────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────┐
-                    │ ACTION SYSTEMS  │
-                    │                 │
-                    │ • Slack         │
-                    │ • Webhooks      │
-                    │ • Firebolt      │
-                    │ • Salesforce    │
-                    │ • Email         │
-                    └─────────────────┘
+                    ┌───────────┼───────────┐
+                    ▼                       ▼
+        ┌─────────────────┐      ┌─────────────────┐
+        │ WEBSEARCH AGENT │      │ EXECUTION AGENT │
+        │                 │      │                 │
+        │ • External      │      │ • Webhooks      │
+        │   Intelligence  │      │ • Notifications │
+        │ • Company       │      │ • CRM Updates   │
+        │   Research      │      │ • Data Writes   │
+        │ • Market Data   │      │ • Triggers      │
+        │ • Lead Research │      └─────────────────┘
+        └─────────────────┘                │
+                │                           ▼
+                ▼                ┌─────────────────┐
+    ┌─────────────────┐          │ ACTION SYSTEMS  │
+    │ EXTERNAL APIs   │          │                 │
+    │                 │          │ • Slack         │
+    │ • Web Search    │          │ • Webhooks      │
+    │ • Company DBs   │          │ • Firebolt      │
+    │ • Market APIs   │          │ • Salesforce    │
+    │ • LinkedIn      │          │ • Email         │
+    │ • News Sources  │          └─────────────────┘
+    └─────────────────┘
 ```
 
 ### Technology Stack
 
 - AI/ML Platform: Amazon Bedrock (Claude 3.7 with Inference Profiles for core agents)
 - Agent Framework: Amazon Bedrock Agents with Specialized Routing Architecture
-- Specialized Analysis: Deal Analysis Agent with embedded SQL and MEDDPICC framework (Claude 3.7)
+- Specialized Analysis: 
+  - Deal Analysis Agent with embedded SQL and MEDDPICC framework (Claude 3.7)
+  - Lead Analysis Agent with ICP assessment and engagement strategy development (Claude 3.7)
 - Data Platform: Firebolt Data Warehouse
 - CRM Integration: Salesforce
 - Conversation Intelligence: Gong
@@ -132,6 +137,7 @@ Each agent has been configured with separate development and production aliases 
 |-------|------------------|-------------------|-----------------|
 | **Manager Agent** | `Manager_Agent_Prod` (LH87RBMCUQ) | `Manager_Agent_Dev` (9MVRKEHMHX) | v4 / v2 |
 | **Deal Analysis Agent** | `Deal_Analysis_Agent_Prod` (SQQLCFQJUA) | `Deal_Analysis_Agent_Dev` (OAQ3FEIF2X) | v5 / v3 |
+| **Lead Analysis Agent** | `Lead_Analysis_Agent_Prod` (FO8UT25HFA) | `Lead_Analysis_Agent_Dev` (TBD) | v1 / DRAFT |
 | **Data Agent** | `Data_Agent_Prod` (BHFBAW3YMM) | `Data_Agent_Dev` (DQQHJQWXFH) | v2 / v2 |
 | **WebSearch Agent** | `Web_Search_Agent_Prod` (P3UKIIHUPI) | `Web_Search_Agent_Dev` (2VDZRA61PT) | v2 / v1 |
 | **Execution Agent** | `Execution_Agent_Prod` (RD6YGAICP0) | `Execution_Agent_Dev` (8UTY0IVI7I) | v2 / v1 |
@@ -165,7 +171,14 @@ Process: Manager Agent → Deal Analysis Agent → Embedded SQL queries → MEDD
 Output: Structured analysis: A. Dry Numbers, B. Bottom Line Assessment, C. Risks and Opportunities
 ```
 
-### 4. Customer Churn Risk Analysis
+### 4. Lead Assessment & Qualification
+```
+Query: "Assess John Smith from DataCorp as a lead" or "Is Sarah Johnson a good prospect?"
+Process: Manager Agent → Lead Analysis Agent → Salesforce data + Web research → ICP analysis → Assessment
+Output: ICP fit analysis, confidence scoring, and personalized engagement strategy recommendations
+```
+
+### 5. Customer Churn Risk Analysis
 ```
 Query: "Which customers are at highest churn risk this quarter?"
 Process: Manager Agent → Data Agent (usage patterns) → WebSearch (company health) → Risk scoring
@@ -545,6 +558,7 @@ RevBot: [Compares both regions with previous context]
 |-----------|--------|---------|
 | Manager Agent | ✅ Production Ready | SUPERVISOR mode with intelligent routing (Claude 3.7) |
 | Deal Analysis Agent | ✅ Production Ready | Claude 3.7 with embedded SQL and MEDDPICC |
+| Lead Analysis Agent | ✅ Production Ready | Claude 3.7 with ICP analysis, action groups, and engagement strategy |
 | Data Agent | ✅ Production Ready | Firebolt, Salesforce, Gong integration (Claude 3.7) |
 | WebSearch Agent | ✅ Production Ready | External intelligence gathering (Claude 3.7) |
 | Execution Agent | ✅ Production Ready | Webhook and notification capabilities (Claude 3.7) |
@@ -557,10 +571,12 @@ RevBot: [Compares both regions with previous context]
 - ✅ **Agent Routing Verification**: Validated Manager Agent correctly routes deal queries to Deal Analysis Agent specialist
 - ✅ **Configuration Updates**: Updated config.json with new alias names and version information
 - ✅ **Codebase Cleanup**: Comprehensive cleanup removing test files, duplicates, and inconsistencies for production readiness
+- ✅ **Lead Analysis Agent**: Implemented new specialized agent for lead assessment, ICP analysis, and engagement strategy development with action groups for Firebolt queries and web search capabilities
+- ✅ **Lead Analysis Agent Deployment**: Successfully deployed to AWS with production alias v1 and embedded SQL queries for comprehensive lead analysis
 
 ### Previous Enhancements Applied (July 16, 2025)
 - ✅ **Claude 3.7 Upgrade**: Updated core agents (Manager, Data, Deal Analysis) to use Claude 3.7 inference profiles
-- ✅ **Manager Agent Collaboration**: Fully operational with 4 collaborators (DataAgent, ExecutionAgent, WebSearchAgent, DealAnalysisAgent)
+- ✅ **Manager Agent Collaboration**: Fully operational with 5 collaborators (DataAgent, ExecutionAgent, WebSearchAgent, DealAnalysisAgent, LeadAnalysisAgent)
 - ✅ **Slack Integration**: Manager Agent now serves as the primary endpoint for all Slack interactions
 - ✅ **Inference Profile Configuration**: Resolved inference profile permissions and agent preparation issues
 - ✅ **Full V4 Deployment**: Complete working system with specialized agent architecture and Claude 3.7 enhanced reasoning

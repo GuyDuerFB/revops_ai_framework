@@ -6,7 +6,7 @@
     "agent_id": "NOJMSQ8JPT",
     "agent_alias_id": "BHFBAW3YMM",
     "agent_alias_name": "Data_Agent_Prod",
-    "dev_agent_alias_id": "DQQHJQWXFH", 
+    "dev_agent_alias_id": "DQQHJQWXFH",
     "dev_agent_alias_name": "Data_Agent_Dev",
     "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Data Analysis Agent V4 - Claude 3.7 with temporal analysis and business logic awareness",
@@ -33,7 +33,7 @@
     "agent_alias_id": "LH87RBMCUQ",
     "agent_alias_name": "Manager_Agent_Prod",
     "dev_agent_alias_id": "9MVRKEHMHX",
-    "dev_agent_alias_name": "Manager_Agent_Dev", 
+    "dev_agent_alias_name": "Manager_Agent_Dev",
     "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     "description": "Manager Agent V4 - Claude 3.7 intelligent router and coordinator",
     "instructions_file": "agents/manager_agent/instructions.md",
@@ -62,7 +62,7 @@
         "collaborator_name": "ExecutionAgent",
         "agent_id": "AINAPUEIZU",
         "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/AINAPUEIZU/RD6YGAICP0",
-        "collaboration_instruction": "ExecutionAgent is a specialized helper that performs operational actions requested by the Decision Agent. It must: Accept explicit commands such as Send webhook, Notify AE, Write to Firebolt, or Update CRM field. Execute exactly what is asked—no extra reasoning or data queries. Return a compact JSON status object for each action. For webhooks/notifications: include target, payload size, and correlation ID. For Firebolt writes: confirm table, row count, and primary keys. Log errors verbosely but NEVER halt on partial failures. Follow idempotency: if the same action with identical parameters is received twice, treat the second as a no-op and respond duplicate. Never expose credentials or raw secrets. Tone: terse, machine-readable first; one-sentence human note only if needed.",
+        "collaboration_instruction": "ExecutionAgent is a specialized helper that performs operational actions requested by the Decision Agent. It must: Accept explicit commands such as Send webhook, Notify AE, Write to Firebolt, or Update CRM field. Execute exactly what is asked\u2014no extra reasoning or data queries. Return a compact JSON status object for each action. For webhooks/notifications: include target, payload size, and correlation ID. For Firebolt writes: confirm table, row count, and primary keys. Log errors verbosely but NEVER halt on partial failures. Follow idempotency: if the same action with identical parameters is received twice, treat the second as a no-op and respond duplicate. Never expose credentials or raw secrets. Tone: terse, machine-readable first; one-sentence human note only if needed.",
         "relay_conversation_history": "TO_COLLABORATOR"
       },
       {
@@ -71,6 +71,14 @@
         "agent_id": "QKRQXXPJOJ",
         "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/QKRQXXPJOJ/P3UKIIHUPI",
         "collaboration_instruction": "The WebSearchAgent is a specialized helper that gathers external intelligence and company research for the Decision Agent. It must: Accept requests for lead research, company intelligence, and market analysis. Use web search capabilities to find information about people, companies, and industries. Return structured JSON with comprehensive research findings including person intelligence, company intelligence, market context, and assessment insights. Focus on actionable intelligence useful for lead qualification and sales decision-making. Cross-reference information from multiple sources for accuracy and completeness. Provide data quality assessments and highlight information gaps. Never perform data warehouse queries, webhook actions, or strategic decision-making. Use search_web() for general queries and research_company() for focused company research. Prioritize recent information and credible sources. Structure findings to enable informed strategic recommendations by the Decision Agent. Tone: professional, structured, and intelligence-focused. Refer to yourself as WebSearchAgent in explanations.",
+        "relay_conversation_history": "TO_COLLABORATOR"
+      },
+      {
+        "collaborator_id": "LA9HPDIEPL",
+        "collaborator_name": "LeadAnalysisAgent",
+        "agent_id": "IP9HPDIEPL",
+        "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/IP9HPDIEPL/FO8UT25HFA",
+        "collaboration_instruction": "The LeadAnalysisAgent is a specialized helper that performs comprehensive lead assessment and engagement strategy development. It accepts requests for lead analysis, ICP fit assessment, and outreach strategy creation. It retrieves data from Salesforce (contacts and leads), supplements with web research when needed, and performs structured ICP analysis using Firebolt's ideal customer profile criteria. It returns comprehensive lead assessments with ICP fit scoring, confidence levels, and personalized engagement recommendations including email sequences and LinkedIn outreach strategies.",
         "relay_conversation_history": "TO_COLLABORATOR"
       }
     ]
@@ -93,6 +101,32 @@
         "name": "firebolt_query",
         "description": "Execute SQL queries for deal analysis",
         "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-query"
+      }
+    ]
+  },
+  "lead_analysis_agent": {
+    "agent_id": "IP9HPDIEPL",
+    "agent_alias_id": "FO8UT25HFA",
+    "agent_alias_name": "Lead_Analysis_Agent_Prod",
+    "dev_agent_alias_id": "TBD",
+    "dev_agent_alias_name": "Lead_Analysis_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "Lead Analysis Agent V4 - Claude 3.7 specialized lead assessment with ICP analysis and engagement strategy",
+    "instructions_file": "agents/lead_analysis_agent/instructions.md",
+    "latest_version": "1",
+    "agent_status": "PREPARED",
+    "action_groups": [
+      {
+        "action_group_id": "1CS9MHIHDV",
+        "name": "firebolt_query",
+        "description": "Execute SQL queries against Firebolt data warehouse for lead data analysis",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-query"
+      },
+      {
+        "action_group_id": "GCPCZ3XEQD",
+        "name": "web_search",
+        "description": "Search web and research companies for lead intelligence",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-web-search"
       }
     ]
   },
@@ -274,15 +308,16 @@
     "multi_agent_setup": {
       "supervisor_agent": "PVWGKOWSOT (Manager Agent)",
       "specialized_agents": [
-        "DBHYUWC6U6 (Deal Analysis Agent) - Specialized deal assessment with MEDDPICC and Claude 3.7"
+        "DBHYUWC6U6 (Deal Analysis Agent) - Specialized deal assessment with MEDDPICC and Claude 3.7",
+        "TBD (Lead Analysis Agent) - Specialized lead assessment with ICP analysis and engagement strategy (IN DEVELOPMENT)"
       ],
       "collaborator_agents": [
         "NOJMSQ8JPT (DataAgent) - Data fetching and analysis",
         "QKRQXXPJOJ (WebSearchAgent) - External intelligence and company research",
         "AINAPUEIZU (ExecutionAgent) - Action execution and integration"
       ],
-      "collaboration_mode": "HYBRID_ROUTING",
-      "status": "v4_architecture_operational_with_permissions_fixed"
+      "collaboration_mode": "HYBRID_ROUTING_WITH_LEAD_ANALYSIS",
+      "status": "v4_architecture_operational_with_lead_analysis_in_development"
     },
     "architecture_migration": {
       "from": "broken_bedrock_flow",
