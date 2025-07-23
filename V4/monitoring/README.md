@@ -1,6 +1,6 @@
 # RevOps AI Framework - Monitoring
 
-Comprehensive monitoring and observability solution for the RevOps AI Framework V3.
+Comprehensive monitoring and observability solution for the RevOps AI Framework V4.
 
 ## Overview
 

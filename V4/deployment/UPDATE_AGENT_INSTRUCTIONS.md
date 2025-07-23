@@ -1,67 +1,32 @@
-# Update Decision Agent Instructions
+# Update Manager Agent Instructions
 
-This guide provides three methods to update the Decision Agent (ID: TCX9CGOKBR) with new instructions from `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/agents/decision_agent/instructions.md`.
+This guide provides methods to update the Manager Agent (ID: PVWGKOWSOT) with new instructions from `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/agents/manager_agent/instructions.md`.
 
 ## Prerequisites
 
 1. **AWS CLI configured** with profile `FireboltSystemAdministrator-740202120544`
 2. **AWS permissions** for Bedrock Agent operations
-3. **jq installed** (for shell script method)
-4. **Python 3.9+** (for Python script methods)
+3. **Python 3.9+** for deployment scripts
 
-## Method 1: Shell Script (Recommended)
+## Method 1: Complete V4 Deployment (Recommended)
 
-The shell script provides the most direct AWS CLI approach with detailed logging.
-
-```bash
-cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/deployment
-./update_decision_agent.sh
-```
-
-**Features:**
-- ✅ Direct AWS CLI commands
-- ✅ Comprehensive error handling
-- ✅ Automatic agent preparation
-- ✅ Agent alias update to new version
-- ✅ Detailed progress logging
-- ✅ Test command generation
-
-## Method 2: Python Script with Alias Update
-
-This Python script provides the most comprehensive update with alias management.
+Use the comprehensive V4 deployment script:
 
 ```bash
-cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/deployment
-python3 update_agent_with_alias.py
+cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment
+python3 deploy_v4.py
 ```
 
-**Options:**
-- Default: Updates agent and alias
-- `--no-alias`: Updates only agent instructions (not alias)
+## Method 2: Manager Agent Only
 
-**Features:**
-- ✅ Automatic configuration loading from config.json
-- ✅ Agent status monitoring
-- ✅ Optional alias update
-- ✅ Comprehensive error handling
-- ✅ Timeout protection
-
-## Method 3: Basic Python Script
-
-Simple script for updating just the agent instructions.
+Update only the Manager Agent:
 
 ```bash
-cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/deployment
-python3 update_decision_agent_instructions.py
+cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment
+python3 deploy_manager_agent.py
 ```
 
-**Features:**
-- ✅ Basic agent update
-- ✅ Agent preparation
-- ✅ Configuration loading
-- ✅ Simple error handling
-
-## Manual AWS CLI Commands
+## Method 3: Manual AWS CLI Commands
 
 If you prefer to run the AWS CLI commands manually:
 
@@ -69,8 +34,8 @@ If you prefer to run the AWS CLI commands manually:
 
 ```bash
 # Set variables
-AGENT_ID="TCX9CGOKBR"
-AGENT_ALIAS_ID="BKLREFH3L0"
+AGENT_ID="PVWGKOWSOT"
+AGENT_ALIAS_ID="LH87RBMCUQ"
 PROFILE="FireboltSystemAdministrator-740202120544"
 REGION="us-east-1"
 
@@ -83,10 +48,10 @@ aws bedrock-agent get-agent \
 # Update agent with new instructions
 aws bedrock-agent update-agent \
   --agent-id "$AGENT_ID" \
-  --agent-name "DecisionAgent" \
-  --description "Decision Agent for RevOps AI Framework with temporal analysis and business logic awareness" \
-  --instruction "$(cat ../agents/decision_agent/instructions.md)" \
-  --foundation-model "anthropic.claude-sonnet-4-20250514-v1:0" \
+  --agent-name "Manager_Agent_V4" \
+  --description "Manager Agent V4 - Claude 3.7 intelligent router and coordinator" \
+  --instruction "$(cat ../agents/manager_agent/instructions.md)" \
+  --foundation-model "us.anthropic.claude-3-7-sonnet-20250219-v1:0" \
   --agent-resource-role-arn "arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops" \
   --idle-session-ttl-in-seconds 1800 \
   --profile "$PROFILE" \
@@ -110,28 +75,27 @@ aws bedrock-agent prepare-agent \
 aws bedrock-agent update-agent-alias \
   --agent-id "$AGENT_ID" \
   --agent-alias-id "$AGENT_ALIAS_ID" \
-  --agent-alias-name "decision-agent-alias" \
+  --agent-alias-name "Manager_Agent_Prod" \
   --routing-configuration agentVersion="VERSION" \
   --profile "$PROFILE" \
   --region "$REGION"
 ```
 
-## Current Instructions Summary
+## V4 Architecture Overview
 
-The updated instructions include:
+The V4 architecture includes:
 
-### Key Changes:
-1. **Split Step 1** into Step 1A (Opportunity Data) and Step 1B (Call Data)
-2. **Explicit validation requirements** for data collection
-3. **Enhanced error handling** with fallback strategies
-4. **Clear guidance** on using `query_firebolt` vs `get_gong_data`
+### Manager Agent (PVWGKOWSOT)
+- **Role**: Supervisor and intelligent router
+- **Foundation Model**: Claude 3.7 Sonnet
+- **Collaborators**: DataAgent, DealAnalysisAgent, LeadAnalysisAgent, WebSearchAgent, ExecutionAgent
 
-### New Features:
-- **Dual data collection** for deal reviews
-- **Data validation checks** before proceeding
-- **Comprehensive error handling** for missing data
-- **Structured deal assessment** framework
-- **Data conflict resolution** guidelines
+### Specialized Agents:
+- **DataAgent** (NOJMSQ8JPT): Data fetching and analysis
+- **DealAnalysisAgent** (DBHYUWC6U6): MEDDPICC deal assessment
+- **LeadAnalysisAgent** (IP9HPDIEPL): ICP analysis and engagement strategy
+- **WebSearchAgent** (QKRQXXPJOJ): External intelligence gathering
+- **ExecutionAgent** (AINAPUEIZU): Action execution and integration
 
 ## Verification
 
@@ -140,8 +104,8 @@ After updating, test the agent with:
 ```bash
 # Test the updated agent
 aws bedrock-agent-runtime invoke-agent \
-  --agent-id "TCX9CGOKBR" \
-  --agent-alias-id "BKLREFH3L0" \
+  --agent-id "PVWGKOWSOT" \
+  --agent-alias-id "LH87RBMCUQ" \
   --session-id "test-session-$(date +%s)" \
   --input-text "What is the status of the ACME Corp deal?" \
   --profile "FireboltSystemAdministrator-740202120544" \
@@ -170,28 +134,29 @@ aws bedrock-agent-runtime invoke-agent \
 ```bash
 # Check agent status
 aws bedrock-agent get-agent \
-  --agent-id "TCX9CGOKBR" \
+  --agent-id "PVWGKOWSOT" \
   --profile "FireboltSystemAdministrator-740202120544" \
   --region "us-east-1"
 
 # Check alias status
 aws bedrock-agent get-agent-alias \
-  --agent-id "TCX9CGOKBR" \
-  --agent-alias-id "BKLREFH3L0" \
+  --agent-id "PVWGKOWSOT" \
+  --agent-alias-id "LH87RBMCUQ" \
   --profile "FireboltSystemAdministrator-740202120544" \
   --region "us-east-1"
 ```
 
 ## File Locations
 
-- **Decision Agent Instructions**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/agents/decision_agent/instructions.md`
-- **Configuration**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/deployment/config.json`
-- **Update Scripts**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V3/deployment/`
+- **Manager Agent Instructions**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/agents/manager_agent/instructions.md`
+- **Configuration**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment/config.json`
+- **Deployment Scripts**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment/`
 
 ## Agent Configuration
 
-- **Agent ID**: TCX9CGOKBR
-- **Agent Alias ID**: BKLREFH3L0
-- **Foundation Model**: anthropic.claude-sonnet-4-20250514-v1:0
+- **Agent ID**: PVWGKOWSOT
+- **Agent Alias ID**: LH87RBMCUQ
+- **Foundation Model**: us.anthropic.claude-3-7-sonnet-20250219-v1:0
 - **Profile**: FireboltSystemAdministrator-740202120544
 - **Region**: us-east-1
+- **Architecture**: V4 Multi-Agent Collaboration

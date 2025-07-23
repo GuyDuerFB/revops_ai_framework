@@ -11,25 +11,35 @@
     "account_id": "740202120544"
   },
   "bedrock": {
-    "agent_id": "TCX9CGOKBR",
-    "agent_alias_id": "BKLREFH3L0",
-    "agent_name": "DecisionAgent-5",
+    "agent_id": "PVWGKOWSOT",
+    "agent_alias_id": "LH87RBMCUQ",
+    "agent_name": "Manager_Agent_V4",
     "agent_role": "SUPERVISOR",
     "collaborators": [
       {
         "name": "DataAgent",
-        "agent_id": "9B8EGU46UV",
-        "alias_id": "Z2UM7QDWEW"
+        "agent_id": "NOJMSQ8JPT",
+        "alias_id": "BHFBAW3YMM"
+      },
+      {
+        "name": "DealAnalysisAgent",
+        "agent_id": "DBHYUWC6U6",
+        "alias_id": "SQQLCFQJUA"
+      },
+      {
+        "name": "LeadAnalysisAgent",
+        "agent_id": "IP9HPDIEPL",
+        "alias_id": "FO8UT25HFA"
       },
       {
         "name": "WebSearchAgent", 
-        "agent_id": "7EMPGQMIDU",
-        "alias_id": "SBLIJO0ZL8"
+        "agent_id": "QKRQXXPJOJ",
+        "alias_id": "P3UKIIHUPI"
       },
       {
         "name": "ExecutionAgent",
-        "agent_id": "UWMCP4AYZX", 
-        "alias_id": "BBXJDI18C5"
+        "agent_id": "AINAPUEIZU", 
+        "alias_id": "RD6YGAICP0"
       }
     ]
   },
