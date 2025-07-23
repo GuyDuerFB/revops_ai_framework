@@ -48,20 +48,19 @@ An intelligent AI framework that:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        USER INTERFACES                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐           │
-│  │    Slack    │    │   Direct    │    │   Future    │           │
-│  │ Integration │    │ API Calls   │    │ Interfaces  │           │
-│  └─────────────┘    └─────────────┘    └─────────────┘           │
+│  ┌─────────────┐    ┌─────────────┐                               │
+│  │    Slack    │    │   Direct    │                               │
+│  │ Integration │    │ API Calls   │                               │
+│  └─────────────┘    └─────────────┘                               │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    MANAGER AGENT (ROUTER)                          │
 │  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ • Intelligent request routing and analysis                   │ │
-│  │ • Pattern detection for specialized workflows                │ │
-│  │ • Direct handling of simple requests                         │ │
-│  │ • Coordination of agent collaboration                        │ │
+│  │ • Routes requests to specialists                             │ │
+│  │ • Handles simple queries directly                            │ │
+│  │ • Coordinates multi-agent workflows                          │ │
 │  └───────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
@@ -70,23 +69,20 @@ An intelligent AI framework that:
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │ DEAL ANALYSIS   │  │ LEAD ANALYSIS   │  │   DATA AGENT    │
 │     AGENT       │  │     AGENT       │  │                 │
-│ • Claude 3.7    │  │ • Claude 3.7    │  │ • Firebolt DWH  │
-│ • MEDDPICC      │  │ • ICP Analysis  │  │ • Salesforce    │
-│ • Embedded SQL  │  │ • Lead Scoring  │  │ • Gong Calls    │
-│ • Deal Risk     │  │ • Engagement    │  │ • Knowledge     │
-│ • Opportunity   │  │   Strategy      │  │   Base Queries  │
-│   Assessment    │  │ • Outreach      │  │ • Complex Data  │
+│ • MEDDPICC      │  │ • ICP Scoring   │  │ • SQL Queries   │
+│ • Risk Analysis │  │ • Qualification │  │ • Salesforce    │
+│ • SQL Queries   │  │ • Outreach      │  │ • Gong Calls    │
+│                 │  │   Strategy      │  │                 │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
         │                       │                   │
         ▼                       ▼                   ▼
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│  DEAL ANALYSIS  │  │ LEAD ASSESSMENT │  │ DATA SOURCES    │
+│ DEAL ASSESSMENT │  │ LEAD ASSESSMENT │  │ DATA SOURCES    │
 │                 │  │                 │  │                 │
-│ • IXIS Deal     │  │ • ICP Scoring   │  │ • Firebolt DWH  │
-│ • Microsoft     │  │ • Lead Quality  │  │ • Salesforce    │
-│ • TechCorp      │  │ • Persona Match │  │ • Gong          │
-│ • Structured    │  │ • Email Seq.    │  │ • Knowledge     │
-│   Assessment    │  │ • LinkedIn      │  │   Base          │
+│ • Probability   │  │ • Fit Score     │  │ • Firebolt DWH  │
+│ • Risk Factors  │  │ • Engagement    │  │ • Salesforce    │
+│ • Next Steps    │  │   Plan          │  │ • Gong          │
+│                 │  │                 │  │                 │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
                                 │
                     ┌───────────┼───────────┐
@@ -94,24 +90,20 @@ An intelligent AI framework that:
         ┌─────────────────┐      ┌─────────────────┐
         │ WEBSEARCH AGENT │      │ EXECUTION AGENT │
         │                 │      │                 │
-        │ • External      │      │ • Webhooks      │
-        │   Intelligence  │      │ • Notifications │
-        │ • Company       │      │ • CRM Updates   │
-        │   Research      │      │ • Data Writes   │
-        │ • Market Data   │      │ • Triggers      │
-        │ • Lead Research │      └─────────────────┘
-        └─────────────────┘                │
-                │                           ▼
-                ▼                ┌─────────────────┐
-    ┌─────────────────┐          │ ACTION SYSTEMS  │
-    │ EXTERNAL APIs   │          │                 │
-    │                 │          │ • Slack         │
-    │ • Web Search    │          │ • Webhooks      │
-    │ • Company DBs   │          │ • Firebolt      │
-    │ • Market APIs   │          │ • Salesforce    │
-    │ • LinkedIn      │          │ • Email         │
-    │ • News Sources  │          └─────────────────┘
-    └─────────────────┘
+        │ • Company       │      │ • Notifications │
+        │   Research      │      │ • CRM Updates   │
+        │ • Market Data   │      │ • Webhooks      │
+        │                 │      │                 │
+        └─────────────────┘      └─────────────────┘
+                │                           │
+                ▼                           ▼
+    ┌─────────────────┐          ┌─────────────────┐
+    │ EXTERNAL APIS   │          │ ACTION SYSTEMS  │
+    │                 │          │                 │
+    │ • Web Search    │          │ • Slack         │
+    │ • Company DBs   │          │ • Salesforce    │
+    │                 │          │ • Webhooks      │
+    └─────────────────┘          └─────────────────┘
 ```
 
 ### Technology Stack
