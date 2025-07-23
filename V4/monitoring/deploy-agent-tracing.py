@@ -196,7 +196,7 @@ fields @timestamp, correlation_id, processing_time_ms, agent_name, success
         
         routing_config = {
             "slack-bedrock-processor": "/aws/revops-ai/conversation-trace",
-            "bedrock-agent-TCX9CGOKBR": "/aws/revops-ai/decision-logic", 
+            "bedrock-agent-PVWGKOWSOT": "/aws/revops-ai/manager-agent", 
             "data-agent-operations": "/aws/revops-ai/data-operations",
             "agent-collaborations": "/aws/revops-ai/agent-collaboration",
             "error-handling": "/aws/revops-ai/error-analysis"
