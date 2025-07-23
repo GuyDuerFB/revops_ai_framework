@@ -12,16 +12,16 @@ The RevOps AI Framework is a comprehensive, AI-powered revenue operations platfo
 This system acts as your intelligent assistant for revenue operations. Instead of manually analyzing data across multiple systems, you can simply ask questions in plain English through Slack and get comprehensive answers. The system automatically pulls data from your Firebolt Data Warehouse, Salesforce CRM, and Gong call recordings to provide complete insights about customers, deals, and revenue performance.
 
 ### Technical Implementation (V4 Architecture)
-The V4 system introduces a revolutionary **specialized agent architecture** with **core agents powered by Claude 3.7**:
+The V4 system uses a **specialized agent architecture** with **Claude 3.7**:
 
-- **Manager Agent**: Intelligent router that analyzes requests and routes them to specialized agents or handles them directly (Claude 3.7)
-- **Deal Analysis Agent**: Dedicated specialist for comprehensive deal assessment using embedded SQL queries and MEDDPICC evaluation (Claude 3.7)
-- **Lead Analysis Agent**: Specialized lead assessment with ICP fit analysis, embedded SQL queries for lead data, and engagement strategy development (Claude 3.7)
-- **Data Agent**: Retrieves information from Firebolt Data Warehouse, Salesforce, and Gong (Claude 3.7)
-- **WebSearch Agent**: Researches companies and prospects for market intelligence (Claude 3.7)
-- **Execution Agent**: Takes actions like sending notifications or updating systems (Claude 3.7)
+- **Manager Agent**: Routes requests to appropriate specialists or handles simple queries directly
+- **Deal Analysis Agent**: Evaluates deal probability and risk using MEDDPICC methodology and SQL queries
+- **Lead Analysis Agent**: Assesses lead quality against ICP criteria and creates engagement strategies
+- **Data Agent**: Executes SQL queries against Firebolt, retrieves Salesforce records, and fetches Gong call data
+- **WebSearch Agent**: Gathers external company intelligence and market research
+- **Execution Agent**: Sends notifications, triggers webhooks, and updates CRM systems
 
-This specialized approach provides **10x better deal analysis accuracy** with embedded SQL queries and **Claude 3.7's enhanced reasoning** for complex revenue operations insights.
+This architecture delivers faster, more accurate analysis through specialized agents with direct data access.
 
 ## Solution Overview
 
