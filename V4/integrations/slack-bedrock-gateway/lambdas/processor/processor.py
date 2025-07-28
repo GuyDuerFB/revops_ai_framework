@@ -14,6 +14,7 @@ from enum import Enum
 from contextlib import contextmanager
 import sys
 import os
+import re
 
 # Try to import requests, install if missing
 try:
@@ -308,6 +309,225 @@ class AgentTracer:
         else:
             return 'GENERAL_QUERY'
 
+class AgentNarrationEngine:
+    """Engine for converting technical agent reasoning into user-friendly narration"""
+    
+    def __init__(self):
+        self.reasoning_patterns = {
+            'analysis_start': r'(analyze|review|assess|examine|understand).*?(?:deal|status|request|question)',
+            'data_retrieval': r'(need to|should|will|must|going to).*?(get|fetch|retrieve|query|access|pull).*?(data|information)',
+            'agent_routing': r'(route|call|invoke|use|contact|collaborate).*?(agent|specialist|expert)',
+            'risk_assessment': r'(risk|concern|issue|problem|competitive|challenge|threat)',
+            'decision_making': r'(decide|determine|conclude|recommend|suggest|propose)',
+            'completion': r'(complete|finished|ready|prepared|done|final)',
+            'collaboration': r'(collaborat|work with|team up|coordinate)',
+            'thinking': r'(think|consider|evaluate|analyze|ponder)',
+            'found_data': r'(found|discovered|located|identified|retrieved).*?(deal|data|information)',
+            'processing': r'(processing|working on|handling|managing)'
+        }
+        
+        self.agent_mappings = {
+            'DealAnalysisAgent': 'Deal Analysis Expert',
+            'LeadAnalysisAgent': 'Lead Assessment Specialist', 
+            'DataAgent': 'Data Specialist',
+            'WebSearchAgent': 'Research Agent',
+            'ExecutionAgent': 'Action Specialist'
+        }
+    
+    def convert_reasoning_to_narration(self, rationale_text: str, context: dict) -> str:
+        """Convert technical agent reasoning into user-friendly narration"""
+        if not rationale_text or len(rationale_text.strip()) < 10:
+            return None
+            
+        # Clean and prepare text
+        clean_text = self._clean_reasoning_text(rationale_text)
+        
+        # Extract entities from reasoning and context
+        entities = self._extract_entities(clean_text, context)
+        
+        # Classify reasoning type
+        reasoning_type = self._classify_reasoning(clean_text)
+        
+        # Generate contextual narration
+        return self._generate_narration(reasoning_type, entities, clean_text)
+    
+    def _clean_reasoning_text(self, text: str) -> str:
+        """Clean technical reasoning text for processing"""
+        # Remove excessive whitespace and newlines
+        cleaned = re.sub(r'\s+', ' ', text.strip())
+        
+        # Remove technical artifacts
+        cleaned = re.sub(r'\{[^}]*\}', '', cleaned)  # Remove JSON-like structures
+        cleaned = re.sub(r'\[[^\]]*\]', '', cleaned)  # Remove bracketed content
+        
+        return cleaned
+    
+    def _extract_entities(self, text: str, context: dict) -> dict:
+        """Extract relevant entities for contextual narration"""
+        entities = {
+            'company': None,
+            'deal_name': None,
+            'person': None,
+            'data_type': None,
+            'agent_type': None,
+            'action': None,
+            'entity_type': 'request'
+        }
+        
+        # Company/Deal extraction (common patterns)
+        company_patterns = [
+            r'\b([A-Z][a-zA-Z]+)\s+deal\b',
+            r'\b([A-Z][a-zA-Z]+)\s+company\b',
+            r'\b([A-Z][a-zA-Z]+)\s+opportunity\b',
+            r'deal.*?([A-Z][a-zA-Z]+)',
+            r'status.*?([A-Z][a-zA-Z]+)'
+        ]
+        
+        for pattern in company_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                potential_company = match.group(1)
+                # Filter out common false positives
+                if potential_company.lower() not in ['deal', 'company', 'status', 'analysis']:
+                    entities['company'] = potential_company
+                    entities['entity_type'] = 'deal'
+                    break
+        
+        # Data type extraction
+        if re.search(r'(data|information|records|analytics)', text, re.IGNORECASE):
+            entities['data_type'] = 'business data'
+        
+        # Agent collaboration detection
+        for agent_key, agent_name in self.agent_mappings.items():
+            if agent_key in text:
+                entities['agent_type'] = agent_name
+                break
+        
+        return entities
+    
+    def _classify_reasoning(self, text: str) -> str:
+        """Classify the type of reasoning being performed"""
+        text_lower = text.lower()
+        
+        # Check patterns in order of specificity
+        for reasoning_type, pattern in self.reasoning_patterns.items():
+            if re.search(pattern, text_lower):
+                return reasoning_type
+        
+        return 'thinking'  # Default fallback
+    
+    def _generate_narration(self, reasoning_type: str, entities: dict, raw_text: str) -> str:
+        """Generate user-friendly narration based on reasoning context"""
+        
+        company_context = f" about the {entities['company']} {entities['entity_type']}" if entities['company'] else f" about your {entities['entity_type']}"
+        agent_context = f" - calling {entities['agent_type']}" if entities['agent_type'] else ""
+        data_context = f" {entities['data_type']}" if entities['data_type'] else " information"
+        
+        narration_templates = {
+            'analysis_start': f"🧠 Analyzing your request{company_context}...",
+            'data_retrieval': f"📊 Getting latest{data_context} from our systems...",
+            'agent_routing': f"🎯 This needs specialized analysis{agent_context}...",
+            'collaboration': f"🤝 Coordinating with{agent_context} for comprehensive analysis...",
+            'risk_assessment': f"⚠️ Evaluating potential risks and competitive factors...",
+            'decision_making': f"💡 Analyzing options and preparing recommendations...",
+            'found_data': f"📈 Found relevant data{company_context} - processing insights...",
+            'processing': f"⚙️ Processing analysis{company_context}...",
+            'completion': f"✅ Analysis complete - preparing comprehensive response...",
+            'thinking': f"💭 {self._simplify_technical_reasoning(raw_text)[:100]}..."
+        }
+        
+        return narration_templates.get(reasoning_type, f"💭 {self._simplify_technical_reasoning(raw_text)[:100]}...")
+    
+    def _simplify_technical_reasoning(self, text: str) -> str:
+        """Simplify technical reasoning for user consumption"""
+        # Replace technical terms with user-friendly equivalents
+        simplifications = {
+            r'invoke.*?agent': 'work with specialist',
+            r'query.*?database': 'get data from systems',
+            r'analyze.*?parameters': 'review the details',
+            r'orchestrat.*?response': 'coordinate the analysis',
+            r'process.*?request': 'handle your question'
+        }
+        
+        simplified = text
+        for pattern, replacement in simplifications.items():
+            simplified = re.sub(pattern, replacement, simplified, flags=re.IGNORECASE)
+        
+        return simplified
+
+class NarrationController:
+    """Controller for managing intelligent narration updates"""
+    
+    def __init__(self):
+        self.last_update_time = 0
+        self.last_message_content = ""
+        self.update_threshold = 2.5  # seconds between updates
+        self.reasoning_history = []
+        self.max_updates = 8  # Maximum updates per conversation
+        self.update_count = 0
+    
+    def should_send_update(self, new_narration: str) -> bool:
+        """Intelligent update decisions to prevent spam and ensure meaningful progress"""
+        if not new_narration:
+            return False
+            
+        current_time = time.time()
+        
+        # Rate limiting
+        if current_time - self.last_update_time < self.update_threshold:
+            return False
+        
+        # Maximum updates limit
+        if self.update_count >= self.max_updates:
+            return False
+            
+        # Content similarity check
+        if self._is_similar_content(new_narration, self.last_message_content):
+            return False
+        
+        # Meaningful progress check
+        if self._is_meaningful_progress(new_narration):
+            self.last_update_time = current_time
+            self.last_message_content = new_narration
+            self.update_count += 1
+            return True
+        
+        return False
+    
+    def _is_similar_content(self, new_content: str, last_content: str) -> bool:
+        """Check if content is too similar to warrant an update"""
+        if not last_content:
+            return False
+        
+        # Extract key words for comparison
+        new_words = set(re.findall(r'\w+', new_content.lower()))
+        last_words = set(re.findall(r'\w+', last_content.lower()))
+        
+        # Calculate similarity
+        if len(new_words) == 0:
+            return True
+            
+        intersection = new_words.intersection(last_words)
+        similarity = len(intersection) / len(new_words)
+        
+        return similarity > 0.7  # Too similar if >70% word overlap
+    
+    def _is_meaningful_progress(self, narration: str) -> bool:
+        """Check if narration represents meaningful progress"""
+        # Always meaningful if it contains specific progress indicators
+        progress_indicators = [
+            '🧠', '📊', '🎯', '⚠️', '💡', '📈', '⚙️', '✅', '🤝', '🔍'
+        ]
+        
+        return any(indicator in narration for indicator in progress_indicators)
+    
+    def reset_for_new_conversation(self):
+        """Reset controller state for new conversation"""
+        self.last_update_time = 0
+        self.last_message_content = ""
+        self.reasoning_history = []
+        self.update_count = 0
+
 class CompleteSlackBedrockProcessor:
     """Complete processor with working Slack integration and full tracing"""
     
@@ -348,6 +568,10 @@ class CompleteSlackBedrockProcessor:
         # Conversation continuity settings
         self.memory_enabled = True
         self.memory_retention_days = 7  # Keep conversation context for 1 week
+        
+        # Real-time agent narration
+        self.narration_engine = AgentNarrationEngine()
+        self.narration_controller = NarrationController()
     
     def create_isolated_session_ids(self, user_id: str, thread_ts: str) -> Dict[str, str]:
         """
@@ -413,6 +637,9 @@ class CompleteSlackBedrockProcessor:
             # Create correlation ID and tracer
             correlation_id = f"slack_{thread_ts or int(time.time())}_{user_id}" if user_id else f"slack_{int(time.time())}"
             self.tracer = AgentTracer(correlation_id)
+            
+            # Reset narration controller for new conversation
+            self.narration_controller.reset_for_new_conversation()
             
             # Add temporal context to query
             current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -551,9 +778,10 @@ class CompleteSlackBedrockProcessor:
                     reasoning="Processing user query through V4 Manager Agent for intelligent routing and collaboration"
                 )
             
-            # Send initial progress update
+            # Send initial narration update
             if message_ts and channel_id:
-                self._send_progress_update(channel_id, message_ts, "🧠 *V4 Manager Agent analyzing* - determining best approach", thread_ts)
+                initial_narration = "🧠 Analyzing your request - determining best approach..."
+                self._send_narration_update(channel_id, message_ts, initial_narration, thread_ts)
             
             # Prepare session state with memory support
             session_state = {
@@ -594,7 +822,7 @@ class CompleteSlackBedrockProcessor:
                                 
                                 # Send progress update if we have substantial content
                                 if not progress_sent and len(output_text) > 50 and message_ts:
-                                    self._send_progress_update(channel_id, message_ts, "📊 *Analyzing data* - gathering insights", thread_ts)
+                                    self._send_narration_update(channel_id, message_ts, "📈 Processing results - preparing comprehensive response...", thread_ts)
                                     progress_sent = True
                                     
                         except json.JSONDecodeError:
@@ -608,11 +836,14 @@ class CompleteSlackBedrockProcessor:
                     if self.tracer:
                         self._trace_detailed_agent_activity(trace_data)
                     
-                    # Send progress updates
+                    # Process agent reasoning for real-time narration
                     if message_ts:
-                        progress_msg = self._parse_trace_to_progress(trace_data)
-                        if progress_msg:
-                            self._send_progress_update(channel_id, message_ts, progress_msg, thread_ts)
+                        self._process_agent_reasoning_stream(trace_data, {
+                            'channel_id': channel_id,
+                            'message_ts': message_ts,
+                            'thread_ts': thread_ts,
+                            'session_config': session_config
+                        })
             
             # Calculate processing time and trace response
             bedrock_processing_time = int((time.time() - bedrock_start_time) * 1000)
@@ -686,22 +917,34 @@ class CompleteSlackBedrockProcessor:
             print(f"Error counting agents used: {e}")
             return 1  # Default to 1 if counting fails
     
-    def _parse_trace_to_progress(self, trace_event: dict) -> Optional[str]:
-        """Convert Bedrock Agent orchestration trace to progress message"""
+    def _process_agent_reasoning_stream(self, trace_data: dict, context: dict):
+        """Process real-time agent reasoning into user-friendly narration"""
         try:
-            if 'orchestrationTrace' not in trace_event:
-                return None
+            if 'orchestrationTrace' not in trace_data:
+                return
                 
-            orch_trace = trace_event['orchestrationTrace']
+            orch_trace = trace_data['orchestrationTrace']
             
-            # Agent thinking/reasoning
+            # Process agent reasoning/rationale
             if 'rationale' in orch_trace:
-                rationale = orch_trace['rationale'].get('text', '')
-                if rationale and len(rationale.strip()) > 10:
-                    clean_rationale = rationale.replace('\n', ' ').strip()
-                    return f"💭 *Thinking:* {clean_rationale[:150]}{'...' if len(clean_rationale) > 150 else ''}"
+                rationale_text = orch_trace['rationale'].get('text', '')
+                
+                if rationale_text:
+                    # Generate natural narration from reasoning
+                    narration = self.narration_engine.convert_reasoning_to_narration(
+                        rationale_text, context
+                    )
+                    
+                    # Intelligent update decision
+                    if narration and self.narration_controller.should_send_update(narration):
+                        self._send_narration_update(
+                            context['channel_id'], 
+                            context['message_ts'], 
+                            narration, 
+                            context.get('thread_ts')
+                        )
             
-            # Collaborator agent calls
+            # Handle agent collaboration events
             if 'invocationInput' in orch_trace:
                 invocation = orch_trace['invocationInput']
                 
@@ -709,19 +952,26 @@ class CompleteSlackBedrockProcessor:
                     collab = invocation['collaboratorInvocationInput']
                     agent_name = collab.get('collaboratorName', 'agent')
                     
-                    agent_descriptions = {
-                        'DataAgent': '📊 *Calling Data Agent* - querying Firebolt for insights',
-                        'WebSearchAgent': '🔍 *Calling Research Agent* - gathering external intelligence',
-                        'ExecutionAgent': '⚡ *Calling Execution Agent* - performing actions'
-                    }
+                    # Generate collaboration narration
+                    collaboration_narration = f"🎯 Coordinating with {self.narration_engine.agent_mappings.get(agent_name, agent_name)} for specialized analysis..."
                     
-                    return agent_descriptions.get(agent_name, f'🤖 *Calling {agent_name}*')
-            
-            return None
-            
+                    if self.narration_controller.should_send_update(collaboration_narration):
+                        self._send_narration_update(
+                            context['channel_id'],
+                            context['message_ts'],
+                            collaboration_narration,
+                            context.get('thread_ts')
+                        )
+                        
         except Exception as e:
-            print(f"Error parsing trace: {e}")
-            return None
+            print(f"Error processing agent reasoning stream: {e}")
+            # Fallback to basic progress update
+            self._send_progress_update(
+                context['channel_id'],
+                context['message_ts'], 
+                "🧠 *Agent processing* - analyzing your request...",
+                context.get('thread_ts')
+            )
     
     def _trace_detailed_agent_activity(self, trace_data: dict):
         """Parse and trace detailed agent activity from Bedrock traces"""
@@ -873,6 +1123,47 @@ class CompleteSlackBedrockProcessor:
             return "external_research"
         
         return "general_query"
+    
+    def _send_narration_update(self, channel_id: str, message_ts: str, narration_text: str, thread_ts: str = None) -> bool:
+        """Send intelligent agent narration update to Slack"""
+        try:
+            secrets = self._get_slack_secrets()
+            bot_token = secrets.get('bot_token')
+            
+            if not bot_token:
+                print("Bot token not found in secrets")
+                return False
+            
+            # Format narration message
+            formatted_message = f"*RevOps Analysis:* 🔍\n\n{narration_text}"
+            
+            payload = {
+                'channel': channel_id,
+                'ts': message_ts,
+                'text': formatted_message,
+                'mrkdwn': True
+            }
+            
+            response = requests.post(
+                'https://slack.com/api/chat.update',
+                headers={
+                    'Authorization': f'Bearer {bot_token}',
+                    'Content-Type': 'application/json'
+                },
+                json=payload,
+                timeout=10
+            )
+            
+            response_data = response.json()
+            if response_data.get('ok'):
+                return True
+            else:
+                print(f"Failed to send narration update: {response_data.get('error')}")
+                return False
+                
+        except Exception as e:
+            print(f"Error sending narration update: {e}")
+            return False
     
     def _send_progress_update(self, channel_id: str, message_ts: str, progress_text: str, thread_ts: str = None) -> bool:
         """Send a progress update to Slack by updating the message"""

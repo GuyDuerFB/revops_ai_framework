@@ -157,6 +157,33 @@ The deployment automatically configures these environment variables:
 @RevBot which customers are at highest churn risk this quarter?
 ```
 
+### Real-time Agent Narration
+
+**Live Thought Process Display:**
+```
+Channel: #revenue-analysis
+User: @RevBot What is the status of the IXIS deal?
+├─ RevBot: *RevOps Analysis:* 🔍
+   🧠 Analyzing your request about the IXIS deal...
+├─ RevBot: *RevOps Analysis:* 🔍  
+   📊 Getting latest business data from our systems...
+├─ RevBot: *RevOps Analysis:* 🔍
+   🎯 Coordinating with Deal Analysis Expert for specialized assessment...
+├─ RevBot: *RevOps Analysis:* 🔍
+   📈 Found IXIS deal data - processing comprehensive analysis...
+├─ RevBot: *RevOps Analysis:* 🔍
+   ⚠️ Evaluating potential risks and competitive factors...
+├─ RevBot: *RevOps Analysis:* ✨
+   [Complete detailed deal analysis with risks and opportunities]
+```
+
+**Benefits of Real-time Narration:**
+- **Transparency**: Users see exactly what the agent is thinking
+- **Context Awareness**: Narration shows entity recognition (IXIS deal)
+- **Progress Indication**: Clear progression through analysis phases
+- **Reduced Anxiety**: No more wondering "what's happening?"
+- **Educational**: Users learn how the AI processes their requests
+
 ### Thread-Based Conversations
 
 **Creating a New Thread:**

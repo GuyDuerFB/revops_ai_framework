@@ -47,6 +47,8 @@ An intelligent AI framework that:
 
 **🆕 Native Conversation Memory**: V4 now includes AWS Bedrock Agent Memory for seamless conversation continuity within Slack threads, allowing users to ask follow-up questions without re-explaining context while maintaining strict privacy boundaries between users and conversations.
 
+**🔥 Real-time Agent Narration**: Experience live agent reasoning with intelligent thought process display. Instead of generic "analyzing..." messages, users see contextual narration like "🧠 Analyzing your request about the IXIS deal..." → "📊 Getting latest data from systems..." → "⚠️ Evaluating competitive risks..." providing full transparency into AI decision-making.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        USER INTERFACES                             │
