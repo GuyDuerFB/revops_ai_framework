@@ -37,13 +37,15 @@ Revenue teams struggle with:
 An intelligent AI framework that:
 - Automates complex revenue operations analysis using specialized AI agents
 - Provides real-time insights from multiple data sources
-- Enables natural language interactions through Slack integration
+- Enables natural language interactions through Slack integration with conversation continuity
 - Delivers consistent, data-driven recommendations for revenue optimization
 - Scales seamlessly with enterprise-grade AWS infrastructure
 
 ## Architecture Overview
 
-### V4 Specialized Agent Architecture
+### V4 Specialized Agent Architecture with Conversation Continuity
+
+**🆕 Native Conversation Memory**: V4 now includes AWS Bedrock Agent Memory for seamless conversation continuity within Slack threads, allowing users to ask follow-up questions without re-explaining context while maintaining strict privacy boundaries between users and conversations.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
