@@ -23,7 +23,8 @@ Slack Events → API Gateway → Handler Lambda → SQS → Processor Lambda →
 
 - ✅ **AWS Best Practices Architecture**: Follows official AWS recommendations
 - ✅ **Thread-Based Conversations**: Intelligent thread creation and participation
-- ✅ **Conversation Continuity**: Built-in Bedrock session management
+- ✅ **Conversation Continuity**: Native Bedrock Agent Memory for context preservation
+- ✅ **Multi-User Isolation**: Thread-specific memory prevents cross-conversation contamination
 - ✅ **Async Processing**: Handles Slack's 3-second timeout requirement
 - ✅ **Error Handling**: Dead letter queues and retry mechanisms
 - ✅ **Security**: Slack signature verification and IAM least privilege
@@ -188,23 +189,42 @@ User1: @RevBot What were our Q4 2023 revenue numbers?
    Q4 2023 revenue breakdown by product line...
 ```
 
-### Conversation Flow
+### Conversation Flow with Memory
 
 1. **User mentions @RevBot** in Slack channel or thread
 2. **Handler Lambda** validates request and sends "🤔 Processing..." in thread
 3. **SQS Queue** receives processing request with thread context
-4. **Processor Lambda** invokes Bedrock Agent with session context
-5. **Bedrock Agent** (SUPERVISOR) orchestrates DataAgent, WebSearchAgent, ExecutionAgent as needed
-6. **Response** updates the original "Processing..." message in the thread
+4. **Processor Lambda** creates isolated session IDs:
+   - `sessionId`: `slack-{user_id}-{thread_ts}`
+   - `memoryId`: `slack-{user_id}-{thread_ts}` (same for complete isolation)
+5. **Bedrock Agent** invoked with memory support and session state
+6. **Agent Memory** automatically maintains conversation context and entity references
+7. **Response** updates the original "Processing..." message with context-aware response
 
-### Session Management
+### Conversation Continuity & Memory Management
 
-- **Thread Sessions**: `{user_id}:{channel_id}:{thread_ts}` for thread-scoped conversations
-- **Channel Sessions**: `{user_id}:{channel_id}` for non-thread conversations
-- **Context Retention**: Bedrock maintains context for 1 hour of inactivity
-- **Multi-turn Conversations**: Automatic context preservation within threads
-- **Thread Isolation**: Each thread maintains independent conversation context
-- **Multi-User Support**: Multiple users can participate in the same thread
+**Native Bedrock Memory Integration:**
+- **Session Isolation**: `slack-{user_id}-{thread_ts}` ensures complete conversation boundaries
+- **Memory Isolation**: Each thread gets unique `memoryId` preventing cross-contamination
+- **Context Retention**: 7-day memory retention for conversation history
+- **Multi-turn Conversations**: Automatic entity and context preservation within threads
+- **Thread-Specific Memory**: Each Slack thread maintains completely isolated conversation context
+- **Cross-User Privacy**: User A's conversations never leak into User B's threads
+
+**Expected Behavior:**
+```
+User: "What is status of IXIS deal?"
+RevBot: [IXIS deal analysis]
+User: "Any additional risks?"  
+RevBot: "For the IXIS deal, here are additional risks..." (remembers context)
+User: "What about timeline?"
+RevBot: "The IXIS deal timeline shows..." (maintains context)
+```
+
+**Isolation Boundaries:**
+- ✅ Different users: Alice's conversations ≠ Bob's conversations
+- ✅ Different threads: User's Thread A ≠ User's Thread B
+- ✅ Time boundaries: Old conversations don't interfere with new ones
 
 ## 🔍 Monitoring
 
@@ -285,11 +305,12 @@ This implementation replaces the previous `tools/slack/` directory with:
 
 - ✅ **Better Architecture**: API Gateway + SQS instead of Function URL
 - ✅ **Thread-Based Conversations**: Organized thread creation and participation
+- ✅ **Native Memory Management**: AWS Bedrock Agent Memory vs custom solutions
+- ✅ **Conversation Continuity**: Automatic context preservation within threads
+- ✅ **Multi-User Isolation**: Thread-specific memory prevents cross-conversation leakage
 - ✅ **Improved Performance**: Direct Bedrock Agent invocation vs broken Flow
 - ✅ **Enhanced Security**: Proper IAM roles and signature verification
 - ✅ **Better Monitoring**: CloudWatch integration and structured logging
-- ✅ **Conversation Management**: Native Bedrock sessions vs manual DynamoDB
-- ✅ **Multi-User Collaboration**: Support for multiple users in threads
 
 ### Migration Steps
 

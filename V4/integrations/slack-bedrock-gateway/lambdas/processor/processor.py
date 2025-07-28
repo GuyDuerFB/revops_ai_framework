@@ -326,6 +326,7 @@ class CompleteSlackBedrockProcessor:
         
         self.secrets_client = boto3.client('secretsmanager', region_name=AWS_REGION)
         self.bedrock_agent = boto3.client('bedrock-agent-runtime', config=bedrock_config)
+        self.bedrock_client = boto3.client('bedrock', region_name=AWS_REGION)  # For memory configuration
         
         # Agent configuration
         # V4 Manager Agent - intelligent router for specialized agent architecture
@@ -343,6 +344,30 @@ class CompleteSlackBedrockProcessor:
         
         # Tracer for this session
         self.tracer = None
+        
+        # Conversation continuity settings
+        self.memory_enabled = True
+        self.memory_retention_days = 7  # Keep conversation context for 1 week
+    
+    def create_isolated_session_ids(self, user_id: str, thread_ts: str) -> Dict[str, str]:
+        """
+        Creates completely isolated session and memory IDs
+        ensuring no cross-contamination between conversations
+        """
+        # Ensure we have valid identifiers
+        safe_user_id = user_id or 'anonymous'
+        safe_thread_ts = thread_ts or str(int(time.time()))
+        
+        # Create unique identifier for this specific conversation thread
+        base_id = f"slack-{safe_user_id}-{safe_thread_ts}"
+        
+        return {
+            "sessionId": base_id,
+            "memoryId": base_id,  # Same as session for complete isolation
+            "isolation_level": "thread-specific",
+            "user_id": safe_user_id,
+            "thread_ts": safe_thread_ts
+        }
     
     def get_current_date_context(self) -> str:
         """Get current date and time context for agents"""
@@ -413,13 +438,17 @@ class CompleteSlackBedrockProcessor:
                 temporal_context=current_date
             )
             
-            # Create session ID for Bedrock (minimum 2 characters required)
-            session_id = f"{user_id or 'user'}:{channel_id or 'channel'}:{thread_ts or 'main'}" if thread_ts else f"{user_id or 'user'}:{channel_id or 'channel'}"
+            # Create isolated session and memory IDs for conversation continuity
+            session_config = self.create_isolated_session_ids(user_id, thread_ts)
+            session_id = session_config["sessionId"]
+            memory_id = session_config["memoryId"]
             
-            # Call Bedrock Agent with progress updates
+            print(f"Session config: {session_config}")
+            
+            # Call Bedrock Agent with progress updates and memory support
             response = self._invoke_bedrock_agent_with_progress(
                 enhanced_query, 
-                session_id,
+                session_config,
                 channel_id,
                 response_message_ts,
                 thread_ts
@@ -489,12 +518,14 @@ class CompleteSlackBedrockProcessor:
                 })
             }
     
-    def _invoke_bedrock_agent_with_progress(self, query: str, session_id: str, 
+    def _invoke_bedrock_agent_with_progress(self, query: str, session_config: Dict[str, str], 
                                           channel_id: str, message_ts: str, thread_ts: str) -> Dict[str, Any]:
         """Invoke Bedrock agent with progress updates"""
         
         try:
-            print(f"Invoking Bedrock agent {self.decision_agent_id} with session {session_id}")
+            session_id = session_config["sessionId"]
+            memory_id = session_config["memoryId"]
+            print(f"Invoking Bedrock agent {self.decision_agent_id} with session {session_id} and memory {memory_id}")
             
             # Trace Bedrock request
             bedrock_start_time = time.time()
@@ -524,12 +555,28 @@ class CompleteSlackBedrockProcessor:
             if message_ts and channel_id:
                 self._send_progress_update(channel_id, message_ts, "🧠 *V4 Manager Agent analyzing* - determining best approach", thread_ts)
             
+            # Prepare session state with memory support
+            session_state = {
+                "sessionAttributes": {
+                    "conversation_context": "enabled",
+                    "isolation_level": session_config["isolation_level"],
+                    "user_id": session_config["user_id"],
+                    "thread_ts": session_config["thread_ts"]
+                }
+            }
+            
+            # Add memory ID if memory is enabled
+            if self.memory_enabled:
+                session_state["sessionAttributes"]["memory_enabled"] = "true"
+            
             response = self.bedrock_agent.invoke_agent(
                 agentId=self.decision_agent_id,
                 agentAliasId=self.decision_agent_alias_id,
                 sessionId=session_id,
                 inputText=query,
-                enableTrace=True
+                enableTrace=True,
+                sessionState=session_state,
+                memoryId=memory_id if self.memory_enabled else None
             )
             
             # Process streaming response with progress updates
@@ -589,7 +636,9 @@ class CompleteSlackBedrockProcessor:
             
             return {
                 'output': {'text': output_text},
-                'sessionId': session_id
+                'sessionId': session_id,
+                'memoryId': memory_id,
+                'session_config': session_config
             }
             
         except Exception as e:
