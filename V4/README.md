@@ -561,7 +561,14 @@ RevBot: [Compares both regions with previous context]
 | Knowledge Base | ✅ Production Ready | Business logic and schema documentation |
 | Slack Integration | ✅ Production Ready | Full end-to-end working integration |
 
-### Recent Enhancements Applied (July 22, 2025)
+### Recent Enhancements Applied (July 29, 2025)
+- ✅ **Real-time Agent Narration System**: Completely revamped agent reasoning display with contextual, real-time insights into agent operations. Instead of generic "processing..." messages, users now see actual agent activities like "📊 Querying data warehouse for deals in PoC stage" → "📚 Looking up database schema information" → "⚙️ Executing SQL query for PoC stage deals" → "📊 Processing deal count results"
+- ✅ **Enhanced Trace Content Extraction**: Implemented intelligent parsing of Bedrock agent traces to extract real reasoning from `modelInvocationInput`, `invocationInput`, `actionGroupInvocationInput`, and `observation` trace types
+- ✅ **Contextual Narration Engine**: Built smart content analysis that provides specific insights like "🤝 Collaborating with DataAgent to analyze PoC deals" and "📚 Verifying PoC stage naming conventions" based on actual agent operations
+- ✅ **Production Monitoring Dashboard**: Created comprehensive CloudWatch dashboard for monitoring narration success rates, processing times, and Slack API performance
+- ✅ **Intelligent Update Control**: Implemented smart filtering to prevent redundant messages while ensuring meaningful progress updates reach users
+
+### Previous Enhancements Applied (July 22, 2025)
 - ✅ **Dev/Prod Alias Structure**: Implemented separate development and production aliases for all agents enabling safe testing
 - ✅ **Deal Analysis Format Compliance**: Enhanced Deal Analysis Agent v5 with strict format enforcement for consistent structured output
 - ✅ **Agent Routing Verification**: Validated Manager Agent correctly routes deal queries to Deal Analysis Agent specialist
@@ -753,7 +760,7 @@ This RevOps AI Framework is proprietary software designed for enterprise revenue
 
 Built for Revenue Teams - Powered by Amazon Bedrock
 
-*Last Updated: July 22, 2025 | Version: 4.2 | Status: V4 Architecture with Dev/Prod Aliases and Format Compliance Enhancements*
+*Last Updated: July 29, 2025 | Version: 4.3 | Status: V4 Architecture with Real-time Agent Narration and Enhanced User Experience*
 
 ### Previous Updates (July 15, 2025)
 - **V4 Architecture Launch**: Implemented specialized agent framework with Manager Agent routing

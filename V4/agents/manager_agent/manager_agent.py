@@ -16,16 +16,23 @@ from typing import Dict, List, Optional, Any
 # Add the tools directory to Python path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'tools'))
 
+# Add monitoring directory for tracer
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'monitoring'))
+from agent_tracer import AgentTracer, create_tracer, trace_agent_invocation, trace_data_operation, trace_error
+
 class ManagerAgent:
     """
     Manager Agent that routes requests to specialized agents and handles general queries
     """
     
-    def __init__(self, region_name: str = 'us-east-1'):
+    def __init__(self, region_name: str = 'us-east-1', correlation_id: Optional[str] = None):
         """Initialize the Manager Agent"""
         self.region_name = region_name
         self.bedrock_client = boto3.client('bedrock-runtime', region_name=region_name)
         self.lambda_client = boto3.client('lambda', region_name=region_name)
+        
+        # Initialize tracer
+        self.tracer = create_tracer(correlation_id)
         
         # Claude 3.7 with inference profile configuration
         self.model_id = "anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -122,8 +129,19 @@ class ManagerAgent:
     
     def route_to_deal_analysis_agent(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Route request to Deal Analysis Agent"""
+        start_time = time.time()
+        
         try:
             company_name = self.extract_company_name(query)
+            
+            # Trace agent invocation
+            self.tracer.trace_agent_invocation(
+                source_agent="ManagerAgent",
+                target_agent="DealAnalysisAgent",
+                collaboration_type="SPECIALIZED_ROUTING",
+                reasoning=f"Routing deal analysis request for company: {company_name}",
+                context_passed={"company_name": company_name, "query": query}
+            )
             
             request_payload = {
                 "query": query,
@@ -131,7 +149,8 @@ class ManagerAgent:
                     "user_request": query,
                     "company_name": company_name,
                     "request_type": "deal_analysis",
-                    "current_date": datetime.now(timezone.utc).isoformat()
+                    "current_date": datetime.now(timezone.utc).isoformat(),
+                    "correlation_id": self.tracer.correlation_id
                 }
             }
             
@@ -144,7 +163,20 @@ class ManagerAgent:
             
             result = json.loads(response['Payload'].read())
             
+            # Trace agent response
+            end_time = time.time()
+            processing_time_ms = int((end_time - start_time) * 1000)
+            
             if result.get("success"):
+                self.tracer.trace_agent_response(
+                    agent_name="DealAnalysisAgent",
+                    response_type="DEAL_ANALYSIS_COMPLETE",
+                    data_sources_used=list(result.get("data_sources", {}).keys()),
+                    processing_time_ms=processing_time_ms,
+                    success=True,
+                    result_summary=f"Deal analysis completed for {company_name}"
+                )
+                
                 return {
                     "success": True,
                     "response": result.get("analysis", ""),
@@ -153,6 +185,15 @@ class ManagerAgent:
                     "data_sources": result.get("data_sources", {})
                 }
             else:
+                self.tracer.trace_agent_response(
+                    agent_name="DealAnalysisAgent",
+                    response_type="DEAL_ANALYSIS_FAILED",
+                    data_sources_used=[],
+                    processing_time_ms=processing_time_ms,
+                    success=False,
+                    result_summary=f"Deal analysis failed: {result.get('error', 'Unknown error')}"
+                )
+                
                 return {
                     "success": False,
                     "error": result.get("error", "Deal Analysis Agent failed"),
@@ -161,6 +202,15 @@ class ManagerAgent:
                 
         except Exception as e:
             print(f"Error routing to Deal Analysis Agent: {str(e)}")
+            
+            # Trace error
+            self.tracer.trace_error(
+                error_type=type(e).__name__,
+                error_message=str(e),
+                agent_context="ManagerAgent.route_to_deal_analysis_agent",
+                recovery_attempted=True
+            )
+            
             return {
                 "success": False,
                 "error": f"Error routing to Deal Analysis Agent: {str(e)}",
@@ -347,16 +397,28 @@ class ManagerAgent:
     
     def process_request(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Main entry point for processing requests"""
+        start_time = time.time()
+        
         try:
             # Extract user query and context
             user_query = event.get("query", event.get("user_query", event.get("inputText", "")))
             session_id = event.get("sessionId", "default")
+            user_id = event.get("userId", "unknown")
+            channel = event.get("channel", "lambda")
             
             if not user_query:
                 return {
                     "success": False,
                     "error": "No query provided"
                 }
+            
+            # Trace conversation start
+            self.tracer.trace_conversation_start(
+                user_query=user_query,
+                user_id=user_id,
+                channel=channel,
+                temporal_context=self.get_current_date_context()
+            )
             
             print(f"Manager Agent processing: {user_query}")
             
@@ -365,17 +427,46 @@ class ManagerAgent:
             context["last_query"] = user_query
             context["timestamp"] = datetime.now(timezone.utc).isoformat()
             
-            # Step 1: Determine routing
+            # Step 1: Determine routing and trace decision logic
             if self.is_deal_analysis_request(user_query):
                 print("Routing to Deal Analysis Agent")
+                
+                # Trace decision logic
+                self.tracer.trace_decision_logic(
+                    decision_point="REQUEST_ROUTING",
+                    workflow_selected="DEAL_ANALYSIS_WORKFLOW",
+                    reasoning="Query contains deal/opportunity keywords, routing to specialized Deal Analysis Agent",
+                    confidence_score=0.9,
+                    alternatives_considered=["GENERAL_QUERY_WORKFLOW", "DATA_QUERY_WORKFLOW"]
+                )
+                
                 result = self.route_to_deal_analysis_agent(user_query, context)
                 
                 # Fallback to general processing if Deal Analysis Agent fails
                 if not result.get("success") and result.get("fallback_needed"):
                     print("Deal Analysis Agent failed, falling back to general processing")
+                    
+                    # Trace fallback decision
+                    self.tracer.trace_decision_logic(
+                        decision_point="FALLBACK_ROUTING",
+                        workflow_selected="GENERAL_QUERY_WORKFLOW",
+                        reasoning="Deal Analysis Agent failed, falling back to general query processing",
+                        confidence_score=0.8
+                    )
+                    
                     result = self.handle_general_query(user_query, context)
             else:
                 print("Processing as general query")
+                
+                # Trace decision logic for general query
+                self.tracer.trace_decision_logic(
+                    decision_point="REQUEST_ROUTING",
+                    workflow_selected="GENERAL_QUERY_WORKFLOW",
+                    reasoning="Query does not match deal analysis patterns, routing to general processing",
+                    confidence_score=0.7,
+                    alternatives_considered=["DEAL_ANALYSIS_WORKFLOW", "LEAD_ASSESSMENT_WORKFLOW"]
+                )
+                
                 result = self.handle_general_query(user_query, context)
             
             # Update conversation context
@@ -384,6 +475,17 @@ class ManagerAgent:
             
             # Format final response
             final_response = self.format_final_response(result, user_query)
+            
+            # Trace conversation end
+            end_time = time.time()
+            processing_time_ms = int((end_time - start_time) * 1000)
+            
+            self.tracer.trace_conversation_end(
+                response_summary=final_response[:200] + "..." if len(final_response) > 200 else final_response,
+                total_agents_used=1,  # Manager agent itself
+                processing_time_ms=processing_time_ms,
+                success=result.get("success", True)
+            )
             
             return {
                 "success": True,
@@ -395,6 +497,15 @@ class ManagerAgent:
             
         except Exception as e:
             print(f"Error in Manager Agent: {str(e)}")
+            
+            # Trace error
+            self.tracer.trace_error(
+                error_type=type(e).__name__,
+                error_message=str(e),
+                agent_context="ManagerAgent.process_request",
+                recovery_attempted=False
+            )
+            
             return {
                 "success": False,
                 "error": f"Error processing request: {str(e)}"
@@ -404,7 +515,10 @@ def lambda_handler(event, context):
     """AWS Lambda handler for Manager Agent"""
     print(f"Manager Agent invoked with event: {json.dumps(event)}")
     
-    agent = ManagerAgent()
+    # Extract correlation_id from event or context
+    correlation_id = event.get("correlation_id") or getattr(context, "aws_request_id", None)
+    
+    agent = ManagerAgent(correlation_id=correlation_id)
     result = agent.process_request(event)
     
     print(f"Manager Agent result: {json.dumps(result)}")
