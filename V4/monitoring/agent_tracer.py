@@ -13,6 +13,46 @@ from enum import Enum
 import boto3
 from contextlib import contextmanager
 
+class CloudWatchLogsHandler(logging.Handler):
+    """Custom handler to send logs directly to CloudWatch log groups"""
+    
+    def __init__(self, cloudwatch_logs_client, log_group_name):
+        super().__init__()
+        self.cloudwatch_logs = cloudwatch_logs_client
+        self.log_group_name = log_group_name
+        self.log_stream_name = f"agent-tracer-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
+        self._create_log_stream()
+        
+    def _create_log_stream(self):
+        """Create log stream if it doesn't exist"""
+        try:
+            self.cloudwatch_logs.create_log_stream(
+                logGroupName=self.log_group_name,
+                logStreamName=self.log_stream_name
+            )
+        except self.cloudwatch_logs.exceptions.ResourceAlreadyExistsException:
+            pass  # Stream already exists
+        except Exception as e:
+            print(f"Failed to create log stream {self.log_stream_name}: {e}")
+    
+    def emit(self, record):
+        """Send log record to CloudWatch"""
+        try:
+            log_message = self.format(record)
+            
+            self.cloudwatch_logs.put_log_events(
+                logGroupName=self.log_group_name,
+                logStreamName=self.log_stream_name,
+                logEvents=[
+                    {
+                        'timestamp': int(record.created * 1000),
+                        'message': log_message
+                    }
+                ]
+            )
+        except Exception as e:
+            print(f"Failed to send log to CloudWatch: {e}")
+
 class EventType(Enum):
     """Types of events to trace"""
     CONVERSATION_START = "CONVERSATION_START"
@@ -65,23 +105,47 @@ class AgentTracer:
     def _configure_cloudwatch_handlers(self):
         """Configure CloudWatch log handlers for each logger"""
         try:
-            # This would typically use boto3 CloudWatch Logs handler
-            # For now, configure standard logging that will be picked up by CloudWatch
+            # Initialize CloudWatch Logs client
+            self.cloudwatch_logs = boto3.client('logs', region_name='us-east-1')
             
-            formatter = logging.Formatter(
-                '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": %(message)s}'
-            )
+            # Define log group mappings
+            self.log_group_mappings = {
+                'revops-ai.conversation-trace': '/aws/revops-ai/conversation-trace',
+                'revops-ai.agent-collaboration': '/aws/revops-ai/agent-collaboration', 
+                'revops-ai.data-operations': '/aws/revops-ai/data-operations',
+                'revops-ai.decision-logic': '/aws/revops-ai/decision-logic',
+                'revops-ai.error-analysis': '/aws/revops-ai/error-analysis'
+            }
             
-            # In production, these would route to specific CloudWatch log groups
+            # Configure JSON formatter
+            formatter = logging.Formatter('%(message)s')
+            
+            # Configure each logger with CloudWatch handler
             for logger in [self.conversation_logger, self.collaboration_logger, 
                           self.data_logger, self.decision_logger, self.error_logger]:
                 if not logger.handlers:
-                    handler = logging.StreamHandler()
+                    handler = CloudWatchLogsHandler(self.cloudwatch_logs, 
+                                                  self.log_group_mappings.get(logger.name))
                     handler.setFormatter(formatter)
                     logger.addHandler(handler)
                     
         except Exception as e:
             print(f"Failed to configure CloudWatch handlers: {e}")
+            # Fallback to standard logging
+            self._configure_fallback_handlers()
+    
+    def _configure_fallback_handlers(self):
+        """Configure fallback standard logging handlers"""
+        formatter = logging.Formatter(
+            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "message": %(message)s}'
+        )
+        
+        for logger in [self.conversation_logger, self.collaboration_logger, 
+                      self.data_logger, self.decision_logger, self.error_logger]:
+            if not logger.handlers:
+                handler = logging.StreamHandler()
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
     
     def trace_conversation_start(self, user_query: str, user_id: str, channel: str, 
                                 temporal_context: Optional[str] = None):

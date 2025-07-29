@@ -16,6 +16,9 @@ import sys
 import os
 import re
 
+# CloudWatch client for monitoring metrics
+cloudwatch = boto3.client('cloudwatch')
+
 # Try to import requests, install if missing
 try:
     import requests
@@ -616,6 +619,8 @@ class CompleteSlackBedrockProcessor:
         """Process Slack event with full tracing and working Slack responses"""
         
         start_time = time.time()
+        # Track processing start time for fallback narration
+        self._processing_start_time = start_time
         
         try:
             print(f"Processing Slack event: {json.dumps(event)[:200]}...")
@@ -917,34 +922,227 @@ class CompleteSlackBedrockProcessor:
             print(f"Error counting agents used: {e}")
             return 1  # Default to 1 if counting fails
     
+    def _extract_reasoning_from_any_trace(self, orch_trace: dict) -> str:
+        """Extract reasoning content from any available trace type"""
+        
+        # Priority 1: Rationale (existing)
+        if 'rationale' in orch_trace:
+            return orch_trace['rationale'].get('text', '')
+        
+        # Priority 2: Model invocation input - extract actual reasoning from agent prompts
+        elif 'modelInvocationInput' in orch_trace:
+            input_data = orch_trace['modelInvocationInput']
+            if 'text' in input_data:
+                try:
+                    # Parse the text to extract the actual user query or instruction
+                    text_content = input_data['text']
+                    
+                    # Parse JSON structure if present
+                    if text_content.startswith('{"'):
+                        import json
+                        parsed_content = json.loads(text_content)
+                        
+                        # Look for user instructions in the human field
+                        if 'human' in parsed_content:
+                            human_content = parsed_content['human']
+                            
+                            # Extract specific operations from agent instructions
+                            if 'Please query the data warehouse to find how many deals are currently in the "Proof of Concept" stage' in human_content:
+                                return "📊 Querying data warehouse for deals in PoC stage"
+                            elif 'SQL query' in human_content and 'deals' in human_content:
+                                return "🔍 Constructing SQL query to analyze deal data"
+                            elif 'opportunity_d table' in human_content:
+                                return "📈 Accessing opportunity database for analysis"
+                            elif 'DataAgent' in human_content or 'data warehouse' in human_content:
+                                return "🤝 Coordinating with Data Agent for comprehensive analysis"
+                            elif any(word in human_content.lower() for word in ['pipeline', 'deals', 'opportunities']):
+                                return "📊 Analyzing pipeline and opportunity data"
+                            elif any(word in human_content.lower() for word in ['query', 'sql', 'database']):
+                                return "🔍 Executing database queries for insights"
+                        
+                        # Look for system instructions to understand agent purpose
+                        if 'system' in parsed_content:
+                            system_content = parsed_content['system']
+                            if 'Manager Agent' in system_content and 'SUPERVISOR' in system_content:
+                                return "🧠 Manager Agent coordinating analysis approach"
+                            elif 'Data Analysis Agent' in system_content:
+                                return "📊 Data Agent processing analytical request"
+                    
+                    # Fallback to analyzing raw text content
+                    text_lower = text_content.lower()
+                    if 'poc stage' in text_lower or 'proof of concept' in text_lower:
+                        return "📊 Analyzing deals in Proof of Concept stage"
+                    elif 'pipeline' in text_lower and ('q3' in text_lower or 'q4' in text_lower):
+                        return "📈 Analyzing quarterly pipeline performance"
+                    elif 'deals' in text_lower and 'stage' in text_lower:
+                        return "🤝 Analyzing deal stages and progression"
+                    elif 'query' in text_lower and 'data' in text_lower:
+                        return "🔍 Preparing data queries for analysis"
+                    else:
+                        return "🧠 Processing analytical request"
+                        
+                except Exception as e:
+                    print(f"Error parsing modelInvocationInput text: {e}")
+                    return "🧠 Processing request and determining approach"
+            return "Processing input and planning analysis"
+        
+        # Priority 3: Invocation input (collaboration and tool calls)
+        elif 'invocationInput' in orch_trace:
+            invocation = orch_trace['invocationInput']
+            
+            # Agent collaboration
+            if 'agentCollaboratorInvocationInput' in invocation:
+                collab = invocation['agentCollaboratorInvocationInput']
+                agent_name = collab.get('agentCollaboratorName', 'specialist agent')
+                if 'input' in collab and 'text' in collab['input']:
+                    request_text = collab['input']['text'].lower()
+                    if 'proof of concept' in request_text or 'poc' in request_text:
+                        return f"🤝 Collaborating with {agent_name} to analyze PoC deals"
+                    elif 'query' in request_text and 'data warehouse' in request_text:
+                        return f"📊 Working with {agent_name} to query data warehouse"
+                    else:
+                        return f"🤝 Collaborating with {agent_name} for analysis"
+                return f"🤝 Coordinating with {agent_name}"
+            
+            # Knowledge base lookup
+            elif 'knowledgeBaseLookupInput' in invocation:
+                kb_input = invocation['knowledgeBaseLookupInput']
+                if 'text' in kb_input:
+                    search_text = kb_input['text'].lower()
+                    if 'sql query' in search_text and 'poc stage' in search_text:
+                        return "📚 Searching knowledge base for PoC stage query patterns"
+                    elif 'opportunity table' in search_text or 'schema' in search_text:
+                        return "📚 Looking up database schema information"
+                    elif 'stage name' in search_text and 'poc' in search_text:
+                        return "📚 Verifying PoC stage naming conventions"
+                    else:
+                        return "📚 Searching knowledge base for relevant information"
+                return "📚 Querying knowledge base"
+            
+            # Action group (tool execution)
+            elif 'actionGroupInvocationInput' in invocation:
+                action_input = invocation['actionGroupInvocationInput']
+                if 'parameters' in action_input:
+                    params = action_input['parameters']
+                    for param in params:
+                        if param.get('name') == 'query' and 'value' in param:
+                            query_text = param['value'].lower()
+                            if 'proof of concept' in query_text:
+                                return "⚙️ Executing SQL query for PoC stage deals"
+                            elif 'count(*)' in query_text:
+                                return "📊 Running count query on opportunity data"
+                            elif 'opportunity_d' in query_text:
+                                return "🔍 Querying opportunity database"
+                            else:
+                                return "⚙️ Executing data analysis query"
+                return "⚙️ Executing data retrieval operations"
+            
+            # Generic invocation types
+            elif 'invocationType' in invocation:
+                inv_type = invocation['invocationType']
+                if inv_type == "KNOWLEDGE_BASE":
+                    return "📚 Searching knowledge base for context"
+                elif inv_type == "ACTION_GROUP":
+                    return "⚙️ Executing data operations"
+                elif inv_type == "AGENT_COLLABORATOR":
+                    return "🤝 Collaborating with specialist agent"
+                else:
+                    return f"⚙️ Performing {inv_type.lower()} operation"
+        
+        # Priority 4: Model invocation output
+        elif 'modelInvocationOutput' in orch_trace:
+            output = orch_trace['modelInvocationOutput']
+            if 'rawResponse' in output:
+                response = output['rawResponse']
+                if 'content' in response:
+                    content = str(response['content']).lower()
+                    if 'poc' in content or 'proof of concept' in content:
+                        return "💭 Analyzing PoC stage requirements"
+                    elif 'sql' in content or 'query' in content:
+                        return "💭 Formulating database query strategy"
+                    elif 'data' in content and 'analysis' in content:
+                        return "💭 Processing data analysis approach"
+                    else:
+                        return "💭 Generating analytical insights"
+            return "💭 Processing model response"
+        
+        # Priority 5: Observation (tool results)
+        elif 'observation' in orch_trace:
+            obs = orch_trace['observation']
+            if 'finalResponse' in obs:
+                return "📋 Consolidating findings into final analysis"
+            elif 'repromptResponse' in obs:
+                return "🔄 Refining analysis based on additional context"
+            elif 'actionGroupInvocationOutput' in obs:
+                action_output = obs['actionGroupInvocationOutput']
+                if 'text' in action_output:
+                    output_text = str(action_output['text']).lower()
+                    if 'success' in output_text and 'true' in output_text:
+                        return "✅ Data retrieved successfully - analyzing results"
+                    elif 'error' in output_text:
+                        return "⚠️ Handling data query issue"
+                    elif 'poc_deal_count' in output_text or 'count' in output_text:
+                        return "📊 Processing deal count results"
+                    else:
+                        return "🔍 Processing query results"
+                return "🔍 Processing analysis results"
+            else:
+                return "⚙️ Processing intermediate results"
+        
+        # Fallback for any other trace types
+        return "🤔 Analyzing request and preparing response"
+
     def _process_agent_reasoning_stream(self, trace_data: dict, context: dict):
         """Process real-time agent reasoning into user-friendly narration"""
         try:
-            if 'orchestrationTrace' not in trace_data:
+            print(f"[NARRATION DEBUG] Processing trace data keys: {list(trace_data.keys())}")
+            
+            # Check for trace key first, then orchestrationTrace
+            if 'trace' in trace_data:
+                trace_content = trace_data['trace']
+                print(f"[NARRATION DEBUG] Found trace content keys: {list(trace_content.keys())}")
+                
+                if 'orchestrationTrace' in trace_content:
+                    orch_trace = trace_content['orchestrationTrace']
+                    print(f"[NARRATION DEBUG] orchestrationTrace keys: {list(orch_trace.keys())}")
+                else:
+                    print(f"[NARRATION DEBUG] No orchestrationTrace in trace content")
+                    return
+            elif 'orchestrationTrace' in trace_data:
+                orch_trace = trace_data['orchestrationTrace']
+                print(f"[NARRATION DEBUG] orchestrationTrace keys: {list(orch_trace.keys())}")
+            else:
+                print(f"[NARRATION DEBUG] No trace or orchestrationTrace found in trace_data")
                 return
-                
-            orch_trace = trace_data['orchestrationTrace']
             
-            # Process agent reasoning/rationale
-            if 'rationale' in orch_trace:
-                rationale_text = orch_trace['rationale'].get('text', '')
+            # ENHANCED: Extract reasoning from any available trace type
+            reasoning = self._extract_reasoning_from_any_trace(orch_trace)
+            print(f"[NARRATION DEBUG] Extracted reasoning: {reasoning}")
+            
+            if reasoning:
+                # Generate natural narration from reasoning
+                narration = self.narration_engine.convert_reasoning_to_narration(
+                    reasoning, context
+                )
                 
-                if rationale_text:
-                    # Generate natural narration from reasoning
-                    narration = self.narration_engine.convert_reasoning_to_narration(
-                        rationale_text, context
+                # Intelligent update decision
+                if narration and self.narration_controller.should_send_update(narration):
+                    print(f"[NARRATION DEBUG] Sending narration update: {narration}")
+                    start_send_time = time.time()
+                    success = self._send_narration_update(
+                        context['channel_id'], 
+                        context['message_ts'], 
+                        narration, 
+                        context.get('thread_ts')
                     )
-                    
-                    # Intelligent update decision
-                    if narration and self.narration_controller.should_send_update(narration):
-                        self._send_narration_update(
-                            context['channel_id'], 
-                            context['message_ts'], 
-                            narration, 
-                            context.get('thread_ts')
-                        )
+                    send_time_ms = int((time.time() - start_send_time) * 1000)
+                    self._record_narration_metrics(success, "enhanced_trace", send_time_ms)
+                else:
+                    print(f"[NARRATION DEBUG] Narration controller rejected update")
+            else:
+                print(f"[NARRATION DEBUG] No reasoning extracted from trace")
             
-            # Handle agent collaboration events
+            # Handle agent collaboration events (existing logic)
             if 'invocationInput' in orch_trace:
                 invocation = orch_trace['invocationInput']
                 
@@ -956,22 +1154,169 @@ class CompleteSlackBedrockProcessor:
                     collaboration_narration = f"🎯 Coordinating with {self.narration_engine.agent_mappings.get(agent_name, agent_name)} for specialized analysis..."
                     
                     if self.narration_controller.should_send_update(collaboration_narration):
-                        self._send_narration_update(
+                        start_collab_time = time.time()
+                        success = self._send_narration_update(
                             context['channel_id'],
                             context['message_ts'],
                             collaboration_narration,
                             context.get('thread_ts')
                         )
+                        collab_time_ms = int((time.time() - start_collab_time) * 1000)
+                        self._record_narration_metrics(success, "collaboration", collab_time_ms)
                         
         except Exception as e:
             print(f"Error processing agent reasoning stream: {e}")
-            # Fallback to basic progress update
+            # ENHANCED: Robust fallback error handling
+            self._send_fallback_progress_update(trace_data, context)
+    
+    def _send_fallback_progress_update(self, trace_data: dict, context: dict):
+        """Send intelligent fallback progress update when reasoning extraction fails"""
+        try:
+            fallback_message = self._generate_fallback_narration(trace_data, context)
+            
+            if self.narration_controller.should_send_update(fallback_message):
+                print(f"[NARRATION DEBUG] Sending fallback update: {fallback_message}")
+                self._send_narration_update(
+                    context['channel_id'],
+                    context['message_ts'],
+                    fallback_message,
+                    context.get('thread_ts')
+                )
+            else:
+                # Last resort - basic progress update
+                self._send_basic_progress_update(context)
+                
+        except Exception as e:
+            print(f"Error in fallback progress update: {e}")
+            self._send_basic_progress_update(context)
+    
+    def _generate_fallback_narration(self, trace_data: dict, context: dict) -> str:
+        """Generate intelligent fallback narration based on trace type"""
+        try:
+            # Check user query context for intelligent fallback
+            if 'session_config' in context:
+                user_query = context.get('user_query', '').lower()
+                
+                # Enhanced contextual fallback narration
+                if 'deal' in user_query and 'toyota' in user_query:
+                    return "🤝 Analyzing Toyota North America deal status and assessment..."
+                elif 'deal' in user_query and 'status' in user_query:
+                    return "🤝 Retrieving deal information and MEDDPICC analysis..."
+                elif 'pipeline' in user_query and ('q3' in user_query or 'q4' in user_query):
+                    return "📈 Analyzing quarterly pipeline performance and key metrics..."
+                elif 'pipeline' in user_query and 'forecast' in user_query:
+                    return "🔮 Generating pipeline forecasts and trend analysis..."
+                elif 'pipeline' in user_query:
+                    return "📊 Processing pipeline metrics and deal progression..."
+                elif 'customer' in user_query and 'health' in user_query:
+                    return "👥 Calculating customer health scores and risk indicators..."
+                elif 'customer' in user_query:
+                    return "👥 Reviewing customer data and engagement patterns..."
+                elif 'revenue' in user_query or 'consumption' in user_query:
+                    return "💰 Analyzing revenue patterns and consumption trends..."
+                elif 'analyze' in user_query:
+                    return "🔍 Conducting comprehensive data analysis..."
+                else:
+                    return "🧠 Processing your request with intelligent agent routing..."
+            
+            # Time-based fallback messages
+            import time
+            current_time = time.time()
+            if hasattr(self, '_processing_start_time'):
+                elapsed = current_time - self._processing_start_time
+                if elapsed > 10:
+                    return "📈 Generating comprehensive analysis - almost ready..."
+                elif elapsed > 5:
+                    return "🔍 Gathering relevant data and insights..."
+            
+            return "🧠 Analyzing your request with intelligent routing..."
+            
+        except Exception as e:
+            print(f"Error generating fallback narration: {e}")
+            return "🧠 Processing your request..."
+    
+    def _send_basic_progress_update(self, context: dict):
+        """Send basic progress update as last resort"""
+        try:
+            basic_message = "🧠 *Agent processing* - analyzing your request..."
             self._send_progress_update(
                 context['channel_id'],
-                context['message_ts'], 
-                "🧠 *Agent processing* - analyzing your request...",
+                context['message_ts'],
+                basic_message,
                 context.get('thread_ts')
             )
+            print(f"[NARRATION DEBUG] Sent basic progress update")
+        except Exception as e:
+            print(f"Error sending basic progress update: {e}")
+    
+    def _record_narration_metrics(self, success: bool, narration_type: str, processing_time_ms: int):
+        """Record narration success/failure metrics to CloudWatch"""
+        try:
+            # Record success/failure metric
+            cloudwatch.put_metric_data(
+                Namespace='RevOps/AgentNarration',
+                MetricData=[
+                    {
+                        'MetricName': 'NarrationSuccess' if success else 'NarrationFailure',
+                        'Value': 1,
+                        'Unit': 'Count',
+                        'Dimensions': [
+                            {
+                                'Name': 'NarrationType',
+                                'Value': narration_type
+                            }
+                        ]
+                    },
+                    {
+                        'MetricName': 'NarrationProcessingTime',
+                        'Value': processing_time_ms,
+                        'Unit': 'Milliseconds',
+                        'Dimensions': [
+                            {
+                                'Name': 'NarrationType', 
+                                'Value': narration_type
+                            }
+                        ]
+                    }
+                ]
+            )
+            print(f"[METRICS] Recorded narration metrics: success={success}, type={narration_type}, time={processing_time_ms}ms")
+        except Exception as e:
+            print(f"Error recording narration metrics: {e}")
+    
+    def _record_slack_api_metrics(self, api_call: str, success: bool, response_time_ms: int):
+        """Record Slack API response times and error rates"""
+        try:
+            cloudwatch.put_metric_data(
+                Namespace='RevOps/SlackIntegration',
+                MetricData=[
+                    {
+                        'MetricName': 'SlackAPISuccess' if success else 'SlackAPIFailure',
+                        'Value': 1,
+                        'Unit': 'Count',
+                        'Dimensions': [
+                            {
+                                'Name': 'APICall',
+                                'Value': api_call
+                            }
+                        ]
+                    },
+                    {
+                        'MetricName': 'SlackAPIResponseTime',
+                        'Value': response_time_ms,
+                        'Unit': 'Milliseconds',
+                        'Dimensions': [
+                            {
+                                'Name': 'APICall',
+                                'Value': api_call
+                            }
+                        ]
+                    }
+                ]
+            )
+            print(f"[METRICS] Recorded Slack API metrics: {api_call}, success={success}, time={response_time_ms}ms")
+        except Exception as e:
+            print(f"Error recording Slack API metrics: {e}")
     
     def _trace_detailed_agent_activity(self, trace_data: dict):
         """Parse and trace detailed agent activity from Bedrock traces"""
@@ -1144,6 +1489,7 @@ class CompleteSlackBedrockProcessor:
                 'mrkdwn': True
             }
             
+            api_start_time = time.time()
             response = requests.post(
                 'https://slack.com/api/chat.update',
                 headers={
@@ -1153,9 +1499,13 @@ class CompleteSlackBedrockProcessor:
                 json=payload,
                 timeout=10
             )
+            api_time_ms = int((time.time() - api_start_time) * 1000)
             
             response_data = response.json()
-            if response_data.get('ok'):
+            success = response_data.get('ok', False)
+            self._record_slack_api_metrics('chat.update', success, api_time_ms)
+            
+            if success:
                 return True
             else:
                 print(f"Failed to send narration update: {response_data.get('error')}")

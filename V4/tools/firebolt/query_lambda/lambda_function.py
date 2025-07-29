@@ -21,12 +21,14 @@ from typing import Dict, Any, List, Optional, Union
 try:
     import sys
     sys.path.append('/opt/python')
-    from agent_tracer import trace_data_operation, trace_error, get_tracer
+    sys.path.append('/var/task/monitoring')
+    from agent_tracer import trace_data_operation, trace_error, get_tracer, create_tracer
 except ImportError:
     # Fallback if agent_tracer not available
     def trace_data_operation(*args, **kwargs): pass
     def trace_error(*args, **kwargs): pass
     def get_tracer(): return None
+    def create_tracer(*args, **kwargs): return None
 
 # Helpers for query parsing and validation
 def extract_sql_from_markdown(input_text: str) -> str:
@@ -448,16 +450,28 @@ def query_fire(query=None, account_name=None, engine_name=None):
         dict: Results from the Firebolt query in a structured format
     """
     start_time = time.time()
+    
     try:
         if not query:
+            error_msg = "No SQL query provided"
+            trace_error("ValueError", error_msg, "query_fire.input_validation")
             return {
                 "success": False,
-                "error": "No SQL query provided",
+                "error": error_msg,
                 "message": "Please provide a valid SQL query to execute"
             }
         
         # Extract SQL from markdown if needed
+        original_query = query
         query = extract_sql_from_markdown(query)
+        
+        # Trace data operation start
+        query_summary = query[:100] + "..." if len(query) > 100 else query
+        trace_data_operation(
+            operation_type="SQL_QUERY",
+            data_source="FIREBOLT",
+            query_summary=query_summary
+        )
         
         # Use environment variables or defaults for these values
         secret_name = os.environ.get('FIREBOLT_CREDENTIALS_SECRET', 'firebolt-credentials')
@@ -511,7 +525,12 @@ def lambda_handler(event, context):
     Compatible with Bedrock Agent function calling format
     """
     start_time = time.time()
+    
     try:
+        # Initialize tracer with correlation_id from event or request_id
+        correlation_id = event.get('correlation_id') or getattr(context, 'aws_request_id', None)
+        tracer = create_tracer(correlation_id)
+        
         print(f"Received event: {json.dumps(event)}")
         
         # 1. Check if this is a new Bedrock Agent format with 'function' field
