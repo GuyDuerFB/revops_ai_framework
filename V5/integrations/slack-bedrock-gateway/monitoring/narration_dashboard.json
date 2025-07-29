@@ -1,0 +1,93 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["RevOps/AgentNarration", "NarrationSuccess"],
+                    [".", "NarrationFailure"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Agent Narration Success/Failure Rate",
+                "period": 300,
+                "stat": "Sum"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["RevOps/AgentNarration", "NarrationProcessingTime", "NarrationType", "enhanced_trace"],
+                    ["...", "collaboration"],
+                    ["...", "fallback"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Narration Processing Time by Type",
+                "period": 300,
+                "stat": "Average"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 6,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["RevOps/SlackIntegration", "SlackAPISuccess", "APICall", "chat.update"],
+                    [".", "SlackAPIFailure", ".", "."]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Slack API Success/Failure Rate",
+                "period": 300,
+                "stat": "Sum"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 6,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["RevOps/SlackIntegration", "SlackAPIResponseTime", "APICall", "chat.update"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Slack API Response Time",
+                "period": 300,
+                "stat": "Average"
+            }
+        },
+        {
+            "type": "log",
+            "x": 0,
+            "y": 12,
+            "width": 24,
+            "height": 6,
+            "properties": {
+                "query": "SOURCE '/aws/lambda/revops-slack-bedrock-processor' | fields @timestamp, @message\n| filter @message like /\\[NARRATION DEBUG\\]/\n| sort @timestamp desc\n| limit 50\n",
+                "region": "us-east-1",
+                "title": "Recent Narration Debug Logs",
+                "view": "table"
+            }
+        }
+    ]
+}
