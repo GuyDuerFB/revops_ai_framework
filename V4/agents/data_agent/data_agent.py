@@ -7,10 +7,16 @@ data from various sources including Firebolt DWH, Gong, and Slack.
 
 import json
 import os
+import sys
 import boto3
 import uuid
+import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Union
+
+# Add monitoring directory for tracer
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'monitoring'))
+from agent_tracer import AgentTracer, create_tracer, trace_agent_invocation, trace_data_operation, trace_error
 
 class DataAnalysisAgent:
     """
@@ -24,7 +30,8 @@ class DataAnalysisAgent:
         agent_alias_id: str = None,
         foundation_model: str = "anthropic.claude-3-7-sonnet-20250219-v1:0",
         region_name: str = 'us-east-1',
-        profile_name: Optional[str] = None
+        profile_name: Optional[str] = None,
+        correlation_id: Optional[str] = None
     ):
         """
         Initialize the Data Analysis Agent with Bedrock Agent configuration.
@@ -45,6 +52,9 @@ class DataAnalysisAgent:
         # Initialize AWS clients
         self.bedrock_agent_runtime = self._get_bedrock_agent_runtime_client()
         self.bedrock_agent = self._get_bedrock_agent_client()
+        
+        # Initialize tracer
+        self.tracer = create_tracer(correlation_id)
         
     def _get_bedrock_agent_runtime_client(self):
         """Get Bedrock Agent Runtime client with the specified region and profile."""
