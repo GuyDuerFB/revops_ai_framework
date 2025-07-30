@@ -1,1 +1,2 @@
-requests==2.31.0
+# Webhook Tool Dependencies
+requests>=2.31.0
