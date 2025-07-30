@@ -1,0 +1,94 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Firebolt Query API",
+    "version": "1.0.0",
+    "description": "API for executing SQL queries against Firebolt data warehouse"
+  },
+  "paths": {
+    "/query": {
+      "post": {
+        "summary": "Execute a SQL query against Firebolt",
+        "operationId": "query_fire",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Query results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QueryRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The SQL query to execute against Firebolt. Can be provided as plain SQL or wrapped in markdown code blocks."
+          },
+          "account_name": {
+            "type": "string",
+            "description": "Firebolt account name to use (overrides environment variable)"
+          },
+          "engine_name": {
+            "type": "string",
+            "description": "Firebolt engine name to use (overrides environment variable)"
+          }
+        }
+      },
+      "QueryResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the query executed successfully"
+          },
+          "columns": {
+            "type": "array",
+            "description": "List of column names in the query result",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "description": "List of rows in the query result",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if the query failed"
+          },
+          "message": {
+            "type": "string",
+            "description": "Informational message about the query execution"
+          }
+        }
+      }
+    }
+  }
+}

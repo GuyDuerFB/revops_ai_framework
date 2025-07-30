@@ -1,0 +1,163 @@
+{
+  "schemaName": "Firebolt Data Warehouse Schema",
+  "description": "Schema information for the Firebolt data warehouse, including tables, columns, relationships, and common query patterns",
+  "tables": {
+    "billing_event_f": {
+      "description": "Billing events fact table with all revenue data",
+      "columns": {
+        "organization_id": {"type": "string", "description": "Foreign key to organization_d.organization_id"},
+        "mrr_report_date_ts": {"type": "timestamp", "description": "Date when MRR was reported"},
+        "amount": {"type": "numeric", "description": "Revenue amount in USD"},
+        "is_fb2_usage": {"type": "boolean", "description": "Boolean indicating if this is Firebolt 2.0 usage (true) or FB 1.0 (false)"},
+        "aflo_customer_name": {"type": "string", "description": "Customer name in Amberflo system"},
+        "aws_account_id": {"type": "string", "description": "AWS account ID if applicable"}
+      },
+      "relationships": [
+        {"column": "organization_id", "referencedTable": "organization_d", "referencedColumn": "organization_id"}
+      ]
+    },
+    "amberflo_customer_d": {
+      "description": "Customer details from Amberflo",
+      "columns": {
+        "aflo_customer_id": {"type": "string", "description": "Unique identifier for the Amberflo customer"},
+        "aflo_customer_name": {"type": "string", "description": "Name of the Amberflo customer"},
+        "organization_id": {"type": "string", "description": "Unique identifier for the organization"},
+        "payment_method_id": {"type": "string", "description": "Identifier for the customer's payment method"},
+        "life_cycle_stage": {"type": "string", "description": "The lifecycle stage of the customer"},
+        "payment_provider_name": {"type": "string", "description": "Name of the payment provider"},
+        "is_private_offer": {"type": "boolean", "description": "Boolean indicating if customer is on a private offer"},
+        "is_test": {"type": "boolean", "description": "Boolean indicating if this is a test customer"},
+        "is_enabled": {"type": "boolean", "description": "Boolean indicating if the customer is currently enabled"},
+        "aws_customer_id": {"type": "string", "description": "AWS customer identifier"},
+        "customer_country": {"type": "string", "description": "Customer's country"},
+        "customer_city": {"type": "string", "description": "Customer's city"},
+        "customer_state": {"type": "string", "description": "Customer's state"}
+      },
+      "relationships": [
+        {"column": "organization_id", "referencedTable": "organization_d", "referencedColumn": "organization_id"}
+      ]
+    },
+    "organization_d": {
+      "description": "Organization dimension table with all customer organizations",
+      "columns": {
+        "organization_id": {"type": "string", "description": "Primary key - unique organization identifier"},
+        "organization_name": {"type": "string", "description": "Name of the organization"},
+        "company_name": {"type": "string", "description": "Legal company name"},
+        "is_internal": {"type": "boolean", "description": "Boolean indicating if this is an internal Firebolt organization"},
+        "is_verified": {"type": "boolean", "description": "Boolean indicating if the organization is verified"},
+        "verified_at": {"type": "timestamp", "description": "Timestamp when the organization was verified"}
+      }
+    },
+    "salesforce_account_d": {
+      "description": "Account dimension table with all Salesforce account data",
+      "columns": {
+        "sf_account_id": {"type": "string", "description": "Primary key - Salesforce account ID"},
+        "sf_x18_digit_id": {"type": "string", "description": "18-digit Salesforce ID"},
+        "sf_account_name": {"type": "string", "description": "Name of the account"},
+        "organization_id": {"type": "string", "description": "Foreign key to organization_d.organization_id"},
+        "sf_account_type_custom": {"type": "string", "description": "Custom account type (e.g., 'PLG Customer', 'Commit Customer')"},
+        "account_region": {"type": "string", "description": "Geographic region of the account"},
+        "sf_industry": {"type": "string", "description": "Industry of the account"},
+        "sf_sub_industry": {"type": "string", "description": "Sub-industry categorization"},
+        "sf_owner_id": {"type": "string", "description": "Foreign key to employee_d.sf_user_id"},
+        "sf_open_opportunities": {"type": "integer", "description": "Count of open opportunities"},
+        "billing_country": {"type": "string", "description": "Country for billing"},
+        "potential_account_spend_usd": {"type": "numeric", "description": "Potential spending in USD"},
+        "sf_company_domain": {"type": "string", "description": "Company's domain name"},
+        "created_at_ts": {"type": "timestamp", "description": "Timestamp when account was created"}
+      },
+      "relationships": [
+        {"column": "organization_id", "referencedTable": "organization_d", "referencedColumn": "organization_id"},
+        {"column": "sf_owner_id", "referencedTable": "employee_d", "referencedColumn": "sf_user_id"}
+      ]
+    },
+    "firebolt_account_d": {
+      "description": "Firebolt account dimension table",
+      "columns": {
+        "account_id": {"type": "string", "description": "Primary key - unique account identifier"},
+        "account_name": {"type": "string", "description": "Name of the Firebolt account"},
+        "is_deleted": {"type": "boolean", "description": "Boolean indicating if the account is deleted"}
+      }
+    },
+    "firebolt_fb1_account_d": {
+      "description": "Firebolt 1.0 account dimension table",
+      "columns": {
+        "account_name": {"type": "string", "description": "Name of the Firebolt 1.0 account"},
+        "sf_account_id": {"type": "string", "description": "Foreign key to salesforce_account_d.sf_account_id"}
+      },
+      "relationships": [
+        {"column": "sf_account_id", "referencedTable": "salesforce_account_d", "referencedColumn": "sf_account_id"}
+      ]
+    },
+    "gong_call_f": {
+      "description": "Gong sales calls fact table with comprehensive call data and AI-generated summaries",
+      "columns": {
+        "sf_gong_call_id": {"type": "string", "description": "Primary key - Salesforce Gong call ID"},
+        "gong_call_id": {"type": "string", "description": "Gong's internal call ID"},
+        "gong_call_name": {"type": "string", "description": "Name/title of the call"},
+        "sf_owner_id": {"type": "string", "description": "Foreign key to employee_d.sf_user_id (call owner)"},
+        "gong_call_start_ts": {"type": "timestamp", "description": "Timestamp when the call started"},
+        "gong_call_end_ts": {"type": "timestamp", "description": "Timestamp when the call ended"},
+        "gong_call_duration": {"type": "string", "description": "Duration of the call (string format)"},
+        "gong_direction": {"type": "string", "description": "Direction of the call (Conference, Outbound, Inbound, Unknown)"},
+        "gong_media": {"type": "string", "description": "Media type of the call (Video, Audio)"},
+        "gong_system": {"type": "string", "description": "System used for the call (Google Meet, Zoom, Microsoft Teams, Outreach, etc.)"},
+        "gong_primary_account": {"type": "string", "description": "Foreign key to salesforce_account_d.sf_account_id (primary account)"},
+        "gong_related_opportunity": {"type": "string", "description": "Foreign key to opportunity_d.opportunity_id"},
+        "gong_call_brief": {"type": "text", "description": "AI-generated brief summary of the call content"},
+        "gong_call_key_points": {"type": "text", "description": "AI-generated key points and takeaways from the call"}
+      },
+      "relationships": [
+        {"column": "sf_owner_id", "referencedTable": "employee_d", "referencedColumn": "sf_user_id"},
+        {"column": "gong_primary_account", "referencedTable": "salesforce_account_d", "referencedColumn": "sf_account_id"},
+        {"column": "gong_related_opportunity", "referencedTable": "opportunity_d", "referencedColumn": "opportunity_id"}
+      ]
+    },
+    "opportunity_d": {
+      "description": "Opportunity dimension table with all Salesforce opportunity data",
+      "columns": {
+        "opportunity_id": {"type": "string", "description": "Primary key - Salesforce opportunity ID"},
+        "opportunity_name": {"type": "string", "description": "Name of the opportunity"},
+        "opportunity_type": {"type": "string", "description": "Type of opportunity (e.g., 'New Business', 'Upsell')"},
+        "sf_account_id": {"type": "string", "description": "Foreign key to salesforce_account_d.sf_account_id"},
+        "stage_name": {"type": "string", "description": "Current stage of opportunity (e.g., 'Closed Won', 'Closed Lost')"},
+        "amount": {"type": "numeric", "description": "Opportunity amount in USD"},
+        "contract_duration_months": {"type": "integer", "description": "Duration of contract in months"},
+        "probability": {"type": "numeric", "description": "Probability of closing (percentage)"},
+        "close_date": {"type": "date", "description": "Expected or actual close date"},
+        "created_at_ts": {"type": "timestamp", "description": "Timestamp when opportunity was created"},
+        "closed_at_date": {"type": "date", "description": "Date when opportunity was closed"},
+        "closed_won_lost_reason": {"type": "string", "description": "Reason for winning or losing the opportunity"},
+        "owner_id": {"type": "string", "description": "Foreign key to employee_d.sf_user_id"}
+      },
+      "relationships": [
+        {"column": "sf_account_id", "referencedTable": "salesforce_account_d", "referencedColumn": "sf_account_id"},
+        {"column": "owner_id", "referencedTable": "employee_d", "referencedColumn": "sf_user_id"}
+      ]
+    }
+  },
+  "commonJoins": [
+    {"description": "Join opportunities to Salesforce accounts", "sql": "opportunity_d.sf_account_id = salesforce_account_d.sf_account_id"},
+    {"description": "Join organizations to Salesforce accounts", "sql": "organization_d.organization_id = salesforce_account_d.organization_id"},
+    {"description": "Join billing events to organizations", "sql": "billing_event_f.organization_id = organization_d.organization_id"},
+    {"description": "Join Gong calls to accounts", "sql": "gong_call_f.gong_primary_account = salesforce_account_d.sf_account_id"},
+    {"description": "Join Gong calls to opportunities", "sql": "gong_call_f.gong_related_opportunity = opportunity_d.opportunity_id"}
+  ],
+  "commonQueryPatterns": [
+    {
+      "name": "Monthly Revenue Analysis",
+      "description": "Analyze monthly revenue by source (FB 1.0 vs FB 2.0)",
+      "sql": "SELECT date_trunc('month', CAST(mrr_report_date_ts AS TIMESTAMP)) AS month, CASE WHEN is_fb2_usage = true THEN 'FB 2.0' ELSE 'FB 1.0' END AS source, SUM(amount) AS mrr FROM billing_event_f WHERE mrr_report_date_ts BETWEEN [start_date] AND [end_date] GROUP BY 1, 2 ORDER BY 1, 2"
+    },
+    {
+      "name": "Opportunity Analysis",
+      "description": "Analyze opportunities by account, stage and value",
+      "sql": "SELECT salesforce_account_d.sf_account_name, opportunity_d.opportunity_name, opportunity_d.stage_name, opportunity_d.amount AS tcv, opportunity_d.amount/opportunity_d.contract_duration_months*12 AS acv FROM opportunity_d JOIN salesforce_account_d ON opportunity_d.sf_account_id = salesforce_account_d.sf_account_id WHERE opportunity_d.stage_name NOT IN ('Closed Lost') ORDER BY opportunity_d.amount DESC"
+    },
+    {
+      "name": "Sales Call Activity by Account",
+      "description": "Analyze Gong call activity by account over the last 90 days",
+      "sql": "SELECT sa.sf_account_name, COUNT(*) AS total_calls, COUNT(CASE WHEN gc.gong_direction = 'Outbound' THEN 1 END) AS outbound_calls, COUNT(CASE WHEN gc.gong_direction = 'Conference' THEN 1 END) AS conference_calls, COUNT(CASE WHEN gc.gong_related_opportunity IS NOT NULL THEN 1 END) AS calls_with_opportunities, AVG(gc.gong_opp_amount_time_of_call) AS avg_opp_value FROM gong_call_f gc JOIN salesforce_account_d sa ON gc.gong_primary_account = sa.sf_account_id WHERE gc.gong_call_start_ts >= CURRENT_DATE - INTERVAL 90 DAY GROUP BY sa.sf_account_name, sa.sf_account_id ORDER BY total_calls DESC"
+    }
+  ]
+}

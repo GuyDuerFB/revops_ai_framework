@@ -1,0 +1,54 @@
+# Slack Secrets and Environment Files
+.env.local
+.env.production
+.env.development
+*.env
+
+# AWS Credentials
+.aws/
+credentials
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Test files and temporary files
+test_*.py
+*_test.py
+*.tmp
+*.temp
+*.bak
+*~
+
+# Deployment packages
+*.zip
+!infrastructure/*.zip
+
+# Cache and build files
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Web Search API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/search": {
+      "post": {
+        "summary": "Search web for company and person information",
+        "operationId": "search_web",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "Search query for web research"
+                  },
+                  "search_type": {
+                    "type": "string",
+                    "description": "Type of search: company, person, or general",
+                    "enum": ["company", "person", "general"]
+                  }
+                },
+                "required": ["query"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "results": {
+                      "type": "array",
+                      "items": {"type": "object"}
+                    },
+                    "error": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/research": {
+      "post": {
+        "summary": "Research specific company information",
+        "operationId": "research_company",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company_name": {
+                    "type": "string",
+                    "description": "Company name to research"
+                  },
+                  "research_focus": {
+                    "type": "string",
+                    "description": "Specific research focus area",
+                    "enum": ["general", "technology", "industry", "size", "recent_news"]
+                  }
+                },
+                "required": ["company_name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Research results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "company_info": {"type": "object"},
+                    "error": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

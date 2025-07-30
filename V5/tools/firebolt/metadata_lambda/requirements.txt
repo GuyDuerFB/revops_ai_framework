@@ -1,0 +1,2 @@
+# Firebolt Metadata Lambda Dependencies
+requests>=2.31.0
