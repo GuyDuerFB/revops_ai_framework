@@ -17,8 +17,12 @@ import sys
 import os
 import re
 
-# Import conversation tracking schema
-sys.path.append('/opt/python')
+# Import conversation tracking schema with enhanced path resolution
+current_dir = os.path.dirname(__file__)
+sys.path.insert(0, current_dir)  # Lambda function directory (first priority)
+sys.path.append('/opt/python')   # Lambda layers (second priority)
+
+schema_import_success = False
 try:
     from conversation_schema import (
         ConversationUnit, 
@@ -28,12 +32,52 @@ try:
         DataOperation, 
         FunctionCall
     )
-except ImportError:
-    # Fallback if schema not available in deployment
-    print("Warning: conversation_schema not found, tracking will be limited")
+    schema_import_success = True
+    print("✅ Successfully imported conversation tracking schema")
+except ImportError as e:
+    # Enhanced fallback with detailed error reporting
+    schema_import_success = False
+    print(f"❌ WARNING: conversation_schema import failed: {e}")
+    print(f"Current directory: {current_dir}")
+    print(f"Python path: {sys.path}")
+    print("Available files in current directory:")
+    try:
+        for file in os.listdir(current_dir):
+            if file.endswith('.py'):
+                print(f"  - {file}")
+    except Exception as list_error:
+        print(f"  Error listing files: {list_error}")
+    print("⚠️  Tracking will be limited to basic dictionary format")
 
 # CloudWatch client for monitoring metrics
 cloudwatch = boto3.client('cloudwatch')
+
+def track_schema_import_status():
+    """Track conversation schema import status to CloudWatch"""
+    try:
+        metric_value = 1.0 if schema_import_success else 0.0
+        cloudwatch.put_metric_data(
+            Namespace='RevOps-AI/Monitoring',
+            MetricData=[
+                {
+                    'MetricName': 'ConversationSchemaImportSuccess',
+                    'Value': metric_value,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {
+                            'Name': 'Environment',
+                            'Value': 'Production'
+                        }
+                    ]
+                }
+            ]
+        )
+        print(f"📊 Schema import status metric sent: {metric_value}")
+    except Exception as e:
+        print(f"⚠️ Failed to send schema import metric: {e}")
+
+# Track schema import status on module load
+track_schema_import_status()
 
 # Try to import requests, install if missing
 try:
@@ -492,12 +536,14 @@ class NarrationController:
             
         current_time = time.time()
         
-        # Rate limiting
-        if current_time - self.last_update_time < self.update_threshold:
+        # More generous rate limiting for granular updates
+        granular_threshold = 0.6  # Reduced from 2.0 to 0.6 seconds
+        if current_time - self.last_update_time < granular_threshold:
             return False
         
-        # Maximum updates limit
-        if self.update_count >= self.max_updates:
+        # Higher maximum updates limit for granular narration
+        max_granular_updates = 18  # Increased from 8
+        if self.update_count >= max_granular_updates:
             return False
             
         # Content similarity check
@@ -518,6 +564,16 @@ class NarrationController:
         if not last_content:
             return False
         
+        # Check for granular update patterns - be more permissive
+        granular_patterns = ['🔍', '📊', '✅', '🛠️', '🤝', '📝', '🧠', '🎯', '📈', '⚠️', '🔧', '🌐', '📋']
+        
+        # If both are granular updates with different emojis, they're different enough
+        new_emoji = next((p for p in granular_patterns if p in new_content), None)
+        last_emoji = next((p for p in granular_patterns if p in last_content), None)
+        
+        if new_emoji and last_emoji and new_emoji != last_emoji:
+            return False  # Different types of granular updates
+        
         # Extract key words for comparison
         new_words = set(re.findall(r'\w+', new_content.lower()))
         last_words = set(re.findall(r'\w+', last_content.lower()))
@@ -529,16 +585,23 @@ class NarrationController:
         intersection = new_words.intersection(last_words)
         similarity = len(intersection) / len(new_words)
         
-        return similarity > 0.7  # Too similar if >70% word overlap
+        # More lenient similarity check for granular updates
+        threshold = 0.8 if new_emoji else 0.7
+        return similarity > threshold
     
     def _is_meaningful_progress(self, narration: str) -> bool:
         """Check if narration represents meaningful progress"""
         # Always meaningful if it contains specific progress indicators
         progress_indicators = [
-            '🧠', '📊', '🎯', '⚠️', '💡', '📈', '⚙️', '✅', '🤝', '🔍'
+            '🧠', '📊', '🎯', '⚠️', '💡', '📈', '⚙️', '✅', '🤝', '🔍',
+            '🛠️', '📝', '🔧', '🌐', '📋'  # Added granular indicators
         ]
         
-        return any(indicator in narration for indicator in progress_indicators)
+        # Also check for key action words
+        action_words = ['executing', 'analyzing', 'processing', 'retrieving', 'coordinating', 'routing']
+        
+        return (any(indicator in narration for indicator in progress_indicators) or
+                any(word in narration.lower() for word in action_words))
     
     def reset_for_new_conversation(self):
         """Reset controller state for new conversation"""
@@ -1550,6 +1613,145 @@ class CompleteSlackBedrockProcessor:
         # Fallback for any other trace types
         return "🤔 Analyzing request and preparing response"
 
+    def _extract_granular_updates(self, orch_trace: dict, reasoning: str, context: dict) -> list:
+        """Extract granular, step-by-step updates from orchestration trace"""
+        updates = []
+        
+        try:
+            # 1. Check for model invocation input (agent thinking)
+            if 'invocationInput' in orch_trace:
+                invocation = orch_trace['invocationInput']
+                
+                if 'actionGroupInvocationInput' in invocation:
+                    action_input = invocation['actionGroupInvocationInput']
+                    tool_name = action_input.get('actionGroupName', 'unknown_tool')
+                    
+                    # Extract parameters for detailed context
+                    params = action_input.get('parameters', [])
+                    param_summary = {}
+                    for param in params[:3]:  # Limit to first 3 params for brevity
+                        param_name = param.get('name', 'param')
+                        param_value = param.get('value', '')
+                        if len(param_value) > 100:
+                            param_value = param_value[:100] + "..."
+                        param_summary[param_name] = param_value
+                    
+                    if tool_name == 'firebolt_query':
+                        query_hint = ""
+                        if 'query' in param_summary:
+                            query_text = param_summary['query'].lower()
+                            if 'opportunity' in query_text or 'deal' in query_text:
+                                query_hint = " (analyzing deals & opportunities)"
+                            elif 'lead' in query_text or 'contact' in query_text:
+                                query_hint = " (researching leads & contacts)"
+                            elif 'revenue' in query_text or 'forecast' in query_text:
+                                query_hint = " (examining revenue & forecasts)"
+                        
+                        updates.append(f"🔍 Executing database query{query_hint}...")
+                        
+                        # Show query details if not too long
+                        if len(str(param_summary)) < 200:
+                            updates.append(f"📊 Query parameters: {param_summary}")
+                    
+                    elif tool_name == 'web_search':
+                        search_terms = param_summary.get('query', 'unknown')
+                        updates.append(f"🌐 Searching web for: '{search_terms}'...")
+                    
+                    else:
+                        updates.append(f"🛠️ Using {tool_name} tool with parameters: {param_summary}")
+                
+                elif 'collaboratorInvocationInput' in invocation:
+                    collab = invocation['collaboratorInvocationInput']
+                    agent_name = collab.get('collaboratorName', 'specialist agent')
+                    collab_input = collab.get('input', {})
+                    
+                    # Extract collaboration context
+                    if isinstance(collab_input, dict) and 'query' in collab_input:
+                        query_snippet = collab_input['query'][:150] + "..." if len(collab_input['query']) > 150 else collab_input['query']
+                        updates.append(f"🤝 Routing to {agent_name}: '{query_snippet}'")
+                    else:
+                        updates.append(f"🤝 Collaborating with {agent_name} for specialized analysis...")
+            
+            # 2. Check for model invocation output (agent response)
+            if 'modelInvocationOutput' in orch_trace:
+                model_output = orch_trace['modelInvocationOutput']
+                response_text = model_output.get('text', '')
+                
+                if response_text:
+                    # Analyze the response type for better narration
+                    if len(response_text) > 500:
+                        updates.append("📝 Processing comprehensive analysis results...")
+                    elif "error" in response_text.lower() or "failed" in response_text.lower():
+                        updates.append("⚠️ Handling processing challenges, adapting approach...")
+                    elif "routing" in response_text.lower() or "collaborat" in response_text.lower():
+                        updates.append("🎯 Determining optimal routing strategy...")
+                    else:
+                        updates.append("💭 Analyzing data and formulating response...")
+            
+            # 3. Check for observations (tool results)
+            if 'observation' in orch_trace:
+                obs = orch_trace['observation']
+                
+                if 'actionGroupInvocationOutput' in obs:
+                    action_output = obs['actionGroupInvocationOutput']
+                    result_text = action_output.get('text', '')
+                    
+                    # Parse JSON results if possible
+                    try:
+                        result_data = json.loads(result_text)
+                        
+                        if isinstance(result_data, dict):
+                            if 'results' in result_data:
+                                result_count = len(result_data['results'])
+                                if result_count > 0:
+                                    updates.append(f"✅ Retrieved {result_count} records from database")
+                                else:
+                                    updates.append("🔍 No matching records found, expanding search criteria...")
+                            elif 'error' in result_data:
+                                updates.append("⚠️ Adjusting query parameters due to data constraints...")
+                            else:
+                                updates.append("📈 Processing structured data results...")
+                        else:
+                            updates.append("✅ Tool execution completed successfully")
+                    except:
+                        # Not JSON, check for common patterns
+                        if len(result_text) > 1000:
+                            updates.append("📊 Processing large dataset results...")
+                        elif "error" in result_text.lower():
+                            updates.append("🔧 Handling data access issue, trying alternative approach...")
+                        else:
+                            updates.append("✅ Data retrieval completed")
+                
+                elif 'agentCollaboratorInvocationOutput' in obs:
+                    collab_output = obs['agentCollaboratorInvocationOutput']
+                    agent_name = collab_output.get('agentCollaboratorName', 'specialist')
+                    response_text = collab_output.get('text', '')
+                    
+                    if len(response_text) > 500:
+                        updates.append(f"📋 Receiving comprehensive analysis from {agent_name}...")
+                    else:
+                        updates.append(f"✅ {agent_name} analysis complete")
+            
+            # 4. Process reasoning text for additional context
+            if reasoning and len(reasoning) > 100:
+                # Extract key actions from reasoning
+                reasoning_lower = reasoning.lower()
+                if 'executing' in reasoning_lower and 'query' in reasoning_lower:
+                    # Already handled above, skip
+                    pass
+                elif 'analyzing' in reasoning_lower:
+                    updates.append("🧠 Performing detailed analysis...")
+                elif 'routing' in reasoning_lower or 'collaborat' in reasoning_lower:
+                    updates.append("🎯 Optimizing response strategy...")
+                elif 'consolidat' in reasoning_lower or 'summariz' in reasoning_lower:
+                    updates.append("📝 Synthesizing findings...")
+            
+        except Exception as e:
+            print(f"Error extracting granular updates: {e}")
+            updates.append("🔄 Processing your request...")
+        
+        return updates
+    
     def _process_agent_reasoning_stream(self, trace_data: dict, context: dict, conversation_tracker=None):
         """Process real-time agent reasoning into user-friendly narration"""
         try:
@@ -1621,15 +1823,36 @@ class CompleteSlackBedrockProcessor:
                         conversation_tracker.current_agent_step['collaboration_sent'].extend(sent_messages)
                         conversation_tracker.current_agent_step['collaboration_received'].extend(received_messages)
             
-            if reasoning:
-                # Generate natural narration from reasoning
+            # ENHANCED: Generate granular, step-by-step updates
+            granular_updates = self._extract_granular_updates(orch_trace, reasoning, context)
+            
+            # Send granular updates with intelligent spacing
+            for i, update in enumerate(granular_updates):
+                if self.narration_controller.should_send_update(update):
+                    print(f"[GRANULAR DEBUG] Sending update {i+1}/{len(granular_updates)}: {update}")
+                    start_send_time = time.time()
+                    success = self._send_narration_update(
+                        context['channel_id'], 
+                        context['message_ts'], 
+                        update, 
+                        context.get('thread_ts')
+                    )
+                    send_time_ms = int((time.time() - start_send_time) * 1000)
+                    self._record_narration_metrics(success, "granular_trace", send_time_ms)
+                    
+                    # Brief delay between updates for readability (only if multiple updates)
+                    # Temporarily disabled to avoid import issues
+                    # if len(granular_updates) > 1 and i < len(granular_updates) - 1:
+                    #     time.sleep(0.8)
+                        
+            # Fallback to original narration if no granular updates were generated
+            if not granular_updates and reasoning:
                 narration = self.narration_engine.convert_reasoning_to_narration(
                     reasoning, context
                 )
                 
-                # Intelligent update decision
                 if narration and self.narration_controller.should_send_update(narration):
-                    print(f"[NARRATION DEBUG] Sending narration update: {narration}")
+                    print(f"[NARRATION DEBUG] Sending fallback narration: {narration}")
                     start_send_time = time.time()
                     success = self._send_narration_update(
                         context['channel_id'], 
@@ -1638,11 +1861,7 @@ class CompleteSlackBedrockProcessor:
                         context.get('thread_ts')
                     )
                     send_time_ms = int((time.time() - start_send_time) * 1000)
-                    self._record_narration_metrics(success, "enhanced_trace", send_time_ms)
-                else:
-                    print(f"[NARRATION DEBUG] Narration controller rejected update")
-            else:
-                print(f"[NARRATION DEBUG] No reasoning extracted from trace")
+                    self._record_narration_metrics(success, "fallback_trace", send_time_ms)
             
             # Handle agent collaboration events (existing logic)
             if 'invocationInput' in orch_trace:
@@ -1668,6 +1887,8 @@ class CompleteSlackBedrockProcessor:
                         
         except Exception as e:
             print(f"Error processing agent reasoning stream: {e}")
+            import traceback
+            print(f"Full traceback: {traceback.format_exc()}")
             # ENHANCED: Robust fallback error handling
             self._send_fallback_progress_update(trace_data, context)
     
@@ -2300,8 +2521,27 @@ def lambda_handler(event, context):
                     success=result['statusCode'] == 200
                 )
                 
-                # Log conversation unit to CloudWatch
-                log_conversation_unit(conversation_tracker.conversation_unit)
+                # Determine export formats based on conversation characteristics
+                export_formats = []
+                conversation_unit = conversation_tracker.conversation_unit
+                
+                # Export structured JSON for all conversations
+                export_formats.append('structured_json')
+                
+                # Export LLM-readable format for complex conversations (>3 steps)
+                if len(conversation_unit.agent_flow) > 3:
+                    export_formats.append('llm_readable')
+                
+                # Export analysis format for failed conversations
+                if not conversation_unit.success:
+                    export_formats.append('analysis_format')
+                    export_formats.append('agent_traces')
+                
+                # Export metadata for all conversations for analytics
+                export_formats.append('metadata_only')
+                
+                # Log conversation unit to CloudWatch with export
+                log_conversation_unit(conversation_unit, export_formats)
                 
                 if result['statusCode'] == 200:
                     success_count += 1
@@ -2319,7 +2559,8 @@ def lambda_handler(event, context):
                     success=False,
                     error_details={'error': str(e), 'traceback': traceback.format_exc()}
                 )
-                log_conversation_unit(conversation_tracker.conversation_unit)
+                # Export with basic formats for error cases
+                log_conversation_unit(conversation_tracker.conversation_unit, ['structured_json', 'metadata_only'])
         
         print(f"Processing complete: {success_count} successful, {failure_count} failed")
         
@@ -2340,7 +2581,8 @@ def lambda_handler(event, context):
                 final_response=result.get('body', ''),
                 success=result['statusCode'] == 200
             )
-            log_conversation_unit(conversation_tracker.conversation_unit)
+            # Export with standard formats for direct invocation
+            log_conversation_unit(conversation_tracker.conversation_unit, ['structured_json', 'llm_readable', 'metadata_only'])
             
             return result
             
@@ -2350,7 +2592,8 @@ def lambda_handler(event, context):
                 success=False,
                 error_details={'error': str(e), 'traceback': traceback.format_exc()}
             )
-            log_conversation_unit(conversation_tracker.conversation_unit)
+            # Export with error formats for failed direct invocation
+            log_conversation_unit(conversation_tracker.conversation_unit, ['structured_json', 'analysis_format', 'agent_traces'])
             raise
 
 def process_slack_event_with_tracking(processor, event, conversation_tracker):
@@ -2376,14 +2619,28 @@ def process_slack_event_with_tracking(processor, event, conversation_tracker):
     
     return result
 
-def log_conversation_unit(conversation_unit):
-    """Log conversation unit to CloudWatch"""
+def log_conversation_unit(conversation_unit, export_formats: List[str] = None):
+    """Enhanced conversation logging with deduplication and optional S3 export"""
     try:
         # Initialize CloudWatch Logs client
         logs_client = boto3.client('logs', region_name='us-east-1')
         
-        # Convert conversation unit to JSON
-        if hasattr(conversation_unit, 'to_json'):
+        # Step 1: Deduplicate system prompts
+        if hasattr(conversation_unit, 'deduplicate_system_prompts'):
+            try:
+                dedup_stats = conversation_unit.deduplicate_system_prompts()
+                print(f"DEDUP_STATS: {json.dumps(dedup_stats)}")
+            except Exception as e:
+                print(f"Deduplication failed: {e}")
+                dedup_stats = {}
+        else:
+            dedup_stats = {}
+        
+        # Step 2: Create structured JSON for CloudWatch (compact)
+        if hasattr(conversation_unit, 'to_compact_json'):
+            compact_data = conversation_unit.to_compact_json()
+            log_message = json.dumps(compact_data, separators=(',', ':'))
+        elif hasattr(conversation_unit, 'to_json'):
             log_message = conversation_unit.to_json()
         else:
             log_message = json.dumps(conversation_unit, default=str, indent=2)
@@ -2418,8 +2675,46 @@ def log_conversation_unit(conversation_unit):
             logEvents=[log_event]
         )
         
+        # Step 3: Optional S3 export (if formats specified)
+        if export_formats:
+            export_conversation_to_s3(conversation_unit, export_formats)
+        
+        # Step 4: Legacy logging for backward compatibility
+        try:
+            if hasattr(conversation_unit, 'to_json'):
+                legacy_json = conversation_unit.to_json()
+                print(f"LEGACY_FORMAT: {legacy_json[:200]}...")  # Truncated for logs
+        except Exception as e:
+            print(f"Legacy logging failed: {e}")
+        
         print(f"Successfully logged conversation unit {conv_id[:8]} to CloudWatch")
         
     except Exception as e:
         print(f"Failed to log conversation unit: {e}")
         # Don't raise exception - logging failure shouldn't break the main flow
+
+def export_conversation_to_s3(conversation_unit, formats: List[str]):
+    """Export conversation to S3 in specified formats"""
+    try:
+        # Import here to avoid startup overhead
+        import sys
+        sys.path.append('/opt/python')
+        from conversation_exporter import ConversationExporter
+        
+        # Configure S3 bucket (from environment or config)
+        s3_bucket = os.environ.get('CONVERSATION_EXPORT_BUCKET', 'revops-ai-framework-kb-740202120544')
+        
+        # Create exporter
+        exporter = ConversationExporter(s3_bucket)
+        
+        # Export conversation
+        exported_urls = exporter.export_conversation(conversation_unit, formats)
+        
+        # Log export results
+        print(f"EXPORT_RESULTS: {json.dumps(exported_urls)}")
+        
+        return exported_urls
+        
+    except Exception as e:
+        print(f"S3 export failed: {e}", exc_info=True)
+        return {}

@@ -8,6 +8,7 @@ import boto3
 import time
 import logging
 import uuid
+import traceback
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from enum import Enum
@@ -15,6 +16,21 @@ from contextlib import contextmanager
 import sys
 import os
 import re
+
+# Import conversation tracking schema
+sys.path.append('/opt/python')
+try:
+    from conversation_schema import (
+        ConversationUnit, 
+        AgentFlowStep, 
+        ToolExecution, 
+        BedrockTraceContent, 
+        DataOperation, 
+        FunctionCall
+    )
+except ImportError:
+    # Fallback if schema not available in deployment
+    print("Warning: conversation_schema not found, tracking will be limited")
 
 # CloudWatch client for monitoring metrics
 cloudwatch = boto3.client('cloudwatch')
@@ -531,6 +547,210 @@ class NarrationController:
         self.reasoning_history = []
         self.update_count = 0
 
+class ConversationTracker:
+    """Enhanced conversation tracking for comprehensive agent analysis"""
+    
+    def __init__(self, conversation_id: str):
+        self.conversation_id = conversation_id
+        self.start_time = datetime.now(timezone.utc)
+        self.current_agent_step = None
+        self.agent_start_times = {}
+        self.function_calls = []
+        
+        # Initialize conversation unit with defaults
+        try:
+            self.conversation_unit = ConversationUnit(
+                conversation_id=conversation_id,
+                session_id="",
+                user_id="",
+                channel="",
+                start_timestamp=self.start_time.isoformat(),
+                end_timestamp="",
+                user_query="",
+                temporal_context="",
+                agents_involved=[],
+                agent_flow=[],
+                final_response="",
+                collaboration_map={},
+                function_audit={},
+                success=False,
+                processing_time_ms=0,
+                error_details=None
+            )
+        except NameError:
+            # Fallback if schema classes not available
+            self.conversation_unit = {
+                "conversation_id": conversation_id,
+                "start_timestamp": self.start_time.isoformat(),
+                "agent_flow": [],
+                "function_calls": []
+            }
+    
+    def start_conversation(self, user_query: str, user_id: str, channel: str, session_id: str, temporal_context: str = ""):
+        """Initialize conversation tracking"""
+        if hasattr(self.conversation_unit, 'user_query'):
+            self.conversation_unit.user_query = user_query
+            self.conversation_unit.user_id = user_id
+            self.conversation_unit.channel = channel
+            self.conversation_unit.session_id = session_id
+            self.conversation_unit.temporal_context = temporal_context
+        else:
+            self.conversation_unit.update({
+                "user_query": user_query,
+                "user_id": user_id,
+                "channel": channel,
+                "session_id": session_id,
+                "temporal_context": temporal_context
+            })
+    
+    def start_agent_execution(self, agent_name: str, agent_id: str, context: dict = None):
+        """Called when agent execution begins"""
+        start_time = datetime.now(timezone.utc).isoformat()
+        self.agent_start_times[agent_name] = start_time
+        
+        try:
+            self.current_agent_step = AgentFlowStep(
+                agent_name=agent_name,
+                agent_id=agent_id,
+                start_time=start_time,
+                end_time="",
+                reasoning_text="",
+                bedrock_trace_content=BedrockTraceContent(),
+                tools_used=[],
+                data_operations=[]
+            )
+        except NameError:
+            # Fallback
+            self.current_agent_step = {
+                "agent_name": agent_name,
+                "agent_id": agent_id,
+                "start_time": start_time,
+                "end_time": "",
+                "reasoning_text": "",
+                "tools_used": []
+            }
+        
+        # Track agents involved
+        if hasattr(self.conversation_unit, 'agents_involved'):
+            if agent_name not in self.conversation_unit.agents_involved:
+                self.conversation_unit.agents_involved.append(agent_name)
+    
+    def add_agent_reasoning(self, reasoning_text: str, trace_content: dict = None):
+        """Add reasoning text and trace content to current agent"""
+        if self.current_agent_step:
+            if hasattr(self.current_agent_step, 'reasoning_text'):
+                self.current_agent_step.reasoning_text += reasoning_text + "\n"
+            else:
+                self.current_agent_step["reasoning_text"] = self.current_agent_step.get("reasoning_text", "") + reasoning_text + "\n"
+            
+            # Add trace content if available
+            if trace_content and hasattr(self.current_agent_step, 'bedrock_trace_content'):
+                self._merge_trace_content(trace_content)
+    
+    def _merge_trace_content(self, trace_content: dict):
+        """Merge trace content into current agent step"""
+        if hasattr(self.current_agent_step.bedrock_trace_content, 'raw_trace_data'):
+            if trace_content.get('modelInvocationInput'):
+                self.current_agent_step.bedrock_trace_content.modelInvocationInput = str(trace_content['modelInvocationInput'])
+            if trace_content.get('invocationInput'):
+                self.current_agent_step.bedrock_trace_content.invocationInput = str(trace_content['invocationInput'])
+            if trace_content.get('actionGroupInvocationInput'):
+                self.current_agent_step.bedrock_trace_content.actionGroupInvocationInput = str(trace_content['actionGroupInvocationInput'])
+            if trace_content.get('observation'):
+                self.current_agent_step.bedrock_trace_content.observation = str(trace_content['observation'])
+            
+            self.current_agent_step.bedrock_trace_content.raw_trace_data = trace_content
+    
+    def add_tool_execution(self, tool_name: str, parameters: dict, result: str, execution_time_ms: int, success: bool = True):
+        """Add tool execution to current agent"""
+        try:
+            tool_execution = ToolExecution(
+                tool_name=tool_name,
+                parameters=parameters,
+                execution_time_ms=execution_time_ms,
+                result_summary=result[:200] + "..." if len(result) > 200 else result,
+                full_result=result,
+                success=success
+            )
+        except NameError:
+            tool_execution = {
+                "tool_name": tool_name,
+                "parameters": parameters,
+                "execution_time_ms": execution_time_ms,
+                "result_summary": result[:200] + "..." if len(result) > 200 else result,
+                "success": success
+            }
+        
+        if self.current_agent_step:
+            if hasattr(self.current_agent_step, 'tools_used'):
+                self.current_agent_step.tools_used.append(tool_execution)
+            else:
+                if "tools_used" not in self.current_agent_step:
+                    self.current_agent_step["tools_used"] = []
+                self.current_agent_step["tools_used"].append(tool_execution)
+    
+    def add_function_call(self, function_call):
+        """Add function call to audit trail"""
+        self.function_calls.append(function_call)
+    
+    def complete_agent_execution(self, agent_name: str):
+        """Called when agent execution completes"""
+        if self.current_agent_step:
+            end_time = datetime.now(timezone.utc).isoformat()
+            if hasattr(self.current_agent_step, 'end_time'):
+                self.current_agent_step.end_time = end_time
+            else:
+                self.current_agent_step["end_time"] = end_time
+            
+            # Add to agent flow
+            if hasattr(self.conversation_unit, 'agent_flow'):
+                self.conversation_unit.agent_flow.append(self.current_agent_step)
+            else:
+                if "agent_flow" not in self.conversation_unit:
+                    self.conversation_unit["agent_flow"] = []
+                self.conversation_unit["agent_flow"].append(self.current_agent_step)
+            
+            self.current_agent_step = None
+    
+    def complete_conversation(self, final_response: str, success: bool, error_details: dict = None):
+        """Complete conversation tracking"""
+        end_time = datetime.now(timezone.utc)
+        processing_time_ms = int((end_time - self.start_time).total_seconds() * 1000)
+        
+        if hasattr(self.conversation_unit, 'final_response'):
+            self.conversation_unit.final_response = final_response
+            self.conversation_unit.success = success
+            self.conversation_unit.processing_time_ms = processing_time_ms
+            self.conversation_unit.end_timestamp = end_time.isoformat()
+            self.conversation_unit.error_details = error_details
+            
+            # Build collaboration map
+            try:
+                # Create a temporary processor instance to access collaboration methods
+                temp_processor = CompleteSlackBedrockProcessor()
+                self.conversation_unit.collaboration_map = temp_processor._build_collaboration_map(
+                    self.conversation_unit.agent_flow
+                )
+            except Exception as e:
+                print(f"Error building collaboration map: {e}")
+                self.conversation_unit.collaboration_map = {}
+            
+            # Build function audit
+            self.conversation_unit.function_audit = {
+                "total_functions_called": len(self.function_calls),
+                "total_execution_time_ms": sum(fc.execution_time_ms if hasattr(fc, 'execution_time_ms') else fc.get('execution_time_ms', 0) for fc in self.function_calls),
+                "success_rate": sum(1 for fc in self.function_calls if (fc.success if hasattr(fc, 'success') else fc.get('success', True))) / len(self.function_calls) if self.function_calls else 1.0,
+                "detailed_calls": self.function_calls
+            }
+        else:
+            self.conversation_unit.update({
+                "final_response": final_response,
+                "success": success,
+                "processing_time_ms": processing_time_ms,
+                "end_timestamp": end_time.isoformat(),
+                "error_details": error_details
+            })
+
 class CompleteSlackBedrockProcessor:
     """Complete processor with working Slack integration and full tracing"""
     
@@ -843,12 +1063,14 @@ class CompleteSlackBedrockProcessor:
                     
                     # Process agent reasoning for real-time narration
                     if message_ts:
+                        # Get conversation tracker from instance if available
+                        conversation_tracker = getattr(self, 'conversation_tracker', None)
                         self._process_agent_reasoning_stream(trace_data, {
                             'channel_id': channel_id,
                             'message_ts': message_ts,
                             'thread_ts': thread_ts,
                             'session_config': session_config
-                        })
+                        }, conversation_tracker)
             
             # Calculate processing time and trace response
             bedrock_processing_time = int((time.time() - bedrock_start_time) * 1000)
@@ -922,6 +1144,242 @@ class CompleteSlackBedrockProcessor:
             print(f"Error counting agents used: {e}")
             return 1  # Default to 1 if counting fails
     
+    def _extract_complete_reasoning_and_trace(self, orch_trace: dict) -> tuple:
+        """
+        Extract both reasoning text and complete trace content
+        Returns: (reasoning_text: str, trace_content: dict)
+        """
+        reasoning_text = ""
+        trace_content = {}
+        
+        # Extract modelInvocationInput
+        if 'modelInvocationInput' in orch_trace:
+            input_data = orch_trace['modelInvocationInput']
+            if 'text' in input_data:
+                trace_content['modelInvocationInput'] = input_data['text']
+                # Extract reasoning from input text
+                reasoning_text += self._parse_reasoning_from_input(input_data['text'])
+        
+        # Extract invocationInput
+        if 'invocationInput' in orch_trace:
+            trace_content['invocationInput'] = str(orch_trace['invocationInput'])
+            reasoning_text += self._parse_reasoning_from_invocation(orch_trace['invocationInput'])
+        
+        # Extract actionGroupInvocationInput
+        if 'actionGroupInvocationInput' in orch_trace:
+            trace_content['actionGroupInvocationInput'] = str(orch_trace['actionGroupInvocationInput'])
+            reasoning_text += self._parse_reasoning_from_action_group(orch_trace['actionGroupInvocationInput'])
+        
+        # Extract observation
+        if 'observation' in orch_trace:
+            trace_content['observation'] = str(orch_trace['observation'])
+            reasoning_text += self._parse_reasoning_from_observation(orch_trace['observation'])
+        
+        # Store raw trace data
+        trace_content['raw_trace_data'] = orch_trace
+        
+        return reasoning_text, trace_content
+    
+    def _parse_reasoning_from_input(self, input_text: str) -> str:
+        """Extract reasoning from model input text"""
+        try:
+            # Parse JSON structure if present
+            if input_text.startswith('{"'):
+                import json
+                parsed_content = json.loads(input_text)
+                
+                # Look for user instructions in the human field
+                if 'human' in parsed_content:
+                    human_content = parsed_content['human']
+                    return f"Received request: {human_content[:200]}...\n"
+                
+                # Look for system instructions
+                if 'system' in parsed_content:
+                    system_content = parsed_content['system']
+                    if 'Manager Agent' in system_content:
+                        return "Acting as Manager Agent - analyzing request and determining routing strategy\n"
+                    elif 'Deal Analysis Agent' in system_content:
+                        return "Acting as Deal Analysis Agent - performing comprehensive deal assessment\n"
+            
+            # Fallback to raw text analysis
+            return f"Processing input: {input_text[:100]}...\n"
+            
+        except Exception as e:
+            return f"Processing model input (parse error: {str(e)})\n"
+    
+    def _parse_reasoning_from_invocation(self, invocation_data: dict) -> str:
+        """Extract reasoning from invocation data"""
+        reasoning = ""
+        
+        # Agent collaboration
+        if 'agentCollaboratorInvocationInput' in invocation_data:
+            collab = invocation_data['agentCollaboratorInvocationInput']
+            agent_name = collab.get('agentCollaboratorName', 'specialist agent')
+            reasoning += f"Collaborating with {agent_name} for specialized analysis\n"
+            
+            if 'input' in collab and 'text' in collab['input']:
+                request_text = collab['input']['text']
+                reasoning += f"Collaboration request: {request_text[:150]}...\n"
+        
+        # Knowledge base lookup
+        elif 'knowledgeBaseLookupInput' in invocation_data:
+            kb_input = invocation_data['knowledgeBaseLookupInput']
+            if 'text' in kb_input:
+                search_text = kb_input['text']
+                reasoning += f"Searching knowledge base for: {search_text[:100]}...\n"
+        
+        # Action group execution
+        elif 'actionGroupInvocationInput' in invocation_data:
+            action_input = invocation_data['actionGroupInvocationInput']
+            action_name = action_input.get('actionGroupName', 'unknown action')
+            reasoning += f"Executing {action_name} with parameters\n"
+            
+            if 'parameters' in action_input:
+                for param in action_input['parameters']:
+                    param_name = param.get('name', 'unknown')
+                    param_value = str(param.get('value', ''))[:100]
+                    reasoning += f"  - {param_name}: {param_value}...\n"
+        
+        return reasoning
+    
+    def _parse_reasoning_from_action_group(self, action_data: dict) -> str:
+        """Extract reasoning from action group invocations"""
+        action_name = action_data.get('actionGroupName', 'unknown')
+        reasoning = f"Invoking {action_name} action group\n"
+        
+        if 'parameters' in action_data:
+            reasoning += "Parameters:\n"
+            for param in action_data['parameters']:
+                param_name = param.get('name', 'unknown')
+                param_value = str(param.get('value', ''))[:150]
+                reasoning += f"  - {param_name}: {param_value}...\n"
+        
+        return reasoning
+    
+    def _parse_reasoning_from_observation(self, observation_data: dict) -> str:
+        """Extract reasoning from agent observations"""
+        if isinstance(observation_data, dict):
+            # Look for specific observation types
+            if 'actionGroupInvocationOutput' in observation_data:
+                output = observation_data['actionGroupInvocationOutput']
+                if 'text' in output:
+                    result_text = output['text'][:200]
+                    return f"Action completed with result: {result_text}...\n"
+            
+            # Look for error information
+            if 'error' in observation_data:
+                error_info = observation_data['error']
+                return f"Error encountered: {str(error_info)[:150]}...\n"
+            
+            # Generic observation processing
+            return f"Observation recorded: {str(observation_data)[:150]}...\n"
+        
+        return f"Processing observation: {str(observation_data)[:100]}...\n"
+
+    def _extract_agent_collaborations(self, trace_data: dict, agent_name: str) -> tuple:
+        """
+        Extract sent and received agent communications
+        Returns: (sent_messages, received_messages)
+        """
+        sent_messages = []
+        received_messages = []
+        
+        # Look for AgentCommunication__sendMessage in trace
+        if 'toolUse' in trace_data:
+            for tool_use in trace_data.get('toolUse', []):
+                if tool_use.get('name') == 'AgentCommunication__sendMessage':
+                    sent_message = {
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'recipient': tool_use.get('input', {}).get('recipient'),
+                        'content': tool_use.get('input', {}).get('content'),
+                        'tool_use_id': tool_use.get('toolUseId')
+                    }
+                    sent_messages.append(sent_message)
+        
+        # Look for incoming messages (would be in modelInvocationInput)
+        if 'modelInvocationInput' in trace_data:
+            input_text = trace_data['modelInvocationInput'].get('text', '')
+            if 'from' in input_text.lower() and 'agent' in input_text.lower():
+                received_message = {
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                    'sender': self._extract_sender_from_input(input_text),
+                    'content': input_text,
+                    'message_type': 'agent_communication'
+                }
+                received_messages.append(received_message)
+        
+        return sent_messages, received_messages
+    
+    def _extract_sender_from_input(self, input_text: str) -> str:
+        """Extract sender agent name from input text"""
+        # Look for patterns like "from DealAnalysisAgent" or "Agent: DealAnalysisAgent"
+        import re
+        patterns = [
+            r'from\s+(\w+Agent)',
+            r'Agent:\s*(\w+Agent)',
+            r'(\w+Agent)\s+says',
+            r'(\w+Agent)\s+responded'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, input_text, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        
+        return 'unknown_agent'
+
+    def _build_collaboration_map(self, agent_flow) -> Dict[str, Dict[str, Any]]:
+        """Build collaboration map from agent flow"""
+        collaboration_map = {}
+        
+        try:
+            for step in agent_flow:
+                # Handle both dataclass and dict formats
+                if hasattr(step, 'collaboration_sent'):
+                    sent_msgs = step.collaboration_sent
+                    received_msgs = step.collaboration_received
+                    agent_name = step.agent_name
+                else:
+                    sent_msgs = step.get('collaboration_sent', [])
+                    received_msgs = step.get('collaboration_received', [])
+                    agent_name = step.get('agent_name', 'unknown')
+                
+                # Track outgoing collaborations
+                for sent_msg in sent_msgs:
+                    key = f"{agent_name} → {sent_msg['recipient']}"
+                    collaboration_map[key] = {
+                        'timestamp': sent_msg['timestamp'],
+                        'message': sent_msg['content'][:100] + '...' if len(sent_msg['content']) > 100 else sent_msg['content'],
+                        'full_message': sent_msg['content'],
+                        'response_time_ms': None  # Will be filled when response is found
+                    }
+                
+                # Calculate response times
+                for received_msg in received_msgs:
+                    # Find matching sent message and calculate response time
+                    for key, collab in collaboration_map.items():
+                        if collab['timestamp'] < received_msg['timestamp']:
+                            if collab['response_time_ms'] is None:
+                                time_diff = self._calculate_time_difference(
+                                    collab['timestamp'], 
+                                    received_msg['timestamp']
+                                )
+                                collab['response_time_ms'] = time_diff
+        except Exception as e:
+            print(f"Error building collaboration map: {e}")
+        
+        return collaboration_map
+    
+    def _calculate_time_difference(self, start_time: str, end_time: str) -> int:
+        """Calculate time difference in milliseconds"""
+        try:
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            return int((end_dt - start_dt).total_seconds() * 1000)
+        except Exception as e:
+            print(f"Error calculating time difference: {e}")
+            return 0
+
     def _extract_reasoning_from_any_trace(self, orch_trace: dict) -> str:
         """Extract reasoning content from any available trace type"""
         
@@ -1092,7 +1550,7 @@ class CompleteSlackBedrockProcessor:
         # Fallback for any other trace types
         return "🤔 Analyzing request and preparing response"
 
-    def _process_agent_reasoning_stream(self, trace_data: dict, context: dict):
+    def _process_agent_reasoning_stream(self, trace_data: dict, context: dict, conversation_tracker=None):
         """Process real-time agent reasoning into user-friendly narration"""
         try:
             print(f"[NARRATION DEBUG] Processing trace data keys: {list(trace_data.keys())}")
@@ -1115,9 +1573,53 @@ class CompleteSlackBedrockProcessor:
                 print(f"[NARRATION DEBUG] No trace or orchestrationTrace found in trace_data")
                 return
             
-            # ENHANCED: Extract reasoning from any available trace type
-            reasoning = self._extract_reasoning_from_any_trace(orch_trace)
+            # ENHANCED: Extract reasoning from any available trace type with conversation tracking
+            reasoning, trace_content = self._extract_complete_reasoning_and_trace(orch_trace)
             print(f"[NARRATION DEBUG] Extracted reasoning: {reasoning}")
+            
+            # Add to conversation tracking if available
+            if conversation_tracker and reasoning:
+                conversation_tracker.add_agent_reasoning(reasoning, trace_content)
+                
+                # Extract and track tool executions
+                if 'actionGroupInvocationInput' in orch_trace:
+                    action_input = orch_trace['actionGroupInvocationInput']
+                    tool_name = action_input.get('actionGroupName', 'unknown_tool')
+                    parameters = {param.get('name', 'unknown'): param.get('value', '') 
+                                for param in action_input.get('parameters', [])}
+                    
+                    # Look for observation to get results
+                    result = "Tool execution in progress"
+                    execution_time = 0  # Will be updated when observation is available
+                    
+                    if 'observation' in orch_trace:
+                        obs = orch_trace['observation']
+                        if 'actionGroupInvocationOutput' in obs:
+                            output = obs['actionGroupInvocationOutput']
+                            result = output.get('text', str(output))
+                    
+                    conversation_tracker.add_tool_execution(
+                        tool_name=tool_name,
+                        parameters=parameters,
+                        result=result,
+                        execution_time_ms=execution_time,
+                        success=True
+                    )
+                
+                # Extract and track agent collaborations
+                sent_messages, received_messages = self._extract_agent_collaborations(orch_trace, "Manager")
+                
+                # Add collaboration messages to current agent step
+                if conversation_tracker.current_agent_step:
+                    if hasattr(conversation_tracker.current_agent_step, 'collaboration_sent'):
+                        conversation_tracker.current_agent_step.collaboration_sent.extend(sent_messages)
+                        conversation_tracker.current_agent_step.collaboration_received.extend(received_messages)
+                    else:
+                        if 'collaboration_sent' not in conversation_tracker.current_agent_step:
+                            conversation_tracker.current_agent_step['collaboration_sent'] = []
+                            conversation_tracker.current_agent_step['collaboration_received'] = []
+                        conversation_tracker.current_agent_step['collaboration_sent'].extend(sent_messages)
+                        conversation_tracker.current_agent_step['collaboration_received'].extend(received_messages)
             
             if reasoning:
                 # Generate natural narration from reasoning
@@ -1759,7 +2261,7 @@ class CompleteSlackBedrockProcessor:
         return self._secrets_cache
 
 def lambda_handler(event, context):
-    """Lambda handler with SQS support"""
+    """Enhanced lambda handler with conversation tracking support"""
     print(f"Lambda invoked with event: {json.dumps(event)[:500]}...")
     
     processor = CompleteSlackBedrockProcessor()
@@ -1772,10 +2274,34 @@ def lambda_handler(event, context):
         failure_count = 0
         
         for record in event['Records']:
+            # Initialize conversation tracking for each record
+            correlation_id = str(uuid.uuid4())
+            conversation_tracker = ConversationTracker(correlation_id)
+            
             try:
-                # Process each SQS record
+                # Extract message body for conversation tracking
+                message_body = json.loads(record['body'])
+                
+                # Start conversation tracking
+                conversation_tracker.start_conversation(
+                    user_query=message_body.get('text', ''),
+                    user_id=message_body.get('user', ''),
+                    channel=message_body.get('channel', ''),
+                    session_id=message_body.get('thread_ts', message_body.get('ts', ''))
+                )
+                
+                # Process with tracking
                 record_event = {'Records': [record]}
-                result = processor.process_slack_event(record_event)
+                result = process_slack_event_with_tracking(processor, record_event, conversation_tracker)
+                
+                # Complete conversation tracking
+                conversation_tracker.complete_conversation(
+                    final_response=result.get('body', ''),
+                    success=result['statusCode'] == 200
+                )
+                
+                # Log conversation unit to CloudWatch
+                log_conversation_unit(conversation_tracker.conversation_unit)
                 
                 if result['statusCode'] == 200:
                     success_count += 1
@@ -1784,7 +2310,16 @@ def lambda_handler(event, context):
                     
             except Exception as e:
                 failure_count += 1
-                print(f"Error processing record {record.get('messageId', 'unknown')}: {str(e)}")
+                error_msg = f"Error processing record {record.get('messageId', 'unknown')}: {str(e)}"
+                print(error_msg)
+                
+                # Log error conversation
+                conversation_tracker.complete_conversation(
+                    final_response="",
+                    success=False,
+                    error_details={'error': str(e), 'traceback': traceback.format_exc()}
+                )
+                log_conversation_unit(conversation_tracker.conversation_unit)
         
         print(f"Processing complete: {success_count} successful, {failure_count} failed")
         
@@ -1795,4 +2330,96 @@ def lambda_handler(event, context):
     
     # Handle direct invocation
     else:
-        return processor.process_slack_event(event)
+        correlation_id = str(uuid.uuid4())
+        conversation_tracker = ConversationTracker(correlation_id)
+        
+        try:
+            result = process_slack_event_with_tracking(processor, event, conversation_tracker)
+            
+            conversation_tracker.complete_conversation(
+                final_response=result.get('body', ''),
+                success=result['statusCode'] == 200
+            )
+            log_conversation_unit(conversation_tracker.conversation_unit)
+            
+            return result
+            
+        except Exception as e:
+            conversation_tracker.complete_conversation(
+                final_response="",
+                success=False,
+                error_details={'error': str(e), 'traceback': traceback.format_exc()}
+            )
+            log_conversation_unit(conversation_tracker.conversation_unit)
+            raise
+
+def process_slack_event_with_tracking(processor, event, conversation_tracker):
+    """Process Slack event with conversation tracking"""
+    # Attach conversation tracker to processor instance for trace processing
+    processor.conversation_tracker = conversation_tracker
+    
+    # Start agent execution tracking for Manager Agent
+    conversation_tracker.start_agent_execution("Manager", processor.decision_agent_id)
+    
+    try:
+        # Process the event using existing processor logic
+        result = processor.process_slack_event(event)
+    except Exception as e:
+        # Add error to current agent tracking
+        conversation_tracker.add_agent_reasoning(f"Error during processing: {str(e)}")
+        raise
+    finally:
+        # Complete agent execution tracking
+        conversation_tracker.complete_agent_execution("Manager")
+        # Clean up tracker reference
+        processor.conversation_tracker = None
+    
+    return result
+
+def log_conversation_unit(conversation_unit):
+    """Log conversation unit to CloudWatch"""
+    try:
+        # Initialize CloudWatch Logs client
+        logs_client = boto3.client('logs', region_name='us-east-1')
+        
+        # Convert conversation unit to JSON
+        if hasattr(conversation_unit, 'to_json'):
+            log_message = conversation_unit.to_json()
+        else:
+            log_message = json.dumps(conversation_unit, default=str, indent=2)
+        
+        # Create log event
+        log_event = {
+            'timestamp': int(datetime.now().timestamp() * 1000),
+            'message': log_message
+        }
+        
+        # Generate log stream name
+        if hasattr(conversation_unit, 'conversation_id'):
+            conv_id = conversation_unit.conversation_id
+        else:
+            conv_id = conversation_unit.get('conversation_id', 'unknown')
+        
+        stream_name = f"conversation-{datetime.now().strftime('%Y%m%d')}-{conv_id[:8]}"
+        
+        # Create log stream if needed
+        try:
+            logs_client.create_log_stream(
+                logGroupName='/aws/revops-ai/conversation-units',
+                logStreamName=stream_name
+            )
+        except logs_client.exceptions.ResourceAlreadyExistsException:
+            pass
+        
+        # Send log event
+        logs_client.put_log_events(
+            logGroupName='/aws/revops-ai/conversation-units',
+            logStreamName=stream_name,
+            logEvents=[log_event]
+        )
+        
+        print(f"Successfully logged conversation unit {conv_id[:8]} to CloudWatch")
+        
+    except Exception as e:
+        print(f"Failed to log conversation unit: {e}")
+        # Don't raise exception - logging failure shouldn't break the main flow
