@@ -1,0 +1,342 @@
+{
+  "project_name": "revops-ai-framework",
+  "region_name": "us-east-1",
+  "profile_name": "FireboltSystemAdministrator-740202120544",
+  "data_agent": {
+    "agent_id": "NOJMSQ8JPT",
+    "agent_alias_id": "BHFBAW3YMM",
+    "agent_alias_name": "Data_Agent_Prod",
+    "dev_agent_alias_id": "DQQHJQWXFH",
+    "dev_agent_alias_name": "Data_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "Data Analysis Agent V4 - Claude 3.7 with temporal analysis and business logic awareness",
+    "instructions_file": "agents/data_agent/instructions.md",
+    "latest_version": "2",
+    "agent_status": "PREPARED",
+    "action_groups": [
+      {
+        "action_group_id": "C2QWSTINRU",
+        "name": "firebolt_query",
+        "description": "Execute SQL queries against Firebolt data warehouse",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-query"
+      },
+      {
+        "action_group_id": "9ADZKQGFZC",
+        "name": "gong_retrieval",
+        "description": "Retrieve call data from Gong",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-gong-retrieval"
+      }
+    ]
+  },
+  "manager_agent": {
+    "agent_id": "PVWGKOWSOT",
+    "agent_alias_id": "LH87RBMCUQ",
+    "agent_alias_name": "Manager_Agent_Prod",
+    "dev_agent_alias_id": "9MVRKEHMHX",
+    "dev_agent_alias_name": "Manager_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "Manager Agent V4 - Claude 3.7 intelligent router and coordinator",
+    "instructions_file": "agents/manager_agent/instructions.md",
+    "latest_version": "4",
+    "agent_status": "PREPARED",
+    "agent_collaboration": "SUPERVISOR",
+    "collaborators": [
+      {
+        "collaborator_id": "ESTQRYTY9Z",
+        "collaborator_name": "DataAgent",
+        "agent_id": "NOJMSQ8JPT",
+        "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/NOJMSQ8JPT/BHFBAW3YMM",
+        "collaboration_instruction": "The DataAgent is a specialized helper that fetches structured business data on demand for the Decision Agent. It must: Connect to the Firebolt data warehouse, Gong transcripts, and any approved schemas. Accept concise natural-language queries. Return results as clean JSON or tabular objects, including field names, types, and row counts. Enrich records with ICP fields when available. Provide short English summaries of key findings only when asked; otherwise remain data-centric. Never perform strategic reasoning, outreach generation, or webhook actions. Use ISO-8601 dates and SI units. Assume UTC unless the request specifies a time zone. Confirm when no rows are found and suggest next-step queries. Tone: concise, factual, and machine-readable first. No marketing fluff. Refer to yourself as DataAgent in explanations.",
+        "relay_conversation_history": "TO_COLLABORATOR"
+      },
+      {
+        "collaborator_id": "G9BJIRTN1M",
+        "collaborator_name": "DealAnalysisAgent",
+        "agent_id": "DBHYUWC6U6",
+        "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/DBHYUWC6U6/SQQLCFQJUA",
+        "collaboration_instruction": "The DealAnalysisAgent is a specialized helper that performs comprehensive deal assessment using MEDDPICC methodology. It accepts requests for deal analysis, opportunity assessment, and sales pipeline evaluation. It uses embedded SQL queries to retrieve deal data from Firebolt warehouse and performs structured MEDDPICC analysis. It returns comprehensive deal assessments with dry numbers, bottom line assessment, and risk/opportunity analysis.",
+        "relay_conversation_history": "TO_COLLABORATOR"
+      },
+      {
+        "collaborator_id": "M2VNIZBT70",
+        "collaborator_name": "ExecutionAgent",
+        "agent_id": "AINAPUEIZU",
+        "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/AINAPUEIZU/RD6YGAICP0",
+        "collaboration_instruction": "ExecutionAgent is a specialized helper that performs operational actions requested by the Decision Agent. It must: Accept explicit commands such as Send webhook, Notify AE, Write to Firebolt, or Update CRM field. Execute exactly what is asked\u2014no extra reasoning or data queries. Return a compact JSON status object for each action. For webhooks/notifications: include target, payload size, and correlation ID. For Firebolt writes: confirm table, row count, and primary keys. Log errors verbosely but NEVER halt on partial failures. Follow idempotency: if the same action with identical parameters is received twice, treat the second as a no-op and respond duplicate. Never expose credentials or raw secrets. Tone: terse, machine-readable first; one-sentence human note only if needed.",
+        "relay_conversation_history": "TO_COLLABORATOR"
+      },
+      {
+        "collaborator_id": "ZZCPAJVH7L",
+        "collaborator_name": "WebSearchAgent",
+        "agent_id": "QKRQXXPJOJ",
+        "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/QKRQXXPJOJ/P3UKIIHUPI",
+        "collaboration_instruction": "The WebSearchAgent is a specialized helper that gathers external intelligence and company research for the Decision Agent. It must: Accept requests for lead research, company intelligence, and market analysis. Use web search capabilities to find information about people, companies, and industries. Return structured JSON with comprehensive research findings including person intelligence, company intelligence, market context, and assessment insights. Focus on actionable intelligence useful for lead qualification and sales decision-making. Cross-reference information from multiple sources for accuracy and completeness. Provide data quality assessments and highlight information gaps. Never perform data warehouse queries, webhook actions, or strategic decision-making. Use search_web() for general queries and research_company() for focused company research. Prioritize recent information and credible sources. Structure findings to enable informed strategic recommendations by the Decision Agent. Tone: professional, structured, and intelligence-focused. Refer to yourself as WebSearchAgent in explanations.",
+        "relay_conversation_history": "TO_COLLABORATOR"
+      },
+      {
+        "collaborator_id": "LA9HPDIEPL",
+        "collaborator_name": "LeadAnalysisAgent",
+        "agent_id": "IP9HPDIEPL",
+        "agent_alias_arn": "arn:aws:bedrock:us-east-1:740202120544:agent-alias/IP9HPDIEPL/FO8UT25HFA",
+        "collaboration_instruction": "The LeadAnalysisAgent is a specialized helper that performs comprehensive lead assessment and engagement strategy development. It accepts requests for lead analysis, ICP fit assessment, and outreach strategy creation. It retrieves data from Salesforce (contacts and leads), supplements with web research when needed, and performs structured ICP analysis using Firebolt's ideal customer profile criteria. It returns comprehensive lead assessments with ICP fit scoring, confidence levels, and personalized engagement recommendations including email sequences and LinkedIn outreach strategies.",
+        "relay_conversation_history": "TO_COLLABORATOR"
+      }
+    ]
+  },
+  "deal_analysis_agent": {
+    "agent_id": "DBHYUWC6U6",
+    "agent_alias_id": "SQQLCFQJUA",
+    "agent_alias_name": "Deal_Analysis_Agent_Prod",
+    "dev_agent_alias_id": "OAQ3FEIF2X",
+    "dev_agent_alias_name": "Deal_Analysis_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "Deal Analysis Agent V4 - Claude 3.7 specialized deal assessment with MEDDPICC evaluation",
+    "instructions_file": "agents/deal_analysis_agent/instructions.md",
+    "latest_version": "5",
+    "agent_status": "PREPARED",
+    "agent_collaboration": "COLLABORATOR",
+    "action_groups": [
+      {
+        "action_group_id": "6QR9URZI5K",
+        "name": "firebolt_query",
+        "description": "Execute SQL queries for deal analysis",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-query"
+      }
+    ]
+  },
+  "lead_analysis_agent": {
+    "agent_id": "IP9HPDIEPL",
+    "agent_alias_id": "FO8UT25HFA",
+    "agent_alias_name": "Lead_Analysis_Agent_Prod",
+    "dev_agent_alias_id": "TBD",
+    "dev_agent_alias_name": "Lead_Analysis_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "Lead Analysis Agent V4 - Claude 3.7 specialized lead assessment with ICP analysis and engagement strategy",
+    "instructions_file": "agents/lead_analysis_agent/instructions.md",
+    "latest_version": "1",
+    "agent_status": "PREPARED",
+    "action_groups": [
+      {
+        "action_group_id": "1CS9MHIHDV",
+        "name": "firebolt_query",
+        "description": "Execute SQL queries against Firebolt data warehouse for lead data analysis",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-query"
+      },
+      {
+        "action_group_id": "GCPCZ3XEQD",
+        "name": "web_search",
+        "description": "Search web and research companies for lead intelligence",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-web-search"
+      }
+    ]
+  },
+  "web_search_agent": {
+    "agent_id": "QKRQXXPJOJ",
+    "agent_alias_id": "P3UKIIHUPI",
+    "agent_alias_name": "Web_Search_Agent_Prod",
+    "dev_agent_alias_id": "2VDZRA61PT",
+    "dev_agent_alias_name": "Web_Search_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "WebSearch Agent V4 - Claude 3.7 clean implementation",
+    "instructions_file": "agents/web_search_agent/instructions.md",
+    "latest_version": "2",
+    "agent_status": "PREPARED",
+    "action_groups": [
+      {
+        "action_group_id": "XBFFOU73EO",
+        "name": "web_search_v3",
+        "description": "Web search and company research functions",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-web-search"
+      }
+    ]
+  },
+  "execution_agent": {
+    "agent_id": "AINAPUEIZU",
+    "agent_alias_id": "RD6YGAICP0",
+    "agent_alias_name": "Execution_Agent_Prod",
+    "dev_agent_alias_id": "8UTY0IVI7I",
+    "dev_agent_alias_name": "Execution_Agent_Dev",
+    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "description": "Execution Agent V4 - Claude 3.7 action execution and integration",
+    "instructions_file": "agents/execution_agent/instructions.md",
+    "latest_version": "2",
+    "agent_status": "PREPARED",
+    "action_groups": [
+      {
+        "action_group_id": "UAFECX9CXI",
+        "name": "webhook_executor",
+        "description": "Execute webhooks and trigger external systems",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-webhook"
+      },
+      {
+        "action_group_id": "R4UUDOTXG3",
+        "name": "firebolt_writer",
+        "description": "Write execution results to Firebolt",
+        "lambda_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-writer"
+      }
+    ]
+  },
+  "knowledge_base": {
+    "knowledge_base_id": "F61WLOYZSW",
+    "name": "revops-schema-kb-1751466030",
+    "status": "ACTIVE",
+    "schema_file_path": "knowledge_base/firebolt_schema/firebolt_schema.md",
+    "storage_bucket": "revops-ai-framework-kb-740202120544",
+    "storage_prefix": "revops-ai-framework/knowledge/",
+    "storage_configuration": {
+      "embeddingModelArn": "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+    },
+    "role_arn": "arn:aws:iam::740202120544:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_akrsp"
+  },
+  "lambda_functions": {
+    "firebolt_query": {
+      "function_name": "revops-firebolt-query",
+      "function_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-query",
+      "runtime": "python3.12",
+      "timeout": 600,
+      "memory_size": 256,
+      "source_dir": "tools/firebolt/query_lambda",
+      "handler": "lambda_function.lambda_handler",
+      "environment_variables": {
+        "FIREBOLT_ACCOUNT": "firebolt-dwh",
+        "FIREBOLT_ENGINE_NAME": "dwh_prod_analytics",
+        "FIREBOLT_DATABASE": "dwh_prod",
+        "FIREBOLT_ACCOUNT_NAME": "firebolt-dwh"
+      },
+      "iam_role": "arn:aws:iam::740202120544:role/firebolt-query-lambda-role"
+    },
+    "gong_retrieval": {
+      "function_name": "revops-gong-retrieval",
+      "function_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-gong-retrieval",
+      "runtime": "python3.12",
+      "timeout": 600,
+      "memory_size": 256,
+      "source_dir": "tools/gong/retrieval_lambda",
+      "handler": "lambda_function.lambda_handler",
+      "environment_variables": {
+        "GONG_CREDENTIALS_SECRET": "gong-credentials"
+      },
+      "iam_role": "arn:aws:iam::740202120544:role/gong-retrieval-lambda-role"
+    },
+    "webhook": {
+      "function_name": "revops-webhook",
+      "function_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-webhook",
+      "runtime": "python3.12",
+      "timeout": 600,
+      "memory_size": 256,
+      "source_dir": "tools/webhook",
+      "handler": "lambda_function.lambda_handler",
+      "environment_variables": {},
+      "iam_role": "arn:aws:iam::740202120544:role/webhook-lambda-role"
+    },
+    "firebolt_metadata": {
+      "function_name": "revops-firebolt-metadata",
+      "function_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-metadata",
+      "runtime": "python3.12",
+      "timeout": 600,
+      "memory_size": 256,
+      "source_dir": "tools/firebolt/metadata_lambda",
+      "handler": "lambda_function.lambda_handler",
+      "environment_variables": {
+        "FIREBOLT_ACCOUNT": "firebolt-dwh",
+        "FIREBOLT_ENGINE_NAME": "dwh_prod_analytics",
+        "FIREBOLT_DATABASE": "dwh_prod"
+      },
+      "iam_role": "arn:aws:iam::740202120544:role/firebolt-metadata-lambda-role"
+    },
+    "firebolt_writer": {
+      "function_name": "revops-firebolt-writer",
+      "function_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-firebolt-writer",
+      "runtime": "python3.12",
+      "timeout": 600,
+      "memory_size": 256,
+      "source_dir": "tools/firebolt/writer_lambda",
+      "handler": "lambda_function.lambda_handler",
+      "environment_variables": {
+        "FIREBOLT_ACCOUNT": "firebolt-dwh",
+        "FIREBOLT_ENGINE_NAME": "dwh_prod_analytics",
+        "FIREBOLT_DATABASE": "dwh_prod"
+      },
+      "iam_role": "arn:aws:iam::740202120544:role/firebolt-writer-lambda-role"
+    },
+    "web_search": {
+      "function_name": "revops-web-search",
+      "function_arn": "arn:aws:lambda:us-east-1:740202120544:function:revops-web-search",
+      "runtime": "python3.12",
+      "timeout": 600,
+      "memory_size": 256,
+      "source_dir": "tools/web_search",
+      "handler": "lambda_function.lambda_handler",
+      "environment_variables": {},
+      "iam_role": "arn:aws:iam::740202120544:role/web-search-lambda-role"
+    }
+  },
+  "execution_role_arn": "arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops",
+  "inference_profile": {
+    "inference_profile_id": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "inference_profile_name": "claude-3-7-sonnet-inference-profile",
+    "model_id": "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+  },
+  "secret_names": {
+    "firebolt_credentials": "firebolt-credentials",
+    "gong_credentials": "gong-credentials"
+  },
+  "integrations": {
+    "slack_bedrock_gateway": {
+      "architecture": "aws_best_practices",
+      "stack_name": "revops-slack-bedrock-stack",
+      "api_gateway_url": "https://s4tdiv7qrf.execute-api.us-east-1.amazonaws.com/prod/slack-events",
+      "handler_lambda": "revops-slack-bedrock-handler",
+      "processor_lambda": "revops-slack-bedrock-processor",
+      "processing_queue": "revops-slack-bedrock-processing-queue",
+      "secrets_arn": "arn:aws:secretsmanager:us-east-1:740202120544:secret:revops-slack-bedrock-secrets-372buh",
+      "status": "deployed_and_tested",
+      "deployment_date": "2025-07-05",
+      "integration_method": "direct_agent_invocation"
+    }
+  },
+  "deployment_status": {
+    "phase_1_agents": "completed",
+    "phase_2_slack_integration": "completed_aws_best_practices",
+    "phase_3_permissions": "completed_with_v4_fixes",
+    "phase_4_lambda_fixes": "completed",
+    "phase_5_multi_agent": "completed",
+    "phase_6_flow_removal": "completed",
+    "status": "v4_architecture_with_permissions_fixed",
+    "last_updated": "2025-07-22",
+    "notes": "V4 Architecture: Manager Agent with full collaboration capabilities. All agents using Claude 3.7 inference profiles. Complete 4-agent collaboration working. Slack integration operational. Lambda permissions fixed for V4 agents.",
+    "multi_agent_setup": {
+      "supervisor_agent": "PVWGKOWSOT (Manager Agent)",
+      "specialized_agents": [
+        "DBHYUWC6U6 (Deal Analysis Agent) - Specialized deal assessment with MEDDPICC and Claude 3.7",
+        "TBD (Lead Analysis Agent) - Specialized lead assessment with ICP analysis and engagement strategy (IN DEVELOPMENT)"
+      ],
+      "collaborator_agents": [
+        "NOJMSQ8JPT (DataAgent) - Data fetching and analysis",
+        "QKRQXXPJOJ (WebSearchAgent) - External intelligence and company research",
+        "AINAPUEIZU (ExecutionAgent) - Action execution and integration"
+      ],
+      "collaboration_mode": "HYBRID_ROUTING_WITH_LEAD_ANALYSIS",
+      "status": "v4_architecture_operational_with_lead_analysis_in_development"
+    },
+    "architecture_migration": {
+      "from": "broken_bedrock_flow",
+      "to": "direct_agent_invocation_with_aws_best_practices",
+      "benefits": [
+        "Native conversation management via Bedrock sessions",
+        "API Gateway + SQS + Lambda architecture",
+        "Async processing with error handling",
+        "Enterprise-grade monitoring and security"
+      ]
+    },
+    "recent_improvements": [
+      "Fixed Lambda permissions for all V4 agents (July 22, 2025)",
+      "Added missing IAM permissions for agent-Lambda function invocations",
+      "Updated config.json with accurate AWS resource details",
+      "Verified all agents are PREPARED and operational"
+    ],
+    "production_ready": true,
+    "slack_integration_status": "fully_deployed_and_tested",
+    "lambda_permissions_status": "fixed_for_all_v4_agents"
+  }
+}

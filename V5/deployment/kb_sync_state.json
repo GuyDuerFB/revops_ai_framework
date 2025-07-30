@@ -1,0 +1,27 @@
+{
+  "last_sync": "2025-07-15T12:33:15.225147",
+  "file_hashes": {
+    "sql_patterns/gong_call_analysis.md": "3d0d6d3c94461ce75c7c9ecf3bdcc6d7",
+    "sql_patterns/temporal_analysis.md": "1919953d422598f4d4005421b9931315",
+    "sql_patterns/customer_segmentation.md": "59557870c5ca6fa3e786c91155629a9c",
+    "workflows/closed_lost_re_engagement.md": "e5fca766112d81a594cabed4587597f2",
+    "workflows/lead_assessment_workflow.md": "e04bfc327c386dcec1d28070074e9d31",
+    "workflows/comprehensive_customer_risk_assessment_workflow.md": "87d64ddda2a9e659e343ca4f2cd200f6",
+    "workflows/poc_execution_workflow.md": "63d491739a4df13d6d58e98cfa1d3893",
+    "workflows/comprehensive_deal_assessment_workflow.md": "546a43d41b66696186806a3f46703dfa",
+    "business_logic/revenue_logic.md": "0fba07ab4297f17abe396adab63d14c6",
+    "business_logic/churn_risk_logic.md": "00fad42b8da1fc30a4c95e596b7b2d16",
+    "business_logic/firebolt_business_logic.md": "79a328192746a0830587e8ed4963b496",
+    "business_logic/customer_classification.md": "11716086e3a30913676aeedb48f2c3be",
+    "business_logic/sales_process_logic.md": "815d59fe8abd1c6a4bee93e6b2f00c4c",
+    "business_logic/consumption_logic.md": "80aa0e906b0fa313c0c90555e301e142",
+    "business_logic/conversion_funnels.md": "e02a77585f731fb130e268a8d144f864",
+    "icp_and_reachout/firebolt_messeging.md": "9b69a023702bc1f7e21e1490f1e28bc5",
+    "icp_and_reachout/firebolt_icp.md": "37d48775a566ccfbadc89375fe09cb3f",
+    "firebolt_schema/firebolt_schema.json": "5ec72f1b5f4e4e9cfed8049fa13cc306",
+    "firebolt_schema/firebolt_schema.md": "2368afa499cc10a12d304d80aae0050f",
+    "sql_patterns/regional_analysis.md": "31209edba0aa17e6196cd6bdb36ce527",
+    "sql_patterns/lead_analysis.md": "175a8284f084e0e6679b8eb2ed69b824"
+  },
+  "last_successful_sync": "2025-07-15T12:33:15.225180"
+}
