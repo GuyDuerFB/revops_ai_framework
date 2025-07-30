@@ -1,0 +1,338 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Slack integration with Amazon Bedrock Agents - AWS Best Practices Architecture'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: revops-slack-bedrock
+    Description: Name prefix for all resources
+  
+  BedrockAgentId:
+    Type: String
+    Default: TCX9CGOKBR
+    Description: Bedrock Agent ID (Decision Agent)
+    
+  BedrockAgentAliasId:
+    Type: String
+    Default: BKLREFH3L0
+    Description: Bedrock Agent Alias ID
+    
+  SlackSigningSecret:
+    Type: String
+    NoEcho: true
+    Description: Slack App Signing Secret
+    
+  SlackBotToken:
+    Type: String
+    NoEcho: true
+    Description: Slack Bot User OAuth Token
+
+Resources:
+  # S3 Bucket for Lambda deployment packages
+  DeploymentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-deployment-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Use existing S3 bucket for conversation exports (revops-ai-framework-kb-740202120544)
+  # Bucket already exists, no need to create it in CloudFormation
+
+  # Secrets Manager for Slack credentials
+  SlackSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${ProjectName}-secrets'
+      Description: 'Slack bot credentials'
+      SecretString: !Sub |
+        {
+          "signing_secret": "${SlackSigningSecret}",
+          "bot_token": "${SlackBotToken}"
+        }
+
+  # SQS Queue for async message processing
+  MessageProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${ProjectName}-processing-queue'
+      MessageRetentionPeriod: 1209600  # 14 days
+      VisibilityTimeout: 300           # 5 minutes (match Lambda timeout)
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # Dead Letter Queue for failed messages
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${ProjectName}-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # CloudWatch Log Groups
+  HandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-handler'
+      RetentionInDays: 30
+
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-processor'
+      RetentionInDays: 30
+
+  # CloudWatch Log Group for conversation units
+  ConversationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: '/aws/revops-ai/conversation-units'
+      RetentionInDays: 90
+
+  # IAM Role for Handler Lambda
+  HandlerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-handler-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: HandlerPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref SlackSecrets
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt MessageProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt HandlerLogGroup.Arn
+
+  # IAM Role for Processor Lambda
+  ProcessorLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-processor-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: ProcessorPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref SlackSecrets
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeAgent
+                  - bedrock-agent-runtime:InvokeAgent
+                Resource: 
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent-alias/${BedrockAgentId}/${BedrockAgentAliasId}'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent-alias/*/*'
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt MessageProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt ProcessorLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: 'arn:aws:logs:*:*:log-group:/aws/revops-ai/conversation-units'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:GetObject
+                Resource: 
+                  - !Sub 'arn:aws:s3:::revops-ai-framework-kb-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::revops-ai-framework-kb-${AWS::AccountId}/conversation-history/*'
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+
+  # Handler Lambda Function
+  HandlerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-handler'
+      Runtime: python3.9
+      Handler: handler.lambda_handler
+      Role: !GetAtt HandlerLambdaRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          
+          def lambda_handler(event, context):
+              logger.info("Handler Lambda placeholder - replace with actual code")
+              return {'statusCode': 200, 'body': 'OK'}
+      Environment:
+        Variables:
+          SECRETS_ARN: !Ref SlackSecrets
+          PROCESSING_QUEUE_URL: !Ref MessageProcessingQueue
+          LOG_LEVEL: INFO
+
+  # Processor Lambda Function
+  ProcessorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-processor'
+      Runtime: python3.9
+      Handler: processor.lambda_handler
+      Role: !GetAtt ProcessorLambdaRole.Arn
+      Timeout: 300
+      MemorySize: 512
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          
+          def lambda_handler(event, context):
+              logger.info("Processor Lambda placeholder - replace with actual code")
+              return {'statusCode': 200}
+      Environment:
+        Variables:
+          SECRETS_ARN: !Ref SlackSecrets
+          BEDROCK_AGENT_ID: !Ref BedrockAgentId
+          BEDROCK_AGENT_ALIAS_ID: !Ref BedrockAgentAliasId
+          CONVERSATION_EXPORT_BUCKET: !Sub 'revops-ai-framework-kb-${AWS::AccountId}'
+          LOG_LEVEL: INFO
+
+  # SQS Event Source Mapping for Processor Lambda
+  ProcessorEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt MessageProcessingQueue.Arn
+      FunctionName: !Ref ProcessorLambda
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 0
+
+  # API Gateway
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+      Description: 'Slack Events API Gateway'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resource
+  SlackEventsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: slack-events
+
+  # API Gateway Method
+  SlackEventsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SlackEventsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HandlerLambda.Arn}/invocations'
+
+  # Lambda permission for API Gateway
+  ApiGatewayInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HandlerLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*'
+
+  # API Gateway Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - SlackEventsMethod
+    Properties:
+      RestApiId: !Ref RestApi
+      StageName: prod
+
+Outputs:
+  ApiGatewayUrl:
+    Description: 'API Gateway URL for Slack Events'
+    Value: !Sub 'https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/prod/slack-events'
+    Export:
+      Name: !Sub '${ProjectName}-api-url'
+
+  ProcessingQueueUrl:
+    Description: 'SQS Queue URL for message processing'
+    Value: !Ref MessageProcessingQueue
+    Export:
+      Name: !Sub '${ProjectName}-queue-url'
+
+  SecretsArn:
+    Description: 'Secrets Manager ARN for Slack credentials'
+    Value: !Ref SlackSecrets
+    Export:
+      Name: !Sub '${ProjectName}-secrets-arn'
+
+  HandlerLambdaArn:
+    Description: 'Handler Lambda Function ARN'
+    Value: !GetAtt HandlerLambda.Arn
+    Export:
+      Name: !Sub '${ProjectName}-handler-arn'
+
+  ProcessorLambdaArn:
+    Description: 'Processor Lambda Function ARN'
+    Value: !GetAtt ProcessorLambda.Arn
+    Export:
+      Name: !Sub '${ProjectName}-processor-arn'
