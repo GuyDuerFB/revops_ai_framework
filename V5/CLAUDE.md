@@ -4,3 +4,6 @@
 
 ## Git Repository
 - git PRs and commits should go to https://github.com/firebolt-analytics/revops_agent_framework.git
+
+## Version
+Always look for the latest version. Right now it is V5
