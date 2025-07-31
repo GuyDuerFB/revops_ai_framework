@@ -702,20 +702,138 @@ class ConversationTracker:
             else:
                 self.current_agent_step["end_time"] = end_time
             
+            # DEBUG: Log agent step completion
+            reasoning_length = 0
+            if hasattr(self.current_agent_step, 'reasoning_text'):
+                reasoning_length = len(self.current_agent_step.reasoning_text or "")
+            elif isinstance(self.current_agent_step, dict):
+                reasoning_length = len(self.current_agent_step.get("reasoning_text", ""))
+            
+            print(f"[CONVERSATION UNIT] Completing agent execution for {agent_name}")
+            print(f"[CONVERSATION UNIT] Agent step reasoning length: {reasoning_length} chars")
+            
             # Add to agent flow
             if hasattr(self.conversation_unit, 'agent_flow'):
                 self.conversation_unit.agent_flow.append(self.current_agent_step)
+                print(f"[CONVERSATION UNIT] Added to agent_flow, total steps: {len(self.conversation_unit.agent_flow)}")
             else:
                 if "agent_flow" not in self.conversation_unit:
                     self.conversation_unit["agent_flow"] = []
                 self.conversation_unit["agent_flow"].append(self.current_agent_step)
+                print(f"[CONVERSATION UNIT] Added to agent_flow dict, total steps: {len(self.conversation_unit['agent_flow'])}")
             
             self.current_agent_step = None
+    
+    def _start_collaborating_agent(self, agent_name: str, agent_id: str, collaboration_request: dict):
+        """Start tracking a collaborating agent as a separate step"""
+        try:
+            # Extract collaboration reasoning
+            reasoning = f"🤝 {agent_name} - Received collaboration request from Manager Agent\n"
+            
+            if 'input' in collaboration_request and 'text' in collaboration_request['input']:
+                request_text = collaboration_request['input']['text']
+                reasoning += f"📋 Analysis request: {request_text[:300]}{'...' if len(request_text) > 300 else ''}\n"
+                reasoning += f"🔄 Analyzing request and preparing specialized response...\n"
+            
+            # Create agent step for collaborating agent
+            collab_step = AgentFlowStep(
+                agent_name=agent_name,
+                agent_id=agent_id,
+                start_time=datetime.now(timezone.utc).isoformat(),
+                end_time="",  # Will be filled when collaboration completes
+                reasoning_text=reasoning,
+                bedrock_trace_content=BedrockTraceContent(
+                    invocationInput=json.dumps(collaboration_request),
+                    raw_trace_data=collaboration_request
+                ),
+                tools_used=[],
+                data_operations=[],
+                collaboration_received=[{
+                    'from_agent': 'Manager',
+                    'request': collaboration_request.get('input', {}),
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }]
+            )
+            
+            # Store as pending collaboration (will be completed when response received)
+            if not hasattr(self, '_pending_collaborations'):
+                self._pending_collaborations = {}
+            self._pending_collaborations[agent_name] = collab_step
+            
+            # Add to agents involved
+            if hasattr(self.conversation_unit, 'agents_involved'):
+                if agent_name not in self.conversation_unit.agents_involved:
+                    self.conversation_unit.agents_involved.append(agent_name)
+            
+        except Exception as e:
+            print(f"Error starting collaboration tracking: {e}")
+    
+    def _complete_collaborating_agent(self, collab_output: dict):
+        """Complete the collaborating agent step"""
+        try:
+            if hasattr(self, '_pending_collaborations'):
+                # Find the pending collaboration (assuming most recent)
+                for agent_name, collab_step in self._pending_collaborations.items():
+                    if not collab_step.end_time:  # Find incomplete step
+                        # Add completion reasoning
+                        completion_reasoning = ""
+                        
+                        if 'text' in collab_output:
+                            response_text = collab_output['text']
+                            completion_reasoning += f"✅ {agent_name} analysis completed\n"
+                            completion_reasoning += f"📊 Response generated: {response_text[:200]}{'...' if len(response_text) > 200 else ''}\n"
+                        
+                        # Update step
+                        collab_step.end_time = datetime.now(timezone.utc).isoformat()
+                        collab_step.reasoning_text += completion_reasoning
+                        collab_step.bedrock_trace_content.observation = json.dumps(collab_output)
+                        
+                        # Add collaboration sent (response back to Manager)
+                        collab_step.collaboration_sent = [{
+                            'to_agent': 'Manager',
+                            'response': collab_output,
+                            'timestamp': collab_step.end_time
+                        }]
+                        
+                        # Add to conversation flow
+                        if hasattr(self.conversation_unit, 'agent_flow'):
+                            self.conversation_unit.agent_flow.append(collab_step)
+                        else:
+                            if "agent_flow" not in self.conversation_unit:
+                                self.conversation_unit["agent_flow"] = []
+                            self.conversation_unit["agent_flow"].append(collab_step)
+                        
+                        # Remove from pending
+                        del self._pending_collaborations[agent_name]
+                        print(f"[MULTI-AGENT] Completed {agent_name} collaboration step")
+                        break
+                        
+        except Exception as e:
+            print(f"Error completing collaboration tracking: {e}")
     
     def complete_conversation(self, final_response: str, success: bool, error_details: dict = None):
         """Complete conversation tracking"""
         end_time = datetime.now(timezone.utc)
         processing_time_ms = int((end_time - self.start_time).total_seconds() * 1000)
+        
+        # Finalize any pending collaborations
+        if hasattr(self, '_pending_collaborations'):
+            for agent_name, collab_step in self._pending_collaborations.items():
+                if not collab_step.end_time:
+                    print(f"[MULTI-AGENT] Finalizing incomplete collaboration with {agent_name}")
+                    collab_step.end_time = end_time.isoformat()
+                    collab_step.reasoning_text += f"⚠️ Collaboration completed without explicit response\n"
+                    
+                    # Add to agent flow
+                    if hasattr(self.conversation_unit, 'agent_flow'):
+                        self.conversation_unit.agent_flow.append(collab_step)
+                    else:
+                        if "agent_flow" not in self.conversation_unit:
+                            self.conversation_unit["agent_flow"] = []
+                        self.conversation_unit["agent_flow"].append(collab_step)
+            
+            # Clear pending collaborations
+            self._pending_collaborations.clear()
         
         if hasattr(self.conversation_unit, 'final_response'):
             self.conversation_unit.final_response = final_response
@@ -1092,6 +1210,12 @@ class CompleteSlackBedrockProcessor:
                     processing_time_ms=bedrock_processing_time
                 )
             
+            # CRITICAL FIX: End agent execution to finalize the conversation unit
+            conversation_tracker = getattr(self, 'conversation_tracker', None)
+            if conversation_tracker and conversation_tracker.current_agent_step:
+                conversation_tracker.complete_agent_execution("Manager")
+                print(f"[CONVERSATION UNIT] Agent execution finalized for Manager")
+            
             return {
                 'output': {'text': output_text},
                 'sessionId': session_id,
@@ -1152,13 +1276,41 @@ class CompleteSlackBedrockProcessor:
         reasoning_text = ""
         trace_content = {}
         
-        # Extract modelInvocationInput
+        # Extract modelInvocationInput (store summary, not full content)
         if 'modelInvocationInput' in orch_trace:
             input_data = orch_trace['modelInvocationInput']
             if 'text' in input_data:
-                trace_content['modelInvocationInput'] = input_data['text']
+                # CRITICAL FIX: Store only summary to avoid massive system prompt logging
+                input_text = input_data['text']
+                try:
+                    import json
+                    parsed = json.loads(input_text)
+                    
+                    # Create condensed version for storage
+                    summary = {
+                        "has_system": "system" in parsed,
+                        "has_human": "human" in parsed,
+                        "has_messages": "messages" in parsed,
+                        "input_length": len(input_text),
+                        "user_content": ""
+                    }
+                    
+                    # Extract only user content for storage
+                    if "human" in parsed:
+                        summary["user_content"] = parsed["human"][:300]
+                    elif "messages" in parsed:
+                        user_msgs = [msg.get("content", "") for msg in parsed["messages"] 
+                                   if isinstance(msg, dict) and msg.get("role") == "user"]
+                        if user_msgs:
+                            summary["user_content"] = user_msgs[0][:300]
+                    
+                    trace_content['modelInvocationInput'] = json.dumps(summary)
+                except:
+                    # Fallback for non-JSON input
+                    trace_content['modelInvocationInput'] = f"Input length: {len(input_text)} chars"
+                
                 # Extract reasoning from input text
-                reasoning_text += self._parse_reasoning_from_input(input_data['text'])
+                reasoning_text += self._parse_reasoning_from_input(input_text)
         
         # Extract invocationInput
         if 'invocationInput' in orch_trace:
@@ -1181,64 +1333,106 @@ class CompleteSlackBedrockProcessor:
         return reasoning_text, trace_content
     
     def _parse_reasoning_from_input(self, input_text: str) -> str:
-        """Extract reasoning from model input text"""
+        """Extract FULL reasoning from model input text - capture complete agent thought process"""
         try:
             # Parse JSON structure if present
             if input_text.startswith('{"'):
                 import json
                 parsed_content = json.loads(input_text)
                 
-                # Look for user instructions in the human field
+                # CAPTURE FULL AGENT REASONING - no truncation, no filtering
+                reasoning = ""
+                
+                # Include ALL human/user content without truncation
                 if 'human' in parsed_content:
                     human_content = parsed_content['human']
-                    return f"Received request: {human_content[:200]}...\n"
+                    reasoning += f"[USER REQUEST]\n{human_content}\n\n"
                 
-                # Look for system instructions
+                if 'messages' in parsed_content:
+                    # Extract ALL message content - both user and assistant reasoning
+                    for msg in parsed_content['messages']:
+                        if isinstance(msg, dict):
+                            role = msg.get('role', 'unknown')
+                            content = msg.get('content', '')
+                            reasoning += f"[{role.upper()}]\n{content}\n\n"
+                
+                # Include relevant system context (agent identity) but not massive system prompts
                 if 'system' in parsed_content:
                     system_content = parsed_content['system']
-                    if 'Manager Agent' in system_content:
-                        return "Acting as Manager Agent - analyzing request and determining routing strategy\n"
-                    elif 'Deal Analysis Agent' in system_content:
-                        return "Acting as Deal Analysis Agent - performing comprehensive deal assessment\n"
+                    # Only add agent identity, not full prompt
+                    if 'Manager Agent' in system_content and len(system_content) < 500:
+                        reasoning += f"[AGENT CONTEXT]\n{system_content}\n\n"
+                    elif any(agent in system_content for agent in ['Deal Analysis', 'Lead Analysis', 'Data Agent', 'Web Search', 'Execution']) and len(system_content) < 500:
+                        reasoning += f"[AGENT CONTEXT]\n{system_content}\n\n"
+                
+                # If we have assistant/agent reasoning, capture it fully
+                if 'assistant' in parsed_content:
+                    assistant_content = parsed_content['assistant']
+                    reasoning += f"[AGENT REASONING]\n{assistant_content}\n\n"
+                
+                return reasoning if reasoning else input_text
             
-            # Fallback to raw text analysis
-            return f"Processing input: {input_text[:100]}...\n"
+            # For non-JSON input, return the full text (likely agent reasoning)
+            return f"[FULL INPUT]\n{input_text}\n"
             
+        except json.JSONDecodeError:
+            # If JSON parsing fails, return the raw input as it might be pure agent reasoning
+            return f"[RAW REASONING]\n{input_text}\n"
         except Exception as e:
-            return f"Processing model input (parse error: {str(e)})\n"
+            return f"[PARSING ERROR] {str(e)}\n[RAW CONTENT]\n{input_text}\n"
     
     def _parse_reasoning_from_invocation(self, invocation_data: dict) -> str:
-        """Extract reasoning from invocation data"""
+        """Extract FULL reasoning from invocation data - no truncation"""
         reasoning = ""
         
-        # Agent collaboration
+        # Agent collaboration - capture FULL collaboration details
         if 'agentCollaboratorInvocationInput' in invocation_data:
             collab = invocation_data['agentCollaboratorInvocationInput']
             agent_name = collab.get('agentCollaboratorName', 'specialist agent')
-            reasoning += f"Collaborating with {agent_name} for specialized analysis\n"
+            reasoning += f"[AGENT COLLABORATION]\nCollaborating with: {agent_name}\n"
             
             if 'input' in collab and 'text' in collab['input']:
                 request_text = collab['input']['text']
-                reasoning += f"Collaboration request: {request_text[:150]}...\n"
+                reasoning += f"Full collaboration request:\n{request_text}\n\n"
+            
+            # Include any other collaboration data
+            for key, value in collab.items():
+                if key not in ['agentCollaboratorName', 'input']:
+                    reasoning += f"{key}: {value}\n"
+            reasoning += "\n"
         
-        # Knowledge base lookup
+        # Knowledge base lookup - capture FULL search content
         elif 'knowledgeBaseLookupInput' in invocation_data:
             kb_input = invocation_data['knowledgeBaseLookupInput']
+            reasoning += f"[KNOWLEDGE BASE SEARCH]\n"
             if 'text' in kb_input:
                 search_text = kb_input['text']
-                reasoning += f"Searching knowledge base for: {search_text[:100]}...\n"
+                reasoning += f"Search query:\n{search_text}\n\n"
+            
+            # Include all KB lookup details
+            for key, value in kb_input.items():
+                if key != 'text':
+                    reasoning += f"{key}: {value}\n"
+            reasoning += "\n"
         
-        # Action group execution
+        # Action group execution - capture FULL parameters
         elif 'actionGroupInvocationInput' in invocation_data:
             action_input = invocation_data['actionGroupInvocationInput']
             action_name = action_input.get('actionGroupName', 'unknown action')
-            reasoning += f"Executing {action_name} with parameters\n"
+            reasoning += f"[ACTION GROUP EXECUTION]\nAction: {action_name}\n"
             
             if 'parameters' in action_input:
+                reasoning += "Full Parameters:\n"
                 for param in action_input['parameters']:
                     param_name = param.get('name', 'unknown')
-                    param_value = str(param.get('value', ''))[:100]
-                    reasoning += f"  - {param_name}: {param_value}...\n"
+                    param_value = str(param.get('value', ''))
+                    reasoning += f"  {param_name}: {param_value}\n"
+            
+            # Include all other action group data
+            for key, value in action_input.items():
+                if key not in ['actionGroupName', 'parameters']:
+                    reasoning += f"{key}: {value}\n"
+            reasoning += "\n"
         
         return reasoning
     
@@ -1259,22 +1453,60 @@ class CompleteSlackBedrockProcessor:
     def _parse_reasoning_from_observation(self, observation_data: dict) -> str:
         """Extract reasoning from agent observations"""
         if isinstance(observation_data, dict):
+            reasoning = ""
+            
             # Look for specific observation types
             if 'actionGroupInvocationOutput' in observation_data:
                 output = observation_data['actionGroupInvocationOutput']
                 if 'text' in output:
-                    result_text = output['text'][:200]
-                    return f"Action completed with result: {result_text}...\n"
+                    result_text = output['text']
+                    
+                    # Parse structured results if possible
+                    try:
+                        import json
+                        parsed_result = json.loads(result_text)
+                        
+                        # Handle different result types
+                        if isinstance(parsed_result, dict):
+                            if 'status' in parsed_result:
+                                status = parsed_result['status']
+                                reasoning += f"✅ Action completed with status: {status}\n"
+                            
+                            if 'data' in parsed_result or 'results' in parsed_result:
+                                data_key = 'data' if 'data' in parsed_result else 'results'
+                                data = parsed_result[data_key]
+                                if isinstance(data, list):
+                                    reasoning += f"📊 Retrieved {len(data)} records\n"
+                                elif isinstance(data, dict):
+                                    reasoning += f"📋 Retrieved structured data with {len(data)} fields\n"
+                                else:
+                                    reasoning += f"📄 Retrieved: {str(data)[:100]}{'...' if len(str(data)) > 100 else ''}\n"
+                            
+                            if 'message' in parsed_result:
+                                reasoning += f"💬 {parsed_result['message']}\n"
+                        else:
+                            reasoning += f"📄 Result: {str(parsed_result)[:200]}{'...' if len(str(parsed_result)) > 200 else ''}\n"
+                    except:
+                        # Fallback for non-JSON results
+                        reasoning += f"✅ Action completed: {result_text[:200]}{'...' if len(result_text) > 200 else ''}\n"
             
-            # Look for error information
-            if 'error' in observation_data:
-                error_info = observation_data['error']
-                return f"Error encountered: {str(error_info)[:150]}...\n"
+            # Knowledge base lookup results
+            elif 'knowledgeBaseLookupOutput' in observation_data:
+                kb_output = observation_data['knowledgeBaseLookupOutput']
+                if 'retrievedReferences' in kb_output:
+                    refs = kb_output['retrievedReferences']
+                    reasoning += f"📚 Found {len(refs)} knowledge base references\n"
             
-            # Generic observation processing
-            return f"Observation recorded: {str(observation_data)[:150]}...\n"
+            # Agent collaboration results
+            elif 'agentCollaboratorInvocationOutput' in observation_data:
+                collab_output = observation_data['agentCollaboratorInvocationOutput']
+                if 'text' in collab_output:
+                    collab_result = collab_output['text']
+                    reasoning += f"🤝 Collaboration result: {collab_result[:200]}{'...' if len(collab_result) > 200 else ''}\n"
+            
+            return reasoning if reasoning else f"📋 Processing observation data\n"
         
-        return f"Processing observation: {str(observation_data)[:100]}...\n"
+        return "📋 Processing observation data\n"
 
     def _extract_agent_collaborations(self, trace_data: dict, agent_name: str) -> tuple:
         """
@@ -1606,7 +1838,35 @@ class CompleteSlackBedrockProcessor:
                         success=True
                     )
                 
-                # Extract and track agent collaborations
+                # ENHANCED: Track multi-agent collaborations as separate agent steps
+                if 'invocationInput' in orch_trace:
+                    invocation = orch_trace['invocationInput']
+                    
+                    # Check for agent collaboration
+                    if 'agentCollaboratorInvocationInput' in invocation:
+                        collab_input = invocation['agentCollaboratorInvocationInput']
+                        collaborator_name = collab_input.get('agentCollaboratorName', 'Unknown Agent')
+                        
+                        # Start tracking the collaborating agent
+                        conversation_tracker._start_collaborating_agent(
+                            agent_name=collaborator_name,
+                            agent_id=f"{collaborator_name.upper().replace(' ', '_')}_001",
+                            collaboration_request=collab_input
+                        )
+                        
+                        print(f"[MULTI-AGENT] Started tracking collaboration with {collaborator_name}")
+                
+                # Check for collaboration responses in observations
+                if 'observation' in orch_trace:
+                    obs = orch_trace['observation']
+                    if 'agentCollaboratorInvocationOutput' in obs:
+                        collab_output = obs['agentCollaboratorInvocationOutput']
+                        
+                        # Complete the collaborating agent's step
+                        conversation_tracker._complete_collaborating_agent(collab_output)
+                        print(f"[MULTI-AGENT] Completed collaboration agent step")
+                
+                # Extract and track agent collaborations for Manager
                 sent_messages, received_messages = self._extract_agent_collaborations(orch_trace, "Manager")
                 
                 # Add collaboration messages to current agent step

@@ -29,8 +29,8 @@ class ConversationExporter:
         base_path = self._get_s3_path(conversation, "")
         
         format_handlers = {
-            'structured_json': ('conversation.json', self._to_structured_json),
-            'enhanced_structured_json': ('enhanced_conversation.json', self._to_enhanced_structured_json),
+            'enhanced_structured_json': ('conversation.json', self._to_enhanced_structured_json),
+            'structured_json': ('legacy_conversation.json', self._to_structured_json),
             'llm_readable': ('conversation.txt', self._to_llm_readable_text),
             'analysis_format': ('analysis.json', self._to_analysis_format),
             'metadata_only': ('metadata.json', self._to_metadata_only),
@@ -72,30 +72,28 @@ class ConversationExporter:
         return exported_urls
     
     def _get_s3_path(self, conversation, filename: str) -> str:
-        """Generate S3 path: conversation-history/YYYY/MM/DD/conversation-id/filename"""
+        """Generate S3 path: conversation-history/YYYY/MM/DD/timestamp/filename"""
         
-        # Extract date components from timestamp
+        # Extract timestamp from conversation
         if hasattr(conversation, 'start_timestamp'):
             timestamp = conversation.start_timestamp
         elif isinstance(conversation, dict) and 'start_timestamp' in conversation:
             timestamp = conversation['start_timestamp']
         else:
-            # Fallback to current date
+            # Fallback to current timestamp
             timestamp = datetime.utcnow().isoformat()
         
         # Parse timestamp to get date components
         date_str = timestamp[:10]  # YYYY-MM-DD
         year, month, day = date_str.split('-')
         
-        # Get conversation ID safely
-        if hasattr(conversation, 'conversation_id'):
-            conv_id = conversation.conversation_id
-        elif isinstance(conversation, dict) and 'conversation_id' in conversation:
-            conv_id = conversation['conversation_id']
-        else:
-            conv_id = 'unknown'
+        # Use full timestamp as directory name (clean it for filesystem)
+        # Convert from "2025-07-31T08:00:17.939954+00:00" to "2025-07-31T08-00-17"
+        timestamp_dir = timestamp.replace(':', '-').split('.')[0]  # Remove microseconds and timezone
+        if '+' in timestamp_dir:
+            timestamp_dir = timestamp_dir.split('+')[0]  # Remove timezone
         
-        return f"{self.prefix}{year}/{month}/{day}/{conv_id}/{filename}"
+        return f"{self.prefix}{year}/{month}/{day}/{timestamp_dir}/{filename}"
     
     def _to_structured_json(self, conversation) -> str:
         """Convert to structured JSON format - complete data preservation"""
