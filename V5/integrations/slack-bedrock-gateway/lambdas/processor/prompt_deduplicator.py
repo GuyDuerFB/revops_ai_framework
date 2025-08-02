@@ -59,6 +59,138 @@ class PromptDeduplicator:
         
         return deduplicated_trace, prompt_id
     
+    def filter_system_prompts_from_messages(self, messages_data) -> Tuple[any, bool]:
+        """Filter system prompts from messages array - main source of leakage"""
+        
+        if not messages_data:
+            return messages_data, False
+        
+        filtered_messages = []
+        system_prompts_found = False
+        
+        # Handle different message formats
+        if isinstance(messages_data, list):
+            for message in messages_data:
+                filtered_msg, had_system = self._filter_message_content(message)
+                if filtered_msg:  # Only add non-empty messages
+                    filtered_messages.append(filtered_msg)
+                system_prompts_found = system_prompts_found or had_system
+        elif isinstance(messages_data, dict):
+            # Single message format
+            filtered_msg, had_system = self._filter_message_content(messages_data)
+            if filtered_msg:
+                filtered_messages = filtered_msg
+            system_prompts_found = had_system
+        else:
+            # String format - check if it's a system prompt
+            if self._is_system_prompt_content(str(messages_data)):
+                self.logger.info("Filtered out system prompt from string message content")
+                return None, True
+            filtered_messages = messages_data
+        
+        return filtered_messages, system_prompts_found
+    
+    def _filter_message_content(self, message) -> Tuple[any, bool]:
+        """Filter system prompts from individual message"""
+        
+        if not message:
+            return message, False
+        
+        system_prompt_found = False
+        
+        # Handle string message content
+        if isinstance(message, str):
+            if self._is_system_prompt_content(message):
+                self.logger.info("Filtered out system prompt from string message")
+                return None, True
+            return message, False
+        
+        # Handle dict message format
+        if isinstance(message, dict):
+            filtered_message = {}
+            
+            for key, value in message.items():
+                # Check for system role
+                if key == "role" and value == "system":
+                    system_prompt_found = True
+                    continue
+                
+                # Check content field for system prompts
+                if key == "content" and isinstance(value, str):
+                    if self._is_system_prompt_content(value):
+                        system_prompt_found = True
+                        self.logger.info(f"Filtered out system prompt from message content (size: {len(value)})")
+                        continue
+                
+                # Check for nested system prompts in JSON content
+                if key == "content" and isinstance(value, str) and value.startswith("{"):
+                    try:
+                        content_data = json.loads(value)
+                        if isinstance(content_data, dict) and "system" in content_data:
+                            system_prompt_text = content_data["system"]
+                            if self._is_system_prompt_content(system_prompt_text):
+                                system_prompt_found = True
+                                self.logger.info(f"Filtered out nested system prompt (size: {len(system_prompt_text)})")
+                                # Remove system prompt from nested JSON
+                                del content_data["system"]
+                                if content_data:  # If there's still content left
+                                    filtered_message[key] = json.dumps(content_data)
+                                continue
+                    except json.JSONDecodeError:
+                        pass  # Not JSON, treat as regular content
+                
+                # Keep non-system content
+                filtered_message[key] = value
+            
+            # Return None if entire message was system prompt
+            if not filtered_message and system_prompt_found:
+                return None, True
+            
+            return filtered_message if filtered_message else message, system_prompt_found
+        
+        return message, False
+    
+    def _is_system_prompt_content(self, content: str) -> bool:
+        """Detect if content is a system prompt"""
+        
+        if not content or len(content) < 100:  # Too short to be a system prompt
+            return False
+        
+        # System prompt indicators
+        system_indicators = [
+            "# Manager Agent Instructions",
+            "# Data Analysis Agent Instructions", 
+            "## Agent Purpose",
+            "You are the **Manager Agent**",
+            "You are the Data Analysis Agent",
+            "## Your Role as SUPERVISOR",
+            "Agent Collaboration Architecture",
+            "## Agent Purpose You are the",
+            "RevOps AI Framework",
+            "## Core Capabilities",
+            "ALWAYS follow these additional guidelines",
+            "You MUST follow these additional guidelines"
+        ]
+        
+        # Size-based detection (system prompts are typically very large)
+        if len(content) > 5000:
+            # Check for multiple system prompt indicators
+            indicator_count = sum(1 for indicator in system_indicators if indicator in content)
+            if indicator_count >= 2:
+                return True
+        
+        # Content pattern detection
+        if len(content) > 1000:
+            for indicator in system_indicators:
+                if indicator in content:
+                    return True
+        
+        # JSON system field detection  
+        if content.strip().startswith('{"system":'):
+            return True
+            
+        return False
+    
     def _extract_system_prompt(self, model_input: str) -> Optional[Tuple[str, str]]:
         """Extract system prompt from modelInvocationInput JSON"""
         try:
