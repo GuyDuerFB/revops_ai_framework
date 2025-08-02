@@ -41,6 +41,136 @@ class ConversationTransformer:
             }
             
             return enhanced_structure
+    
+    def validate_enhanced_structure(self, enhanced_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate enhanced structure and provide quality assessment"""
+        
+        validation_result = {
+            "valid": True,
+            "warnings": [],
+            "errors": [],
+            "statistics": {},
+            "quality_assessment": {}
+        }
+        
+        try:
+            # Basic structure validation
+            if not isinstance(enhanced_data, dict):
+                validation_result["valid"] = False
+                validation_result["errors"].append("Enhanced data is not a dictionary")
+                return validation_result
+            
+            # Check required top-level keys
+            required_keys = ["export_metadata", "conversation"]
+            for key in required_keys:
+                if key not in enhanced_data:
+                    validation_result["valid"] = False
+                    validation_result["errors"].append(f"Missing required key: {key}")
+            
+            if not validation_result["valid"]:
+                return validation_result
+            
+            # Validate conversation structure
+            conversation = enhanced_data.get("conversation", {})
+            if not isinstance(conversation, dict):
+                validation_result["valid"] = False
+                validation_result["errors"].append("Conversation is not a dictionary")
+                return validation_result
+            
+            # Extract statistics
+            agent_flow = conversation.get("agent_flow", [])
+            validation_result["statistics"] = {
+                "agent_steps": len(agent_flow),
+                "steps_with_enhanced_reasoning": sum(1 for step in agent_flow if isinstance(step, dict) and step.get("reasoning_breakdown")),
+                "total_kb_searches": sum(len(step.get("reasoning_breakdown", {}).get("knowledge_base_searches", [])) for step in agent_flow if isinstance(step, dict)),
+                "total_tool_executions": sum(len(step.get("reasoning_breakdown", {}).get("tool_executions", [])) for step in agent_flow if isinstance(step, dict)),
+                "detected_handovers": len(conversation.get("detected_agent_handovers", [])),
+                "agents_involved": len(conversation.get("agents_involved", []))
+            }
+            
+            # Quality assessment
+            stats = validation_result["statistics"]
+            quality_score = 0.0
+            
+            # Agent flow quality
+            if stats["agent_steps"] > 0:
+                quality_score += 0.2
+                if stats["steps_with_enhanced_reasoning"] > 0:
+                    quality_score += 0.3
+                if stats["detected_handovers"] > 0:
+                    quality_score += 0.2
+                if stats["total_tool_executions"] > 0:
+                    quality_score += 0.2
+                if stats["total_kb_searches"] > 0:
+                    quality_score += 0.1
+            
+            validation_result["quality_assessment"] = {
+                "overall_score": min(1.0, quality_score),
+                "has_agent_flow": stats["agent_steps"] > 0,
+                "has_enhanced_reasoning": stats["steps_with_enhanced_reasoning"] > 0,
+                "has_handover_detection": stats["detected_handovers"] > 0,
+                "has_tool_executions": stats["total_tool_executions"] > 0
+            }
+            
+            # Add warnings for quality issues
+            if quality_score < 0.5:
+                validation_result["warnings"].append("Low quality score - limited data enrichment")
+            if stats["agent_steps"] == 0:
+                validation_result["warnings"].append("No agent steps found")
+            if stats["detected_handovers"] == 0 and stats["agent_steps"] > 1:
+                validation_result["warnings"].append("Multiple agent steps but no handovers detected")
+                
+        except Exception as e:
+            validation_result["valid"] = False
+            validation_result["errors"].append(f"Validation error: {str(e)}")
+            validation_result["quality_assessment"]["overall_score"] = 0.0
+        
+        return validation_result
+    
+    def _transform_agent_step(self, agent_step: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform individual agent step with enhanced reasoning breakdown"""
+        
+        if not isinstance(agent_step, dict):
+            return agent_step
+        
+        # Start with basic step structure
+        transformed_step = {
+            "agent_name": agent_step.get("agent_name", "unknown"),
+            "agent_id": agent_step.get("agent_id", ""),
+            "timing": agent_step.get("timing", {}),
+            "agent_handover_detected": agent_step.get("agent_handover_detected", False)
+        }
+        
+        # Add handover information if detected
+        if agent_step.get("agent_handover_detected"):
+            transformed_step["original_agent_name"] = agent_step.get("original_agent_name", "")
+            transformed_step["handover_evidence"] = agent_step.get("handover_evidence", {})
+        
+        # Parse reasoning text into structured breakdown
+        reasoning_text = agent_step.get("reasoning_text", "")
+        if reasoning_text and not agent_step.get("reasoning_breakdown"):
+            # Use ReasoningTextParser to create structured breakdown
+            reasoning_breakdown = self.parser.parse_reasoning_text(reasoning_text)
+            transformed_step["reasoning_breakdown"] = reasoning_breakdown
+        elif agent_step.get("reasoning_breakdown"):
+            transformed_step["reasoning_breakdown"] = agent_step["reasoning_breakdown"]
+        
+        # Include tools and data operations
+        transformed_step["tools_used"] = agent_step.get("tools_used", [])
+        transformed_step["data_operations"] = agent_step.get("data_operations", [])
+        
+        # Include filtered trace content (no raw system prompts)
+        if agent_step.get("bedrock_trace_content"):
+            trace_content = agent_step["bedrock_trace_content"]
+            # Only include safe trace content fields
+            safe_trace = {}
+            for key in ["invocationInput", "actionGroupInvocationInput", "observation"]:
+                if key in trace_content:
+                    safe_trace[key] = trace_content[key]
+            if safe_trace:
+                transformed_step["filtered_trace_content"] = safe_trace
+        
+        return transformed_step
             
         except Exception as e:
             logger.error(f"Error transforming conversation structure: {e}")
@@ -76,7 +206,9 @@ class ConversationTransformer:
             "conversation_id": conversation.get('conversation_id', 'unknown'),
             "metadata": metadata,
             "agent_flow": transformed_agent_flow,
-            "conversation_summary": summary
+            "conversation_summary": summary,
+            "detected_agent_handovers": conversation.get('detected_agent_handovers', []),
+            "agents_involved": conversation.get('agents_involved', [])
         }
     
     def _extract_conversation_metadata(self, conversation: Dict[str, Any]) -> Dict[str, Any]:
