@@ -6,6 +6,8 @@ Exports conversations in multiple formats optimized for different use cases
 import boto3
 import json
 import logging
+import base64
+import copy
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from conversation_transformer import ConversationTransformer
@@ -525,14 +527,15 @@ class ConversationExporter:
                     }
                 }
             
-            # CRITICAL: Enhanced system prompt filtering with aggressive detection
-            conversation_data = self._aggressively_filter_system_prompts(conversation_data)
+            # CRITICAL: Enhanced system prompt filtering with aggressive detection (safe copy)
+            conversation_data_copy = self._deep_copy_with_safety(conversation_data)
+            conversation_data_filtered = self._aggressively_filter_system_prompts(conversation_data_copy)
             
-            # ENHANCED: Advanced agent handover detection
-            conversation_data = self._detect_and_parse_agent_handovers(conversation_data)
+            # ENHANCED: Advanced agent handover detection (safe copy)
+            conversation_data_enhanced = self._detect_and_parse_agent_handovers(conversation_data_filtered)
             
             # Transform to enhanced structure with better parsing
-            enhanced_data = self.transformer.transform_to_enhanced_structure(conversation_data)
+            enhanced_data = self.transformer.transform_to_enhanced_structure(conversation_data_enhanced)
             
             # ENHANCED: Comprehensive validation and quality assessment
             validation = self.transformer.validate_enhanced_structure(enhanced_data)
@@ -560,7 +563,8 @@ class ConversationExporter:
             else:
                 self.logger.info(f"Export quality assessment: {overall_score:.2f}")
             
-            return json.dumps(enhanced_data, indent=2, default=str)
+            # ENHANCED: Safe JSON serialization with proper error handling
+            return self._safe_json_dumps(enhanced_data)
             
         except Exception as e:
             self.logger.error(f"Error creating enhanced structured JSON: {e}")
@@ -581,7 +585,7 @@ class ConversationExporter:
                 }
             }
             
-            return json.dumps(fallback_data, indent=2, default=str)
+            return self._safe_json_dumps(fallback_data)
     
     def _filter_system_prompts_from_conversation_data(self, conversation_data: Dict) -> Dict:
         """Filter system prompts from all parts of conversation data"""
@@ -1243,6 +1247,136 @@ class ConversationExporter:
                 evidence["tool_indicators"].append(tool_name)
         
         return evidence
+    
+    def _safe_json_dumps(self, data: Any) -> str:
+        """Safely serialize data to JSON with proper error handling and type conversion"""
+        
+        def json_serializer(obj):
+            """Custom JSON serializer for complex objects"""
+            
+            # Handle datetime objects
+            if hasattr(obj, 'isoformat'):
+                return obj.isoformat()
+            
+            # Handle sets
+            if isinstance(obj, set):
+                return list(obj)
+            
+            # Handle complex objects with __dict__
+            if hasattr(obj, '__dict__'):
+                return obj.__dict__
+            
+            # Handle bytes
+            if isinstance(obj, bytes):
+                try:
+                    return obj.decode('utf-8')
+                except UnicodeDecodeError:
+                    return base64.b64encode(obj).decode('utf-8')
+            
+            # Fallback to string representation
+            return str(obj)
+        
+        try:
+            # First attempt: Direct serialization
+            return json.dumps(data, indent=2, separators=(',', ': '), ensure_ascii=False, default=json_serializer)
+            
+        except (TypeError, ValueError) as e:
+            self.logger.warning(f"Initial JSON serialization failed: {e}. Attempting cleanup.")
+            
+            try:
+                # Second attempt: Clean the data first
+                cleaned_data = self._clean_data_for_json(data)
+                return json.dumps(cleaned_data, indent=2, separators=(',', ': '), ensure_ascii=False, default=json_serializer)
+                
+            except Exception as e2:
+                self.logger.error(f"JSON serialization failed after cleanup: {e2}")
+                
+                # Final fallback: Minimal structure
+                fallback = {
+                    "export_metadata": {
+                        "format": "enhanced_structured_json",
+                        "version": "2.0",
+                        "exported_at": datetime.utcnow().isoformat(),
+                        "serialization_error": str(e2),
+                        "note": "JSON serialization failed, minimal structure provided"
+                    },
+                    "conversation": {
+                        "error": "Serialization failed",
+                        "original_error": str(e),
+                        "cleanup_error": str(e2)
+                    }
+                }
+                
+                return json.dumps(fallback, indent=2, default=str)
+    
+    def _clean_data_for_json(self, data: Any, max_depth: int = 10, current_depth: int = 0) -> Any:
+        """Recursively clean data to ensure JSON serialization"""
+        
+        if current_depth > max_depth:
+            return f"[MAX_DEPTH_EXCEEDED: {type(data).__name__}]"
+        
+        if data is None:
+            return None
+        
+        # Handle primitive types
+        if isinstance(data, (str, int, float, bool)):
+            return data
+        
+        # Handle lists
+        if isinstance(data, (list, tuple)):
+            try:
+                return [self._clean_data_for_json(item, max_depth, current_depth + 1) for item in data[:1000]]  # Limit list size
+            except Exception:
+                return f"[LIST_CLEANUP_FAILED: {len(data)} items]"
+        
+        # Handle dictionaries
+        if isinstance(data, dict):
+            try:
+                cleaned = {}
+                for key, value in list(data.items())[:100]:  # Limit dict size
+                    try:
+                        # Ensure key is string
+                        str_key = str(key) if not isinstance(key, str) else key
+                        cleaned[str_key] = self._clean_data_for_json(value, max_depth, current_depth + 1)
+                    except Exception as e:
+                        cleaned[f"cleanup_error_{str(key)}"] = f"Failed to clean: {str(e)}"
+                return cleaned
+            except Exception:
+                return f"[DICT_CLEANUP_FAILED: {len(data)} items]"
+        
+        # Handle datetime objects
+        if hasattr(data, 'isoformat'):
+            try:
+                return data.isoformat()
+            except Exception:
+                return str(data)
+        
+        # Handle objects with __dict__
+        if hasattr(data, '__dict__'):
+            try:
+                return self._clean_data_for_json(data.__dict__, max_depth, current_depth + 1)
+            except Exception:
+                return f"[OBJECT_CLEANUP_FAILED: {type(data).__name__}]"
+        
+        # Handle everything else
+        try:
+            return str(data)
+        except Exception:
+            return f"[UNSERIALIZABLE: {type(data).__name__}]"
+    
+    def _deep_copy_with_safety(self, data: Any) -> Any:
+        """Create a deep copy of data with safety checks to prevent corruption"""
+        
+        try:
+            import copy
+            return copy.deepcopy(data)
+        except Exception as e:
+            self.logger.warning(f"Deep copy failed: {e}. Using shallow copy.")
+            try:
+                return copy.copy(data) if hasattr(copy, 'copy') else data
+            except Exception:
+                self.logger.warning("Shallow copy failed. Returning original data.")
+                return data
     
     def validate_export_before_upload(self, content: str, format_name: str) -> Tuple[bool, List[str]]:
         """Validate export content before uploading to S3"""
