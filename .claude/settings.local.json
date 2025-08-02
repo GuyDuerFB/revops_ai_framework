@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(aws:*)",
+      "Bash(export AWS_PROFILE=FireboltSystemAdministrator-740202120544)",
+      "Bash(ls:*)",
+      "Bash(python3:*)",
+      "Bash(zip:*)",
+      "Bash(rm:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(true)",
+      "Bash(git restore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent list-knowledge-bases --region us-east-1)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent list-data-sources --knowledge-base-id F61WLOYZSW --region us-east-1)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-data-source --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --region us-east-1)",
+      "Bash(chmod:*)",
+      "WebFetch(domain:wingx-advance.com)",
+      "WebFetch(domain:www.firebolt.io)",
+      "WebFetch(domain:medium.com)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-agent --agent-id 9B8EGU46UV --region us-east-1 --query 'agent.foundationModel' --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-agent --agent-id TCX9CGOKBR --region us-east-1 --query 'agent.foundationModel' --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent update-agent --agent-id 9B8EGU46UV --agent-name DataAgent --foundation-model anthropic.claude-3-7-sonnet-20250219-v1:0 --instruction \"$(cat ../agents/data_agent/instructions.md)\" --description \"Data Analysis Agent for RevOps AI Framework with temporal analysis and business logic awareness\" --agent-resource-role-arn arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops --region us-east-1)",
+      "Bash(python:*)",
+      "Bash(./setup.sh:*)"
+    ],
+    "deny": []
+  }
+}
