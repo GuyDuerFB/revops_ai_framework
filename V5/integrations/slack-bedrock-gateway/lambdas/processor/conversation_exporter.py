@@ -7,8 +7,9 @@ import boto3
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from conversation_transformer import ConversationTransformer
+from prompt_deduplicator import PromptDeduplicator
 
 class ConversationExporter:
     """Handles exporting conversations to S3 in multiple formats"""
@@ -19,6 +20,7 @@ class ConversationExporter:
         self.prefix = s3_prefix
         self.logger = logging.getLogger(__name__)
         self.transformer = ConversationTransformer()
+        self.prompt_deduplicator = PromptDeduplicator()
     
     def export_conversation(self, conversation, formats: List[str]) -> Dict[str, str]:
         """Export conversation in specified formats and return S3 URLs"""
@@ -48,23 +50,41 @@ class ConversationExporter:
                 # Generate content
                 content = handler(conversation)
                 
+                # ENHANCED: Validate content before upload
+                is_valid, validation_errors = self.validate_export_before_upload(content, format_name)
+                
+                if not is_valid:
+                    self.logger.error(f"Export validation failed for {format_name}: {validation_errors}")
+                    # Still upload but mark as having issues
+                    validation_status = "failed"
+                else:
+                    validation_status = "passed"
+                
                 # Upload to S3
                 s3_key = f"{base_path}{filename}"
+                
+                # ENHANCED: Add validation status to metadata
+                metadata = {
+                    'conversation-id': getattr(conversation, 'conversation_id', conversation.get('conversation_id', 'unknown') if isinstance(conversation, dict) else 'unknown'),
+                    'export-timestamp': datetime.utcnow().isoformat(),
+                    'format': format_name,
+                    'validation-status': validation_status,
+                    'content-size-bytes': str(len(content.encode('utf-8')))
+                }
+                
+                if validation_errors:
+                    metadata['validation-errors'] = str(len(validation_errors))
                 
                 self.s3_client.put_object(
                     Bucket=self.bucket,
                     Key=s3_key,
                     Body=content.encode('utf-8'),
                     ContentType='application/json' if filename.endswith('.json') else 'text/plain',
-                    Metadata={
-                        'conversation-id': getattr(conversation, 'conversation_id', conversation.get('conversation_id', 'unknown') if isinstance(conversation, dict) else 'unknown'),
-                        'export-timestamp': datetime.utcnow().isoformat(),
-                        'format': format_name
-                    }
+                    Metadata=metadata
                 )
                 
                 exported_urls[format_name] = f"s3://{self.bucket}/{s3_key}"
-                self.logger.info(f"Exported {format_name} to {exported_urls[format_name]}")
+                self.logger.info(f"Exported {format_name} to {exported_urls[format_name]} (validation: {validation_status})")
                 
             except Exception as e:
                 self.logger.error(f"Failed to export {format_name}: {e}")
@@ -505,22 +525,38 @@ class ConversationExporter:
                     }
                 }
             
+            # CRITICAL: Filter system prompts before transformation
+            system_prompts_removed = 0
+            conversation_data = self._filter_system_prompts_from_conversation_data(conversation_data)
+            
             # Transform to enhanced structure
             enhanced_data = self.transformer.transform_to_enhanced_structure(conversation_data)
             
-            # Validate the structure
+            # ENHANCED: Comprehensive validation and quality assessment
             validation = self.transformer.validate_enhanced_structure(enhanced_data)
             
-            # Add validation info to metadata
+            # ENHANCED: Add comprehensive validation info to metadata
             enhanced_data["export_metadata"]["validation"] = {
                 "valid": validation["valid"],
                 "warnings": validation.get("warnings", []),
-                "statistics": validation.get("statistics", {})
+                "statistics": validation.get("statistics", {}),
+                "quality_assessment": validation.get("quality_assessment", {})
             }
+            
+            # ENHANCED: Add export quality metrics
+            export_quality = self._assess_export_quality(enhanced_data, validation)
+            enhanced_data["export_metadata"]["export_quality"] = export_quality
             
             if not validation["valid"]:
                 enhanced_data["export_metadata"]["validation"]["errors"] = validation["errors"]
-                self.logger.warning(f"Enhanced structure validation failed: {validation['errors']}")
+                self.logger.error(f"Enhanced structure validation failed: {validation['errors']}")
+            
+            # ENHANCED: Log quality assessment
+            overall_score = validation.get("quality_assessment", {}).get("overall_score", 0.0)
+            if overall_score < 0.5:
+                self.logger.warning(f"Export quality below threshold: {overall_score:.2f}")
+            else:
+                self.logger.info(f"Export quality assessment: {overall_score:.2f}")
             
             return json.dumps(enhanced_data, indent=2, default=str)
             
@@ -544,3 +580,271 @@ class ConversationExporter:
             }
             
             return json.dumps(fallback_data, indent=2, default=str)
+    
+    def _filter_system_prompts_from_conversation_data(self, conversation_data: Dict) -> Dict:
+        """Filter system prompts from all parts of conversation data"""
+        
+        if not conversation_data:
+            return conversation_data
+        
+        filtered_data = {}
+        system_prompts_filtered = 0
+        
+        for key, value in conversation_data.items():
+            if key == "conversation" and isinstance(value, dict):
+                # Filter conversation content
+                filtered_conversation = {}
+                
+                for conv_key, conv_value in value.items():
+                    if conv_key == "agent_flow" and isinstance(conv_value, list):
+                        # Filter agent flow for system prompts
+                        filtered_agent_flow = []
+                        for step in conv_value:
+                            filtered_step = self._filter_system_prompts_from_agent_step(step)
+                            if filtered_step:  # Only include non-empty steps
+                                filtered_agent_flow.append(filtered_step)
+                        filtered_conversation[conv_key] = filtered_agent_flow
+                    
+                    elif conv_key in ["bedrock_trace_content", "trace_content"] and conv_value:
+                        # Filter Bedrock trace content
+                        filtered_trace, had_prompts = self._filter_system_prompts_from_trace_content(conv_value)
+                        if had_prompts:
+                            system_prompts_filtered += 1
+                        filtered_conversation[conv_key] = filtered_trace
+                    
+                    else:
+                        # Keep other conversation fields as-is
+                        filtered_conversation[conv_key] = conv_value
+                
+                filtered_data[key] = filtered_conversation
+                
+            else:
+                # Keep other top-level fields as-is
+                filtered_data[key] = value
+        
+        # Update metadata to reflect actual filtering
+        if "export_metadata" in filtered_data:
+            filtered_data["export_metadata"]["system_prompts_filtered"] = system_prompts_filtered
+            filtered_data["export_metadata"]["system_prompts_excluded"] = True
+        
+        self.logger.info(f"Filtered {system_prompts_filtered} system prompts from conversation data")
+        return filtered_data
+    
+    def _filter_system_prompts_from_agent_step(self, step) -> Optional[Dict]:
+        """Filter system prompts from individual agent step"""
+        
+        if not step:
+            return step
+        
+        if isinstance(step, dict):
+            filtered_step = {}
+            
+            for key, value in step.items():
+                # Filter specific fields that may contain system prompts
+                if key == "bedrock_trace_content" and value:
+                    filtered_trace, _ = self._filter_system_prompts_from_trace_content(value)
+                    filtered_step[key] = filtered_trace
+                    
+                elif key == "reasoning_text" and isinstance(value, str):
+                    # Check if reasoning text is actually a system prompt
+                    if not self.prompt_deduplicator._is_system_prompt_content(value):
+                        filtered_step[key] = value
+                    else:
+                        self.logger.info(f"Filtered system prompt from reasoning_text (size: {len(value)})")
+                        
+                elif key in ["messages", "message_content"] and value:
+                    # Filter messages content
+                    filtered_messages, had_system = self.prompt_deduplicator.filter_system_prompts_from_messages(value)
+                    if filtered_messages:
+                        filtered_step[key] = filtered_messages
+                
+                else:
+                    # Keep other fields
+                    filtered_step[key] = value
+            
+            return filtered_step if filtered_step else None
+        
+        return step
+    
+    def _filter_system_prompts_from_trace_content(self, trace_content) -> Tuple[any, bool]:
+        """Filter system prompts from Bedrock trace content"""
+        
+        if not trace_content:
+            return trace_content, False
+        
+        system_prompts_found = False
+        
+        # Handle different trace content formats
+        if isinstance(trace_content, dict):
+            filtered_trace = {}
+            
+            for key, value in trace_content.items():
+                if key == "messages" and value:
+                    # Filter messages in trace content
+                    filtered_messages, had_system = self.prompt_deduplicator.filter_system_prompts_from_messages(value)
+                    system_prompts_found = system_prompts_found or had_system
+                    if filtered_messages:
+                        filtered_trace[key] = filtered_messages
+                
+                elif key == "modelInvocationInput" and isinstance(value, str):
+                    # Check if model input contains system prompts
+                    try:
+                        input_data = json.loads(value)
+                        if "system" in input_data and self.prompt_deduplicator._is_system_prompt_content(input_data["system"]):
+                            # Remove system prompt, keep rest
+                            del input_data["system"]
+                            system_prompts_found = True
+                            self.logger.info("Filtered system prompt from modelInvocationInput")
+                            if input_data:  # If there's still content
+                                filtered_trace[key] = json.dumps(input_data)
+                        else:
+                            filtered_trace[key] = value
+                    except json.JSONDecodeError:
+                        # Not JSON, keep as-is
+                        filtered_trace[key] = value
+                
+                else:
+                    # Keep other trace fields
+                    filtered_trace[key] = value
+            
+            return filtered_trace, system_prompts_found
+        
+        return trace_content, False
+    
+    def _assess_export_quality(self, enhanced_data: Dict[str, Any], validation: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess the overall quality of the enhanced export"""
+        
+        quality_assessment = {
+            "overall_score": 0.0,
+            "data_completeness_score": 0.0,
+            "agent_attribution_score": 0.0,
+            "tool_execution_score": 0.0,
+            "system_prompt_filtering_score": 0.0,
+            "issues_found": [],
+            "recommendations": []
+        }
+        
+        try:
+            # Get quality scores from validation
+            validation_quality = validation.get("quality_assessment", {})
+            quality_assessment.update(validation_quality)
+            
+            # Assess system prompt filtering quality
+            export_metadata = enhanced_data.get("export_metadata", {})
+            if export_metadata.get("system_prompts_excluded", False):
+                quality_assessment["system_prompt_filtering_score"] = 1.0
+            else:
+                quality_assessment["issues_found"].append("System prompts may not have been properly filtered")
+                quality_assessment["recommendations"].append("Enable system prompt filtering to reduce export size")
+            
+            # Assess conversation structure quality
+            conversation = enhanced_data.get("conversation", {})
+            
+            # Check for agent flow quality
+            agent_flow = conversation.get("agent_flow", [])
+            if not agent_flow:
+                quality_assessment["issues_found"].append("No agent flow data found")
+                quality_assessment["recommendations"].append("Verify conversation data collection is working properly")
+            else:
+                # Check for unknown agents
+                unknown_agents = sum(1 for step in agent_flow if step.get("agent_name") == "unknown")
+                if unknown_agents > 0:
+                    quality_assessment["issues_found"].append(f"{unknown_agents} steps have unknown agent attribution")
+                    quality_assessment["recommendations"].append("Improve agent attribution parsing from Bedrock traces")
+            
+            # Check conversation summary quality
+            summary = conversation.get("conversation_summary", {})
+            if "data_quality_metrics" in summary:
+                data_quality = summary["data_quality_metrics"]
+                success_rate = data_quality.get("tool_execution_success_rate", 0)
+                if success_rate < 0.8:
+                    quality_assessment["issues_found"].append(f"Tool execution success rate is low: {success_rate:.2f}")
+                    quality_assessment["recommendations"].append("Investigate tool execution failures and improve error handling")
+            
+            # Check for enhanced parsing usage
+            enhanced_parsing_used = False
+            for step in agent_flow:
+                if step.get("parsed_messages") or step.get("trace_tool_executions"):
+                    enhanced_parsing_used = True
+                    break
+            
+            if not enhanced_parsing_used:
+                quality_assessment["issues_found"].append("Enhanced parsing features not utilized")
+                quality_assessment["recommendations"].append("Verify MessageParser and enhanced ReasoningParser are working")
+            
+            # Calculate final scores
+            scores = [
+                quality_assessment.get("data_completeness", 0.0),
+                quality_assessment.get("agent_attribution_quality", 0.0),
+                quality_assessment.get("tool_execution_quality", 0.0),
+                quality_assessment.get("reasoning_quality", 0.0),
+                quality_assessment.get("system_prompt_filtering_score", 0.0)
+            ]
+            
+            quality_assessment["overall_score"] = sum(scores) / len(scores)
+            
+            # Generate overall recommendations
+            if quality_assessment["overall_score"] < 0.3:
+                quality_assessment["recommendations"].append("Consider investigating conversation data collection pipeline")
+            elif quality_assessment["overall_score"] < 0.6:
+                quality_assessment["recommendations"].append("Review parser configurations and improve data extraction")
+            elif quality_assessment["overall_score"] >= 0.8:
+                quality_assessment["recommendations"].append("Export quality is excellent - maintain current configuration")
+        
+        except Exception as e:
+            self.logger.error(f"Error assessing export quality: {e}")
+            quality_assessment["assessment_error"] = str(e)
+        
+        return quality_assessment
+    
+    def validate_export_before_upload(self, content: str, format_name: str) -> Tuple[bool, List[str]]:
+        """Validate export content before uploading to S3"""
+        
+        validation_errors = []
+        
+        try:
+            # Basic content validation
+            if not content or len(content) < 100:
+                validation_errors.append("Export content is too small or empty")
+                return False, validation_errors
+            
+            # JSON format validation
+            if format_name.endswith('json'):
+                try:
+                    parsed_content = json.loads(content)
+                    
+                    # Check for required structure
+                    if format_name == 'enhanced_structured_json':
+                        if "export_metadata" not in parsed_content:
+                            validation_errors.append("Missing export_metadata in enhanced JSON")
+                        
+                        if "conversation" not in parsed_content:
+                            validation_errors.append("Missing conversation in enhanced JSON")
+                        
+                        # Check for system prompt leakage
+                        content_str = content.lower()
+                        if "agent purpose" in content_str and len(content) > 50000:
+                            validation_errors.append("Possible system prompt leakage detected (large content with agent purpose)")
+                        
+                        # Check export metadata quality
+                        export_metadata = parsed_content.get("export_metadata", {})
+                        if export_metadata.get("validation", {}).get("valid") is False:
+                            validation_errors.append("Export validation marked as invalid")
+                        
+                        export_quality = export_metadata.get("export_quality", {})
+                        if export_quality.get("overall_score", 0) < 0.3:
+                            validation_errors.append(f"Export quality score too low: {export_quality.get('overall_score', 0):.2f}")
+                
+                except json.JSONDecodeError as e:
+                    validation_errors.append(f"Invalid JSON format: {e}")
+            
+            # Size validation
+            content_size = len(content.encode('utf-8'))
+            if content_size > 50 * 1024 * 1024:  # 50MB limit
+                validation_errors.append(f"Export content too large: {content_size / (1024*1024):.1f}MB")
+            
+            return len(validation_errors) == 0, validation_errors
+        
+        except Exception as e:
+            validation_errors.append(f"Validation error: {e}")
+            return False, validation_errors

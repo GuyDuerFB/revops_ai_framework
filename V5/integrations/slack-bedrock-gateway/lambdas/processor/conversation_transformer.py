@@ -132,7 +132,44 @@ class ConversationTransformer:
                 "final_synthesis": {}
             }
         
-        # Transform tools used
+        # ENHANCED: Parse Bedrock trace content for agent handoffs and detailed tool info
+        bedrock_trace_content = agent_step.get('bedrock_trace_content')
+        if bedrock_trace_content:
+            trace_parsed = self.parser.parse_bedrock_trace_content(bedrock_trace_content)
+            
+            # Add agent handoffs to collaboration data
+            agent_handoffs = trace_parsed.get('agent_handoffs', [])
+            if agent_handoffs:
+                transformed_step["agent_handoffs"] = agent_handoffs
+                # Update agent name if we found better attribution
+                for handoff in agent_handoffs:
+                    if handoff.get('target_agent') and handoff['target_agent'] != 'unknown':
+                        if transformed_step["agent_name"] == 'unknown':
+                            transformed_step["agent_name"] = handoff['target_agent']
+                            logger.info(f"Updated agent attribution from trace: {handoff['target_agent']}")
+            
+            # Enhance tool executions from trace content
+            trace_tools = trace_parsed.get('tool_executions', [])
+            if trace_tools:
+                transformed_step["trace_tool_executions"] = trace_tools
+            
+            # Add parsed messages for detailed analysis
+            parsed_messages = trace_parsed.get('messages_parsed', [])
+            if parsed_messages:
+                transformed_step["parsed_messages"] = parsed_messages
+                # Extract agent communications from parsed messages
+                agent_communications = []
+                for msg in parsed_messages:
+                    agent_communications.extend(msg.get('agent_communications', []))
+                if agent_communications:
+                    transformed_step["agent_communications"] = agent_communications
+            
+            # Add routing decisions
+            routing_decisions = trace_parsed.get('routing_decisions', [])
+            if routing_decisions:
+                transformed_step["routing_decisions"] = routing_decisions
+        
+        # Transform tools used (legacy format)
         transformed_step["tools_used"] = self._transform_tools_used(agent_step.get('tools_used', []))
         
         # Transform data operations
@@ -237,7 +274,18 @@ class ConversationTransformer:
         knowledge_sources = set()
         databases_queried = set()
         
+        # ENHANCED: Track agent attribution and handoffs
+        agents_involved = set()
+        agent_handoffs = []
+        routing_decisions = []
+        total_agent_communications = 0
+        
         for step in agent_flow:
+            # Track agent names
+            agent_name = step.get('agent_name', 'unknown')
+            if agent_name != 'unknown':
+                agents_involved.add(agent_name)
+            
             # Count KB searches
             kb_searches = step.get('reasoning_breakdown', {}).get('knowledge_base_searches', [])
             total_kb_searches += len(kb_searches)
@@ -251,9 +299,39 @@ class ConversationTransformer:
                         source_name = source_uri.split('/')[-1] if '/' in source_uri else source_uri
                         knowledge_sources.add(source_name)
             
-            # Count tool executions
+            # Count tool executions with quality assessment
             tool_executions = step.get('reasoning_breakdown', {}).get('tool_executions', [])
             total_tool_executions += len(tool_executions)
+            
+            # ENHANCED: Count trace-based tool executions
+            trace_tools = step.get('trace_tool_executions', [])
+            total_tool_executions += len(trace_tools)
+            
+            # ENHANCED: Track tool execution quality
+            high_quality_executions = 0
+            failed_executions = 0
+            for tool_exec in tool_executions:
+                quality_score = tool_exec.get('quality_score', 0.0)
+                if quality_score >= 0.7:
+                    high_quality_executions += 1
+                if tool_exec.get('execution_status') == 'failed':
+                    failed_executions += 1
+            
+            # ENHANCED: Track agent handoffs
+            step_handoffs = step.get('agent_handoffs', [])
+            agent_handoffs.extend(step_handoffs)
+            for handoff in step_handoffs:
+                target_agent = handoff.get('target_agent', 'unknown')
+                if target_agent != 'unknown':
+                    agents_involved.add(target_agent)
+            
+            # ENHANCED: Track routing decisions
+            step_routing = step.get('routing_decisions', [])
+            routing_decisions.extend(step_routing)
+            
+            # ENHANCED: Count agent communications
+            agent_comms = step.get('agent_communications', [])
+            total_agent_communications += len(agent_comms)
             
             # Extract databases from data operations
             for op in step.get('data_operations', []):
@@ -261,18 +339,59 @@ class ConversationTransformer:
                 if target and target != 'unknown':
                     databases_queried.add(target)
         
+        # Build detailed agent involvement summary
+        agent_involvement_summary = {}
+        for step in agent_flow:
+            agent_name = step.get('agent_name', 'unknown')
+            if agent_name not in agent_involvement_summary:
+                agent_involvement_summary[agent_name] = {
+                    "tool_executions": 0,
+                    "kb_searches": 0,
+                    "duration_ms": 0,
+                    "handoffs_initiated": 0
+                }
+            
+            # Count tools used by this agent
+            tools_used = step.get('tools_used', [])
+            trace_tools = step.get('trace_tool_executions', [])
+            agent_involvement_summary[agent_name]["tool_executions"] += len(tools_used) + len(trace_tools)
+            
+            # Count KB searches by this agent
+            kb_searches = step.get('reasoning_breakdown', {}).get('knowledge_base_searches', [])
+            agent_involvement_summary[agent_name]["kb_searches"] += len(kb_searches)
+            
+            # Add duration
+            agent_involvement_summary[agent_name]["duration_ms"] += step.get('timing', {}).get('duration_ms', 0)
+            
+            # Count handoffs initiated
+            handoffs = step.get('agent_handoffs', [])
+            agent_involvement_summary[agent_name]["handoffs_initiated"] += len(handoffs)
+        
         return {
-            "total_agents_involved": len(agent_flow),
+            "total_agents_involved": len(agents_involved),
+            "agents_involved": list(agents_involved),
+            "agent_involvement_summary": agent_involvement_summary,
             "total_knowledge_base_searches": total_kb_searches,
             "total_tool_executions": total_tool_executions,
             "total_data_operations": total_data_operations,
+            "total_agent_communications": total_agent_communications,
+            "total_agent_handoffs": len(agent_handoffs),
+            "total_routing_decisions": len(routing_decisions),
             "knowledge_sources_accessed": list(knowledge_sources)[:10],  # Limit to top 10
             "databases_queried": list(databases_queried)[:10],
             "success": conversation.get('success', True),
             "processing_time_ms": conversation.get('processing_time_ms', 0),
-            "agents_involved": conversation.get('agents_involved', []),
             "collaboration_events": len(conversation.get('collaboration_map', {})),
-            "error_details": conversation.get('error_details')
+            "error_details": conversation.get('error_details'),
+            "agent_handoffs": agent_handoffs[:5],  # Show first 5 handoffs
+            "routing_decisions": routing_decisions[:3],  # Show first 3 routing decisions
+            "data_quality_metrics": {
+                "high_quality_tool_executions": locals().get('high_quality_executions', 0),
+                "failed_tool_executions": locals().get('failed_executions', 0),
+                "tool_execution_success_rate": (total_tool_executions - locals().get('failed_executions', 0)) / max(total_tool_executions, 1),
+                "average_agent_step_duration_ms": sum(step.get('timing', {}).get('duration_ms', 0) for step in agent_flow) / max(len(agent_flow), 1),
+                "data_operations_per_agent": total_data_operations / max(len(agents_involved), 1)
+            }
         }
     
     def _create_fallback_structure(self, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -304,13 +423,20 @@ class ConversationTransformer:
         }
     
     def validate_enhanced_structure(self, enhanced_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate the enhanced structure and return validation results"""
+        """Validate the enhanced structure and return validation results with quality assessment"""
         
         validation = {
             "valid": True,
             "errors": [],
             "warnings": [],
-            "statistics": {}
+            "statistics": {},
+            "quality_assessment": {
+                "overall_score": 0.0,
+                "data_completeness": 0.0,
+                "agent_attribution_quality": 0.0,
+                "tool_execution_quality": 0.0,
+                "reasoning_quality": 0.0
+            }
         }
         
         try:
@@ -328,24 +454,82 @@ class ConversationTransformer:
                 # Check metadata
                 if 'metadata' not in conv:
                     validation['warnings'].append("Missing conversation metadata")
+                else:
+                    validation['quality_assessment']['data_completeness'] += 0.2
                 
-                # Check agent flow
+                # ENHANCED: Check agent flow with quality assessment
                 if 'agent_flow' in conv:
                     agent_flow = conv['agent_flow']
                     validation['statistics']['agent_steps'] = len(agent_flow)
                     
                     # Check reasoning breakdown in each step
                     steps_with_reasoning = 0
+                    steps_with_agent_attribution = 0
+                    steps_with_tool_executions = 0
+                    high_quality_tool_executions = 0
+                    total_tool_executions = 0
+                    
                     for step in agent_flow:
+                        # Check reasoning breakdown
                         if 'reasoning_breakdown' in step:
                             steps_with_reasoning += 1
+                            reasoning = step['reasoning_breakdown']
+                            
+                            # Assess reasoning quality
+                            if reasoning.get('knowledge_base_searches'):
+                                validation['quality_assessment']['reasoning_quality'] += 0.1
+                            if reasoning.get('decision_points'):
+                                validation['quality_assessment']['reasoning_quality'] += 0.1
+                            if reasoning.get('final_synthesis'):
+                                validation['quality_assessment']['reasoning_quality'] += 0.1
+                        
+                        # Check agent attribution
+                        agent_name = step.get('agent_name', 'unknown')
+                        if agent_name != 'unknown':
+                            steps_with_agent_attribution += 1
+                        
+                        # Check for enhanced agent data
+                        if step.get('agent_handoffs') or step.get('agent_communications'):
+                            validation['quality_assessment']['agent_attribution_quality'] += 0.1
+                        
+                        # Check tool execution quality
+                        tool_executions = step.get('reasoning_breakdown', {}).get('tool_executions', [])
+                        total_tool_executions += len(tool_executions)
+                        
+                        for tool_exec in tool_executions:
+                            if tool_exec.get('quality_score', 0) >= 0.7:
+                                high_quality_tool_executions += 1
+                        
+                        if tool_executions:
+                            steps_with_tool_executions += 1
                     
-                    validation['statistics']['steps_with_enhanced_reasoning'] = steps_with_reasoning
+                    # Calculate quality scores
+                    if len(agent_flow) > 0:
+                        validation['quality_assessment']['data_completeness'] += 0.3 * (steps_with_reasoning / len(agent_flow))
+                        validation['quality_assessment']['agent_attribution_quality'] += 0.4 * (steps_with_agent_attribution / len(agent_flow))
                     
+                    if total_tool_executions > 0:
+                        validation['quality_assessment']['tool_execution_quality'] = high_quality_tool_executions / total_tool_executions
+                    
+                    validation['statistics'].update({
+                        'steps_with_enhanced_reasoning': steps_with_reasoning,
+                        'steps_with_agent_attribution': steps_with_agent_attribution,
+                        'steps_with_tool_executions': steps_with_tool_executions,
+                        'high_quality_tool_executions': high_quality_tool_executions,
+                        'total_tool_executions': total_tool_executions
+                    })
+                    
+                    # Generate warnings based on quality
                     if steps_with_reasoning == 0:
                         validation['warnings'].append("No steps have enhanced reasoning breakdown")
+                    
+                    if steps_with_agent_attribution / max(len(agent_flow), 1) < 0.5:
+                        validation['warnings'].append("Less than 50% of steps have proper agent attribution")
+                    
+                    if total_tool_executions > 0 and high_quality_tool_executions / total_tool_executions < 0.3:
+                        validation['warnings'].append("Less than 30% of tool executions have high quality data")
                 
-                # Check conversation summary
+                # ENHANCED: Check conversation summary with quality metrics
                 if 'conversation_summary' in conv:
                     summary = conv['conversation_summary']
                     validation['statistics'].update({
@@ -354,6 +538,33 @@ class ConversationTransformer:
                         'knowledge_sources': len(summary.get('knowledge_sources_accessed', [])),
                         'databases_queried': len(summary.get('databases_queried', []))
                     })
+                    
+                    # Check for enhanced quality metrics
+                    if 'data_quality_metrics' in summary:
+                        validation['quality_assessment']['data_completeness'] += 0.2
+                        quality_metrics = summary['data_quality_metrics']
+                        if quality_metrics.get('tool_execution_success_rate', 0) > 0.8:
+                            validation['quality_assessment']['tool_execution_quality'] += 0.2
+                    
+                    validation['quality_assessment']['data_completeness'] += 0.3
+            
+            # Calculate overall quality score
+            quality_scores = validation['quality_assessment']
+            overall_score = sum([quality_scores['data_completeness'], 
+                               quality_scores['agent_attribution_quality'],
+                               quality_scores['tool_execution_quality'],
+                               quality_scores['reasoning_quality']]) / 4
+            
+            validation['quality_assessment']['overall_score'] = min(1.0, overall_score)
+            
+            # Add quality-based warnings
+            if overall_score < 0.5:
+                validation['warnings'].append(f"Overall data quality is below threshold (score: {overall_score:.2f})")
+            
+            # ENHANCED: System prompt filtering validation
+            export_metadata = enhanced_data.get('export_metadata', {})
+            if not export_metadata.get('system_prompts_excluded', False):
+                validation['warnings'].append("System prompts may not have been properly filtered")
         
         except Exception as e:
             validation['valid'] = False
