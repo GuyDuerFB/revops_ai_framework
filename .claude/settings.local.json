@@ -28,7 +28,11 @@
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-agent --agent-id TCX9CGOKBR --region us-east-1 --query 'agent.foundationModel' --output text)",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent update-agent --agent-id 9B8EGU46UV --agent-name DataAgent --foundation-model anthropic.claude-3-7-sonnet-20250219-v1:0 --instruction \"$(cat ../agents/data_agent/instructions.md)\" --description \"Data Analysis Agent for RevOps AI Framework with temporal analysis and business logic awareness\" --agent-resource-role-arn arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops --region us-east-1)",
       "Bash(python:*)",
-      "Bash(./setup.sh:*)"
+      "Bash(./setup.sh:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 cp s3://revops-ai-framework-kb-740202120544/conversation-history/2025/08/02/2025-08-02T14-52-11/conversation.json /tmp/sample_conversation.json)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs describe-log-groups --log-group-name-prefix \"/aws/lambda/revops-slack-bedrock-processor\" --query \"logGroups[0].logGroupName\" --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs describe-log-streams --log-group-name \"/aws/lambda/revops-slack-bedrock-processor\" --order-by LastEventTime --descending --max-items 3 --query \"logStreams[*].logStreamName\" --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-slack-bedrock-processor\" --log-stream-name \"2025/08/02/[$LATEST]df3682b33fad433fa5f05104eb108446\")"
     ],
     "deny": []
   }

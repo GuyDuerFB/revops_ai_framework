@@ -525,11 +525,13 @@ class ConversationExporter:
                     }
                 }
             
-            # CRITICAL: Filter system prompts before transformation
-            system_prompts_removed = 0
-            conversation_data = self._filter_system_prompts_from_conversation_data(conversation_data)
+            # CRITICAL: Enhanced system prompt filtering with aggressive detection
+            conversation_data = self._aggressively_filter_system_prompts(conversation_data)
             
-            # Transform to enhanced structure
+            # ENHANCED: Advanced agent handover detection
+            conversation_data = self._detect_and_parse_agent_handovers(conversation_data)
+            
+            # Transform to enhanced structure with better parsing
             enhanced_data = self.transformer.transform_to_enhanced_structure(conversation_data)
             
             # ENHANCED: Comprehensive validation and quality assessment
@@ -796,6 +798,451 @@ class ConversationExporter:
             quality_assessment["assessment_error"] = str(e)
         
         return quality_assessment
+    
+    def _aggressively_filter_system_prompts(self, conversation_data: Dict) -> Dict:
+        """Aggressively filter system prompts with enhanced detection for large instruction blocks"""
+        
+        if not conversation_data:
+            return conversation_data
+        
+        filtered_data = {}
+        total_prompts_filtered = 0
+        bytes_saved = 0
+        
+        for key, value in conversation_data.items():
+            if key == "conversation" and isinstance(value, dict):
+                filtered_conversation = {}
+                
+                for conv_key, conv_value in value.items():
+                    if conv_key == "agent_flow" and isinstance(conv_value, list):
+                        # Enhanced agent flow filtering
+                        filtered_agent_flow = []
+                        for step in conv_value:
+                            filtered_step = self._aggressively_filter_agent_step(step)
+                            if filtered_step:
+                                filtered_agent_flow.append(filtered_step)
+                        filtered_conversation[conv_key] = filtered_agent_flow
+                    
+                    elif conv_key in ["bedrock_trace_content", "trace_content"] and conv_value:
+                        # Enhanced trace content filtering
+                        filtered_trace, prompts_removed, bytes_removed = self._aggressively_filter_trace_content(conv_value)
+                        total_prompts_filtered += prompts_removed
+                        bytes_saved += bytes_removed
+                        filtered_conversation[conv_key] = filtered_trace
+                    
+                    else:
+                        filtered_conversation[conv_key] = conv_value
+                
+                filtered_data[key] = filtered_conversation
+            else:
+                filtered_data[key] = value
+        
+        # Update metadata with filtering statistics
+        if "export_metadata" in filtered_data:
+            filtered_data["export_metadata"]["aggressive_filtering"] = {
+                "system_prompts_filtered": total_prompts_filtered,
+                "bytes_saved": bytes_saved,
+                "filtering_method": "aggressive_detection"
+            }
+        
+        self.logger.info(f"Aggressively filtered {total_prompts_filtered} system prompts, saved {bytes_saved} bytes")
+        return filtered_data
+    
+    def _aggressively_filter_agent_step(self, step) -> Optional[Dict]:
+        """Aggressively filter system prompts from agent step with enhanced detection"""
+        
+        if not step:
+            return step
+        
+        if isinstance(step, dict):
+            filtered_step = {}
+            
+            for key, value in step.items():
+                # Enhanced reasoning text filtering
+                if key == "reasoning_text" and isinstance(value, str):
+                    if self._is_massive_system_prompt(value):
+                        self.logger.info(f"Filtered massive system prompt from reasoning_text (size: {len(value)})")
+                        # Replace with summary
+                        filtered_step[key] = "[SYSTEM PROMPT FILTERED - Original size: {} characters]".format(len(value))
+                    else:
+                        filtered_step[key] = value
+                
+                # Enhanced bedrock trace content filtering
+                elif key == "bedrock_trace_content" and value:
+                    filtered_trace, _, _ = self._aggressively_filter_trace_content(value)
+                    filtered_step[key] = filtered_trace
+                
+                # Enhanced messages filtering
+                elif key in ["messages", "message_content"] and value:
+                    filtered_messages, _ = self._aggressively_filter_messages(value)
+                    if filtered_messages:
+                        filtered_step[key] = filtered_messages
+                
+                else:
+                    filtered_step[key] = value
+            
+            return filtered_step if filtered_step else None
+        
+        return step
+    
+    def _aggressively_filter_trace_content(self, trace_content) -> Tuple[any, int, int]:
+        """Aggressively filter system prompts from Bedrock trace content"""
+        
+        if not trace_content:
+            return trace_content, 0, 0
+        
+        prompts_removed = 0
+        bytes_saved = 0
+        
+        if isinstance(trace_content, dict):
+            filtered_trace = {}
+            
+            for key, value in trace_content.items():
+                if key == "modelInvocationInput" and isinstance(value, str):
+                    # Enhanced modelInvocationInput filtering
+                    if self._is_massive_system_prompt(value):
+                        # This is likely the massive system prompt we saw in logs
+                        bytes_saved += len(value)
+                        prompts_removed += 1
+                        self.logger.info(f"Filtered massive modelInvocationInput (size: {len(value)})")
+                        # Replace with minimal reference
+                        filtered_trace[key] = '{"filtered": "system_prompt_removed", "original_size": ' + str(len(value)) + '}'
+                    else:
+                        # Try to parse and filter JSON content
+                        filtered_input, prompt_found, bytes_removed = self._filter_json_system_prompts(value)
+                        if prompt_found:
+                            prompts_removed += 1
+                            bytes_saved += bytes_removed
+                        filtered_trace[key] = filtered_input
+                
+                elif key == "messages" and value:
+                    # Enhanced messages filtering
+                    filtered_messages, had_system = self._aggressively_filter_messages(value)
+                    if had_system:
+                        prompts_removed += 1
+                    if filtered_messages:
+                        filtered_trace[key] = filtered_messages
+                
+                else:
+                    filtered_trace[key] = value
+            
+            return filtered_trace, prompts_removed, bytes_saved
+        
+        return trace_content, prompts_removed, bytes_saved
+    
+    def _aggressively_filter_messages(self, messages_data) -> Tuple[any, bool]:
+        """Aggressively filter system prompts from messages with enhanced detection"""
+        
+        if not messages_data:
+            return messages_data, False
+        
+        system_prompts_found = False
+        
+        if isinstance(messages_data, list):
+            filtered_messages = []
+            for message in messages_data:
+                if isinstance(message, dict) and "content" in message:
+                    content = message["content"]
+                    if self._is_massive_system_prompt(str(content)):
+                        system_prompts_found = True
+                        self.logger.info(f"Filtered system prompt message (size: {len(str(content))})")
+                        # Skip this message entirely or replace with reference
+                        continue
+                    else:
+                        filtered_messages.append(message)
+                else:
+                    filtered_messages.append(message)
+            return filtered_messages, system_prompts_found
+        
+        elif isinstance(messages_data, dict):
+            if "content" in messages_data:
+                content = messages_data["content"]
+                if self._is_massive_system_prompt(str(content)):
+                    self.logger.info(f"Filtered system prompt from single message (size: {len(str(content))})")
+                    return None, True
+            return messages_data, False
+        
+        return messages_data, False
+    
+    def _is_massive_system_prompt(self, content: str) -> bool:
+        """Enhanced detection for massive system prompts like the Data Analysis Agent instructions"""
+        
+        if not content or len(content) < 1000:
+            return False
+        
+        # Enhanced detection patterns for massive system prompts
+        massive_prompt_indicators = [
+            "# Data Analysis Agent Instructions",
+            "## Agent Purpose",
+            "You are the Data Analysis Agent for Firebolt",
+            "## Core Capabilities",
+            "## CRITICAL: Temporal Context Awareness",
+            "**ALWAYS REMEMBER THE CURRENT DATE AND TIME CONTEXT**",
+            "## Business Context and Customer Segmentation",
+            "### Customer Type Classification in SQL",
+            "## Best Practices"
+        ]
+        
+        # Check for multiple indicators (system prompts usually have many)
+        indicator_count = sum(1 for indicator in massive_prompt_indicators if indicator in content)
+        
+        # If it has multiple indicators and is large, it's definitely a system prompt
+        if indicator_count >= 3 and len(content) > 5000:
+            return True
+        
+        # Additional size-based detection for very large content
+        if len(content) > 50000:
+            return True
+        
+        # Check for common system prompt patterns
+        system_patterns = [
+            r"You are the .* Agent",
+            r"## Agent Purpose",
+            r"## Core Capabilities", 
+            r"### Required .* Format",
+            r"CRITICAL.*:",
+            r"ALWAYS.*:",
+            r"NEVER.*:"
+        ]
+        
+        import re
+        pattern_matches = sum(1 for pattern in system_patterns if re.search(pattern, content, re.IGNORECASE))
+        
+        # If large content with system prompt patterns
+        if len(content) > 10000 and pattern_matches >= 2:
+            return True
+        
+        return False
+    
+    def _filter_json_system_prompts(self, json_content: str) -> Tuple[str, bool, int]:
+        """Filter system prompts from JSON content"""
+        
+        try:
+            data = json.loads(json_content)
+            original_size = len(json_content)
+            prompt_found = False
+            
+            if isinstance(data, dict):
+                if "system" in data:
+                    system_content = data["system"]
+                    if self._is_massive_system_prompt(str(system_content)):
+                        # Remove the system prompt
+                        del data["system"]
+                        prompt_found = True
+                        self.logger.info("Filtered system prompt from JSON content")
+                
+                # Check messages array for system prompts
+                if "messages" in data and isinstance(data["messages"], list):
+                    filtered_messages = []
+                    for msg in data["messages"]:
+                        if isinstance(msg, dict) and msg.get("role") == "system":
+                            if self._is_massive_system_prompt(str(msg.get("content", ""))):
+                                prompt_found = True
+                                continue  # Skip system message
+                        filtered_messages.append(msg)
+                    data["messages"] = filtered_messages
+            
+            filtered_json = json.dumps(data)
+            bytes_saved = original_size - len(filtered_json) if prompt_found else 0
+            
+            return filtered_json, prompt_found, bytes_saved
+            
+        except json.JSONDecodeError:
+            return json_content, False, 0
+    
+    def _detect_and_parse_agent_handovers(self, conversation_data: Dict) -> Dict:
+        """Enhanced agent handover detection from Bedrock traces"""
+        
+        if not conversation_data or "conversation" not in conversation_data:
+            return conversation_data
+        
+        conversation = conversation_data["conversation"]
+        agent_flow = conversation.get("agent_flow", [])
+        
+        enhanced_agent_flow = []
+        detected_handovers = []
+        
+        for i, step in enumerate(agent_flow):
+            enhanced_step = step.copy() if isinstance(step, dict) else step
+            
+            # Enhanced agent detection from multiple sources
+            detected_agent = self._detect_actual_agent_from_step(step)
+            
+            if detected_agent and detected_agent != step.get("agent_name", "unknown"):
+                # Found an agent handover!
+                handover_info = {
+                    "step_index": i,
+                    "detected_agent": detected_agent,
+                    "original_agent": step.get("agent_name", "unknown"),
+                    "handover_evidence": self._extract_handover_evidence(step)
+                }
+                detected_handovers.append(handover_info)
+                
+                # Update the step with correct agent information
+                if isinstance(enhanced_step, dict):
+                    enhanced_step["agent_name"] = detected_agent
+                    enhanced_step["agent_handover_detected"] = True
+                    enhanced_step["original_agent_name"] = step.get("agent_name", "unknown")
+                    enhanced_step["handover_evidence"] = handover_info["handover_evidence"]
+            
+            enhanced_agent_flow.append(enhanced_step)
+        
+        # Update conversation data
+        conversation["agent_flow"] = enhanced_agent_flow
+        if detected_handovers:
+            conversation["detected_agent_handovers"] = detected_handovers
+            conversation["agents_involved"] = list(set(
+                conversation.get("agents_involved", []) + 
+                [handover["detected_agent"] for handover in detected_handovers]
+            ))
+        
+        self.logger.info(f"Detected {len(detected_handovers)} agent handovers")
+        return conversation_data
+    
+    def _detect_actual_agent_from_step(self, step) -> Optional[str]:
+        """Detect the actual agent from step content using multiple detection methods"""
+        
+        if not isinstance(step, dict):
+            return None
+        
+        # Method 1: Check reasoning text for agent routing patterns
+        reasoning_text = step.get("reasoning_text", "")
+        if reasoning_text:
+            agent_from_reasoning = self._extract_agent_from_reasoning(reasoning_text)
+            if agent_from_reasoning:
+                return agent_from_reasoning
+        
+        # Method 2: Check bedrock trace content
+        trace_content = step.get("bedrock_trace_content", {})
+        if trace_content:
+            agent_from_trace = self._extract_agent_from_trace(trace_content)
+            if agent_from_trace:
+                return agent_from_trace
+        
+        # Method 3: Check tools used (certain tools indicate specific agents)
+        tools_used = step.get("tools_used", [])
+        if tools_used:
+            agent_from_tools = self._infer_agent_from_tools(tools_used)
+            if agent_from_tools:
+                return agent_from_tools
+        
+        return None
+    
+    def _extract_agent_from_reasoning(self, reasoning_text: str) -> Optional[str]:
+        """Extract agent name from reasoning text patterns"""
+        
+        agent_patterns = [
+            r"Route to (\w+)\s*Agent",
+            r"routing to (\w+)\s*Agent",
+            r"calling (\w+)\s*Agent",
+            r"AgentCommunication.*name=\"(\w+)\"",
+            r"\"agent\":\s*\"(\w+)\"",
+            r"collaborate with (\w+)\s*Agent"
+        ]
+        
+        import re
+        for pattern in agent_patterns:
+            match = re.search(pattern, reasoning_text, re.IGNORECASE)
+            if match:
+                agent_name = match.group(1)
+                # Map common agent names
+                agent_mapping = {
+                    "Data": "DataAgent", 
+                    "Deal": "DealAnalysisAgent",
+                    "Lead": "LeadAnalysisAgent",
+                    "Web": "WebSearchAgent",
+                    "Execution": "ExecutionAgent"
+                }
+                return agent_mapping.get(agent_name, agent_name + "Agent")
+        
+        return None
+    
+    def _extract_agent_from_trace(self, trace_content) -> Optional[str]:
+        """Extract agent information from Bedrock trace content"""
+        
+        if isinstance(trace_content, dict):
+            # Check modelInvocationInput for agent routing
+            model_input = trace_content.get("modelInvocationInput", "")
+            if model_input:
+                try:
+                    if isinstance(model_input, str):
+                        input_data = json.loads(model_input)
+                        messages = input_data.get("messages", [])
+                        for msg in messages:
+                            if isinstance(msg, dict):
+                                content = str(msg.get("content", ""))
+                                agent = self._extract_agent_from_reasoning(content)
+                                if agent:
+                                    return agent
+                except json.JSONDecodeError:
+                    pass
+            
+            # Check observation for agent responses
+            observation = trace_content.get("observation", "")
+            if observation and isinstance(observation, str):
+                agent = self._extract_agent_from_reasoning(observation)
+                if agent:
+                    return agent
+        
+        return None
+    
+    def _infer_agent_from_tools(self, tools_used) -> Optional[str]:
+        """Infer agent type from tools used"""
+        
+        tool_agent_mapping = {
+            "firebolt_query": "DataAgent",
+            "query_fire": "DataAgent", 
+            "gong_retrieval": "DataAgent",
+            "deal_analysis": "DealAnalysisAgent",
+            "lead_analysis": "LeadAnalysisAgent",
+            "web_search": "WebSearchAgent",
+            "webhook": "ExecutionAgent"
+        }
+        
+        for tool in tools_used:
+            if isinstance(tool, dict):
+                tool_name = tool.get("tool_name", "")
+            else:
+                tool_name = str(tool)
+            
+            for tool_pattern, agent in tool_agent_mapping.items():
+                if tool_pattern in tool_name.lower():
+                    return agent
+        
+        return None
+    
+    def _extract_handover_evidence(self, step) -> Dict[str, Any]:
+        """Extract evidence of agent handover for debugging"""
+        
+        evidence = {
+            "reasoning_snippets": [],
+            "trace_indicators": [],
+            "tool_indicators": []
+        }
+        
+        # Extract reasoning evidence
+        reasoning_text = step.get("reasoning_text", "")
+        if reasoning_text:
+            import re
+            routing_matches = re.findall(r"(Route to \w+|routing to \w+|calling \w+|AgentCommunication)", reasoning_text, re.IGNORECASE)
+            evidence["reasoning_snippets"] = routing_matches[:3]  # Limit to first 3
+        
+        # Extract trace evidence
+        trace_content = step.get("bedrock_trace_content", {})
+        if isinstance(trace_content, dict):
+            if trace_content.get("modelInvocationInput"):
+                evidence["trace_indicators"].append("modelInvocationInput_present")
+            if trace_content.get("observation"):
+                evidence["trace_indicators"].append("observation_present")
+        
+        # Extract tool evidence
+        tools_used = step.get("tools_used", [])
+        for tool in tools_used:
+            if isinstance(tool, dict):
+                tool_name = tool.get("tool_name", "")
+                evidence["tool_indicators"].append(tool_name)
+        
+        return evidence
     
     def validate_export_before_upload(self, content: str, format_name: str) -> Tuple[bool, List[str]]:
         """Validate export content before uploading to S3"""
