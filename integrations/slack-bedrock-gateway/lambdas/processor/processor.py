@@ -1603,7 +1603,7 @@ class CompleteSlackBedrockProcessor:
         return 'unknown_agent'
 
     def _build_collaboration_map(self, agent_flow) -> Dict[str, Dict[str, Any]]:
-        """Build collaboration map from agent flow"""
+        """Enhanced collaboration map building from agent flow with better data extraction"""
         collaboration_map = {}
         
         try:
@@ -1613,36 +1613,132 @@ class CompleteSlackBedrockProcessor:
                     sent_msgs = step.collaboration_sent
                     received_msgs = step.collaboration_received
                     agent_name = step.agent_name
+                    agent_comms = getattr(step, 'agent_communications', [])
                 else:
                     sent_msgs = step.get('collaboration_sent', [])
                     received_msgs = step.get('collaboration_received', [])
                     agent_name = step.get('agent_name', 'unknown')
+                    agent_comms = step.get('agent_communications', [])
                 
-                # Track outgoing collaborations
-                for sent_msg in sent_msgs:
-                    key = f"{agent_name} → {sent_msg['recipient']}"
-                    collaboration_map[key] = {
-                        'timestamp': sent_msg['timestamp'],
-                        'message': sent_msg['content'][:100] + '...' if len(sent_msg['content']) > 100 else sent_msg['content'],
-                        'full_message': sent_msg['content'],
-                        'response_time_ms': None  # Will be filled when response is found
-                    }
-                
-                # Calculate response times
-                for received_msg in received_msgs:
-                    # Find matching sent message and calculate response time
-                    for key, collab in collaboration_map.items():
-                        if collab['timestamp'] < received_msg['timestamp']:
-                            if collab['response_time_ms'] is None:
-                                time_diff = self._calculate_time_difference(
+                # ENHANCED: Extract collaborations from enhanced agent communications
+                for comm in agent_comms:
+                    if comm.get('type') in ['sendMessage_detailed', 'agent_communication']:
+                        recipient = comm.get('recipient', comm.get('collaborator_name', 'unknown'))
+                        content = comm.get('content', '')
+                        
+                        key = f"{agent_name} → {recipient}"
+                        collaboration_map[key] = {
+                            'timestamp': comm.get('timestamp', datetime.utcnow().isoformat()),
+                            'message': content[:100] + '...' if len(content) > 100 else content,
+                            'full_message': content,
+                            'tool_name': comm.get('tool_name', 'AgentCommunication'),
+                            'communication_type': comm.get('type', 'unknown'),
+                            'data_source': comm.get('data_source', 'agent_communications'),
+                            'response_time_ms': None
+                        }
+                    
+                    elif comm.get('type') == 'collaboration_output':
+                        # Track agent collaboration outputs (responses)
+                        collaborator_name = comm.get('collaborator_name', 'unknown')
+                        
+                        # Try to find matching sent message and add response info
+                        for key, collab in collaboration_map.items():
+                            if collaborator_name in key and collab.get('response_time_ms') is None:
+                                response_time = self._calculate_time_difference(
                                     collab['timestamp'], 
-                                    received_msg['timestamp']
+                                    comm.get('timestamp', datetime.utcnow().isoformat())
                                 )
-                                collab['response_time_ms'] = time_diff
+                                collab['response_time_ms'] = response_time
+                                collab['response_agent'] = collaborator_name
+                                break
+                
+                # ENHANCED: Extract from bedrock trace content if available
+                bedrock_trace = step.get('bedrock_trace_content') if isinstance(step, dict) else getattr(step, 'bedrock_trace_content', None)
+                if bedrock_trace:
+                    trace_collaborations = self._extract_collaborations_from_trace(bedrock_trace, agent_name)
+                    for collab_key, collab_data in trace_collaborations.items():
+                        if collab_key not in collaboration_map:
+                            collaboration_map[collab_key] = collab_data
+                
+                # Legacy: Track outgoing collaborations from sent_msgs
+                for sent_msg in sent_msgs:
+                    key = f"{agent_name} → {sent_msg.get('recipient', 'unknown')}"
+                    if key not in collaboration_map:  # Don't overwrite enhanced data
+                        collaboration_map[key] = {
+                            'timestamp': sent_msg.get('timestamp', datetime.utcnow().isoformat()),
+                            'message': sent_msg.get('content', '')[:100] + '...' if len(sent_msg.get('content', '')) > 100 else sent_msg.get('content', ''),
+                            'full_message': sent_msg.get('content', ''),
+                            'communication_type': 'legacy_sent',
+                            'data_source': 'collaboration_sent',
+                            'response_time_ms': None
+                        }
+                
+                # Legacy: Calculate response times from received_msgs
+                for received_msg in received_msgs:
+                    for key, collab in collaboration_map.items():
+                        if collab.get('response_time_ms') is None:
+                            try:
+                                if collab['timestamp'] < received_msg.get('timestamp', ''):
+                                    time_diff = self._calculate_time_difference(
+                                        collab['timestamp'], 
+                                        received_msg['timestamp']
+                                    )
+                                    collab['response_time_ms'] = time_diff
+                                    collab['response_agent'] = received_msg.get('sender', 'unknown')
+                            except Exception:
+                                pass
+                                
         except Exception as e:
-            print(f"Error building collaboration map: {e}")
+            print(f"Error building enhanced collaboration map: {e}")
         
         return collaboration_map
+    
+    def _extract_collaborations_from_trace(self, trace_content, agent_name: str) -> Dict[str, Dict[str, Any]]:
+        """Extract collaboration data directly from bedrock trace content"""
+        
+        collaborations = {}
+        
+        try:
+            trace_str = str(trace_content)
+            
+            # Look for AgentCommunication patterns
+            import re
+            comm_pattern = re.compile(r'AgentCommunication__sendMessage.*?recipient=([^,}]+).*?content=([^}]+)', re.DOTALL)
+            matches = comm_pattern.findall(trace_str)
+            
+            for match in matches:
+                recipient = match[0].strip().replace('"', '').replace("'", "")
+                content = match[1].strip().replace('"', '').replace("'", "")
+                
+                key = f"{agent_name} → {recipient}"
+                collaborations[key] = {
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'message': content[:100] + '...' if len(content) > 100 else content,
+                    'full_message': content,
+                    'tool_name': 'AgentCommunication__sendMessage',
+                    'communication_type': 'trace_extracted',
+                    'data_source': 'bedrock_trace',
+                    'response_time_ms': None
+                }
+            
+            # Look for agent collaboration outputs
+            collab_pattern = re.compile(r'agentCollaboratorName:\s*([^\n\r]+)', re.DOTALL)
+            collab_matches = collab_pattern.findall(trace_str)
+            
+            for collaborator_name in collab_matches:
+                collaborator_name = collaborator_name.strip()
+                # This indicates a response, try to match with existing collaborations
+                for key, collab in collaborations.items():
+                    if collaborator_name in key and collab.get('response_time_ms') is None:
+                        # Estimate response time (trace parsing doesn't have precise timestamps)
+                        collab['response_time_ms'] = 5000  # Placeholder estimate
+                        collab['response_agent'] = collaborator_name
+                        break
+                        
+        except Exception as e:
+            print(f"Error extracting collaborations from trace: {e}")
+        
+        return collaborations
     
     def _calculate_time_difference(self, start_time: str, end_time: str) -> int:
         """Calculate time difference in milliseconds"""

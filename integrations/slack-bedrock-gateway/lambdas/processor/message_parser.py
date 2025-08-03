@@ -31,8 +31,10 @@ class MessageParser:
         self.error_pattern = re.compile(r'"error":\s*"([^"]*)"')
         self.success_pattern = re.compile(r'"success":\s*(true|false)')
         
-        # Agent communication patterns
+        # Enhanced agent communication patterns
         self.agent_send_pattern = re.compile(r'AgentCommunication__sendMessage.*?name="([^"]+)"', re.DOTALL)
+        self.agent_detailed_pattern = re.compile(r'AgentCommunication__sendMessage.*?recipient=([^,}]+).*?content=([^}]+)', re.DOTALL)
+        self.agent_collab_output_pattern = re.compile(r'agentCollaboratorName:\s*([^\n\r]+)', re.DOTALL)
         
     def parse_message_content(self, content: str) -> Dict[str, Any]:
         """Parse message content into structured format"""
@@ -152,44 +154,105 @@ class MessageParser:
         return tool_use
     
     def _parse_tool_parameters(self, raw_params: str) -> Dict[str, Any]:
-        """Parse tool parameters from raw string"""
+        """Enhanced parsing of tool parameters from raw string"""
         
         parsed = {}
         
         try:
-            # Handle common parameter patterns
-            if "query=" in raw_params:
-                # SQL query parameter
-                query_match = re.search(r'query=([^,}]+)', raw_params)
-                if query_match:
-                    query = query_match.group(1).strip()
-                    # Clean up query formatting
-                    query = query.replace('\\n', '\n').replace('\\"', '"')
-                    parsed["query"] = query
+            # ENHANCED: Handle JSON-like parameters first
+            if raw_params.strip().startswith('{') and raw_params.strip().endswith('}'):
+                try:
+                    parsed = json.loads(raw_params)
+                    return parsed
+                except json.JSONDecodeError:
+                    pass
             
-            if "searchQuery=" in raw_params:
-                # Knowledge base search parameter
-                search_match = re.search(r'searchQuery=([^,}]+)', raw_params)
-                if search_match:
-                    search_query = search_match.group(1).strip()
-                    parsed["searchQuery"] = search_query
+            # ENHANCED: Handle common parameter patterns with better extraction
+            param_patterns = [
+                (r'query=([^,}]+)', 'query'),
+                (r'searchQuery=([^,}]+)', 'searchQuery'), 
+                (r'recipient=([^,}]+)', 'recipient'),
+                (r'content=([^}]+)', 'content'),
+                (r'account_name=([^,}]+)', 'account_name'),
+                (r'engine_name=([^,}]+)', 'engine_name'),
+                (r'database=([^,}]+)', 'database'),
+                (r'table=([^,}]+)', 'table'),
+                (r'input=\{([^}]+)\}', 'input'),
+                (r'name=([^,}]+)', 'name')
+            ]
             
-            # Extract other key-value pairs
+            for pattern, key in param_patterns:
+                match = re.search(pattern, raw_params, re.DOTALL)
+                if match:
+                    value = match.group(1).strip()
+                    # Clean up value formatting
+                    value = value.replace('\\n', '\n').replace('\\"', '"').replace("\\'", "'")
+                    value = value.strip('"\'')
+                    parsed[key] = value
+            
+            # ENHANCED: Extract nested parameter structures
+            if "input={" in raw_params:
+                input_match = re.search(r'input=\{([^}]+)\}', raw_params, re.DOTALL)
+                if input_match:
+                    input_content = input_match.group(1)
+                    # Try to parse nested input parameters
+                    nested_params = self._parse_nested_parameters(input_content)
+                    if nested_params:
+                        parsed["input"] = nested_params
+            
+            # ENHANCED: Extract AgentCommunication specific parameters
+            if "AgentCommunication" in raw_params:
+                comm_patterns = [
+                    (r'recipient=([^,}]+)', 'recipient'),
+                    (r'content=(.+?)(?=,\s*\w+=|\}|$)', 'content')
+                ]
+                
+                for pattern, key in comm_patterns:
+                    match = re.search(pattern, raw_params, re.DOTALL)
+                    if match:
+                        value = match.group(1).strip().strip('"\'')
+                        parsed[key] = value[:500] + "..." if len(value) > 500 else value
+            
+            # Fallback: Extract any remaining key-value pairs
             kv_pattern = re.compile(r'(\w+)=([^,}]+)')
             matches = kv_pattern.findall(raw_params)
             
             for key, value in matches:
                 if key not in parsed:  # Don't overwrite already parsed values
-                    # Clean up value
                     value = value.strip().strip('"\'')
                     parsed[key] = value
                     
         except Exception as e:
             logger.warning(f"Failed to parse tool parameters: {e}")
             parsed["parsing_error"] = str(e)
-            parsed["raw_params"] = raw_params
+            parsed["raw_params"] = raw_params[:200] + "..." if len(raw_params) > 200 else raw_params
         
         return parsed
+    
+    def _parse_nested_parameters(self, input_content: str) -> Dict[str, Any]:
+        """Parse nested parameter structures"""
+        
+        nested = {}
+        
+        try:
+            # Try to parse as JSON first
+            if input_content.strip().startswith('{') and input_content.strip().endswith('}'):
+                try:
+                    nested = json.loads(input_content)
+                    return nested
+                except json.JSONDecodeError:
+                    pass
+            
+            # Parse as key-value pairs
+            kv_pairs = re.findall(r'(\w+):\s*([^,}]+)', input_content)
+            for key, value in kv_pairs:
+                value = value.strip().strip('"\'')
+                nested[key] = value
+                
+        except Exception as e:
+            logger.warning(f"Failed to parse nested parameters: {e}")
+        
+        return nested
     
     def _extract_tool_results(self, content: str) -> List[Dict[str, Any]]:
         """Extract tool result information from content"""
@@ -316,21 +379,99 @@ class MessageParser:
         return cleaned
     
     def _extract_agent_communications(self, content: str) -> List[Dict[str, Any]]:
-        """Extract agent communication information"""
+        """Enhanced extraction of agent communication information"""
         
         communications = []
         
-        # Find agent communication patterns
-        matches = self.agent_send_pattern.findall(content)
+        try:
+            # Pattern 1: Detailed AgentCommunication__sendMessage with recipient and content
+            detailed_matches = self.agent_detailed_pattern.findall(content)
+            for match in detailed_matches:
+                recipient = match[0].strip().replace('"', '').replace("'", "")
+                comm_content = match[1].strip().replace('"', '').replace("'", "")
+                
+                communications.append({
+                    "type": "sendMessage_detailed",
+                    "tool_name": "AgentCommunication__sendMessage", 
+                    "recipient": recipient,
+                    "content": comm_content[:300] + "..." if len(comm_content) > 300 else comm_content,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data_source": "message_parser"
+                })
+            
+            # Pattern 2: Agent collaboration output (agentCollaboratorName)
+            collab_matches = self.agent_collab_output_pattern.findall(content)
+            for name in collab_matches:
+                communications.append({
+                    "type": "collaboration_output",
+                    "collaborator_name": name.strip(),
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data_source": "message_parser"
+                })
+            
+            # Pattern 3: Basic agent communication (fallback)
+            basic_matches = self.agent_send_pattern.findall(content)
+            for target_agent in basic_matches:
+                # Only add if we haven't already captured this as detailed
+                if not any(comm.get("recipient") == target_agent for comm in communications):
+                    communications.append({
+                        "type": "sendMessage_basic",
+                        "target_agent": target_agent,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data_source": "message_parser"
+                    })
         
-        for target_agent in matches:
-            communications.append({
-                "type": "sendMessage",
-                "target_agent": target_agent,
-                "timestamp": datetime.utcnow().isoformat()
-            })
+        except Exception as e:
+            logger.error(f"Error extracting agent communications: {e}")
         
         return communications
+    
+    def parse_messages_array(self, messages) -> List[Dict[str, Any]]:
+        """Parse an array of messages for enhanced analysis"""
+        
+        parsed_messages = []
+        
+        if not messages:
+            return parsed_messages
+        
+        try:
+            for i, message in enumerate(messages):
+                if isinstance(message, dict):
+                    # Parse the message content
+                    content = str(message.get("content", ""))
+                    parsed_content = self.parse_message_content(content)
+                    
+                    # Enhance with message metadata
+                    parsed_message = {
+                        "message_index": i,
+                        "role": message.get("role", "unknown"),
+                        "content_preview": content[:200] + "..." if len(content) > 200 else content,
+                        "content_size": len(content),
+                        "parsed_content": parsed_content,
+                        "parsing_timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                    parsed_messages.append(parsed_message)
+                    
+                elif isinstance(message, str):
+                    # Handle string messages
+                    parsed_content = self.parse_message_content(message)
+                    
+                    parsed_message = {
+                        "message_index": i,
+                        "role": "unknown",
+                        "content_preview": message[:200] + "..." if len(message) > 200 else message,
+                        "content_size": len(message),
+                        "parsed_content": parsed_content,
+                        "parsing_timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                    parsed_messages.append(parsed_message)
+                    
+        except Exception as e:
+            logger.error(f"Error parsing messages array: {e}")
+        
+        return parsed_messages
     
     def _extract_json_content(self, content: str) -> Optional[Dict[str, Any]]:
         """Extract and parse any JSON content in the message"""

@@ -39,8 +39,11 @@ class ReasoningTextParser:
         # Timing patterns
         self.timing_pattern = re.compile(r"'(?:startTime|endTime)': datetime\.datetime\((\d+), (\d+), (\d+), (\d+), (\d+), (\d+), (\d+)")
         
-        # Agent communication patterns
+        # Enhanced agent communication patterns
         self.agent_comm_pattern = re.compile(r'AgentCommunication__sendMessage.*?name="([^"]+)"', re.DOTALL)
+        self.agent_comm_detailed_pattern = re.compile(r'AgentCommunication__sendMessage.*?recipient=([^,}]+).*?content=([^}]+)', re.DOTALL)
+        self.agent_collab_output_pattern = re.compile(r'agentCollaboratorName:\s*([^\n\r]+)', re.DOTALL)
+        self.agent_collab_alias_pattern = re.compile(r'agentCollaboratorAliasArn:\s*([^\n\r]+)', re.DOTALL)
         self.agent_handoff_pattern = re.compile(r'"agent":\s*"([^"]+)"', re.DOTALL)
         self.agent_routing_pattern = re.compile(r'Route to ([A-Za-z\s]+) Agent', re.DOTALL)
         
@@ -278,128 +281,194 @@ class ReasoningTextParser:
         
         return executions
     
-    def _parse_enhanced_tool_result(self, result_text: str) -> Dict[str, Any]:
-        """Parse tool result content with enhanced data extraction"""
+    def _extract_parsed_tool_executions(self, text: str) -> List[Dict[str, Any]]:
+        """Extract tool executions using enhanced message parsing"""
+        
+        parsed_executions = []
+        
+        try:
+            # Use MessageParser to parse the text content
+            parsed_content = self.message_parser.parse_message_content(text)
+            
+            # Extract tool uses and results
+            tool_uses = parsed_content.get("tool_uses", [])
+            tool_results = parsed_content.get("tool_results", [])
+            agent_comms = parsed_content.get("agent_communications", [])
+            
+            # Process tool uses
+            for i, tool_use in enumerate(tool_uses):
+                execution = {
+                    "tool_name": tool_use.get("tool_name", "unknown"),
+                    "parameters": tool_use.get("parameters", {}),
+                    "raw_parameters": tool_use.get("raw_content", ""),
+                    "timestamp": tool_use.get("timestamp", datetime.utcnow().isoformat()),
+                    "execution_status": "executed",
+                    "tool_id": i + 1,
+                    "quality_score": 0.8,  # Higher score for parsed content
+                    "data_source": "message_parser"
+                }
+                
+                # Try to match with result
+                if i < len(tool_results):
+                    result = tool_results[i]
+                    execution["result"] = {
+                        "success": result.get("success", True),
+                        "data": result.get("data", []),
+                        "error": result.get("error"),
+                        "metadata": result.get("metadata", {}),
+                        "execution_details": result.get("execution_details", {}),
+                        "quality_indicators": result.get("quality_indicators", {})
+                    }
+                    
+                    # Update quality score based on result quality
+                    quality_indicators = result.get("quality_indicators", {})
+                    if quality_indicators.get("has_row_count"):
+                        execution["quality_score"] += 0.1
+                    if quality_indicators.get("has_actual_data"):
+                        execution["quality_score"] += 0.1
+                
+                parsed_executions.append(execution)
+            
+            # Process agent communications as special tool executions
+            for comm in agent_comms:
+                if comm.get("type") == "sendMessage_detailed":
+                    execution = {
+                        "tool_name": "AgentCommunication__sendMessage",
+                        "parameters": {
+                            "recipient": comm.get("recipient", ""),
+                            "content": comm.get("content", "")
+                        },
+                        "raw_parameters": f"recipient={comm.get('recipient', '')}, content={comm.get('content', '')}",
+                        "timestamp": comm.get("timestamp", datetime.utcnow().isoformat()),
+                        "execution_status": "executed",
+                        "tool_id": len(parsed_executions) + 1,
+                        "quality_score": 0.8,
+                        "data_source": "message_parser"
+                    }
+                    parsed_executions.append(execution)
+                    
+        except Exception as e:
+            logger.error(f"Error extracting parsed tool executions: {e}")
+        
+        return parsed_executions
+    
+    def _extract_enhanced_tool_parameters(self, tool_use: str) -> Dict[str, Any]:
+        """Extract tool parameters with enhanced parsing"""
+        
+        parameters = {}
+        
+        try:
+            # Look for input= pattern
+            input_match = self.input_pattern.search(tool_use)
+            if input_match:
+                input_content = input_match.group(1)
+                
+                # Try to parse as key-value pairs
+                # Common patterns: searchQuery=value, recipient=value, content=value
+                param_patterns = [
+                    (r'searchQuery=([^,}]+)', 'searchQuery'),
+                    (r'recipient=([^,}]+)', 'recipient'), 
+                    (r'content=([^}]+)', 'content'),
+                    (r'input=\{([^}]+)\}', 'input_raw')
+                ]
+                
+                for pattern, key in param_patterns:
+                    match = re.search(pattern, tool_use)
+                    if match:
+                        value = match.group(1).strip().replace('"', '').replace("'", "")
+                        parameters[key] = value
+                        
+            # Also extract tool name if available
+            name_match = re.search(r'name=([^,}]+)', tool_use)
+            if name_match:
+                parameters['tool_name'] = name_match.group(1).strip()
+                
+        except Exception as e:
+            logger.warning(f"Error parsing tool parameters: {e}")
+            parameters['raw_tool_use'] = tool_use[:200]
+        
+        return parameters
+    
+    def _parse_enhanced_tool_result(self, result_content: str) -> Dict[str, Any]:
+        """Parse tool result with enhanced error handling and data extraction"""
         
         result = {
             "success": True,
             "data": [],
             "error": None,
             "metadata": {},
-            "execution_details": {}
+            "execution_details": {},
+            "quality_indicators": {
+                "has_row_count": False,
+                "has_actual_data": False,
+                "has_error_details": False
+            }
         }
         
         try:
-            # ENHANCED: Try to parse as JSON first
-            if result_text.strip().startswith('{') and result_text.strip().endswith('}'):
+            # Look for success/failure indicators
+            success_match = self.success_pattern.search(result_content)
+            if success_match:
+                result["success"] = success_match.group(1).lower() == 'true'
+            
+            # Look for error information
+            error_match = self.error_pattern.search(result_content)
+            if error_match:
+                result["error"] = error_match.group(1)
+                result["success"] = False
+                result["quality_indicators"]["has_error_details"] = True
+            
+            # Try to extract JSON data
+            json_matches = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', result_content)
+            for json_str in json_matches:
                 try:
-                    parsed_json = json.loads(result_text)
-                    result.update(parsed_json)
-                    result["parsing_method"] = "json"
-                    return result
+                    data = json.loads(json_str)
+                    if isinstance(data, dict):
+                        if "content" in data:
+                            result["data"] = data
+                            result["quality_indicators"]["has_actual_data"] = True
+                        elif any(key in data for key in ["rows", "results", "data"]):
+                            result["data"] = data
+                            result["quality_indicators"]["has_actual_data"] = True
+                            result["quality_indicators"]["has_row_count"] = "rows" in data
+                    break  # Use first valid JSON
                 except json.JSONDecodeError:
+                    continue
+            
+            # Extract metadata if available
+            metadata_match = self.metadata_pattern.search(result_content)
+            if metadata_match:
+                try:
+                    metadata = ast.literal_eval(metadata_match.group(1))
+                    result["metadata"] = metadata
+                except:
                     pass
-            
-            # ENHANCED: Look for success/failure indicators with better patterns
-            success_patterns = [
-                r'"success":\s*(true|false)',
-                r'"status":\s*"(success|failed|error)"',
-                r'"state":\s*"(completed|failed|error)"'
-            ]
-            
-            for pattern in success_patterns:
-                match = re.search(pattern, result_text, re.IGNORECASE)
-                if match:
-                    value = match.group(1).lower()
-                    result["success"] = value in ["true", "success", "completed"]
-                    break
-            
-            # ENHANCED: Extract error information with better patterns
-            error_patterns = [
-                r'"error":\s*"([^"]+)"',
-                r'"error_message":\s*"([^"]+)"',
-                r'"message":\s*"([^"]+)".*(?:error|failed)',
-                r'Error:\s*([^\n\r]+)',
-                r'Exception:\s*([^\n\r]+)'
-            ]
-            
-            for pattern in error_patterns:
-                error_match = re.search(pattern, result_text, re.IGNORECASE)
-                if error_match:
-                    result["error"] = error_match.group(1)
-                    result["success"] = False
-                    break
-            
-            # ENHANCED: Extract data with comprehensive patterns
-            data_patterns = {
-                "row_count": [r'"row_count":\s*(\d+)', r'"rows":\s*(\d+)', r'(\d+)\s*rows?'],
-                "column_count": [r'"column_count":\s*(\d+)', r'"columns":\s*(\d+)', r'(\d+)\s*columns?'],
-                "record_count": [r'"record_count":\s*(\d+)', r'"records":\s*(\d+)', r'(\d+)\s*records?'],
-                "execution_time_ms": [r'"execution_time_ms":\s*(\d+)', r'"duration":\s*(\d+)', r'(\d+)\s*ms'],
-                "query_time": [r'"query_time":\s*([\d.]+)', r'executed in ([\d.]+)s']
-            }
-            
-            for key, patterns in data_patterns.items():
-                for pattern in patterns:
-                    match = re.search(pattern, result_text)
-                    if match:
-                        try:
-                            result[key] = int(float(match.group(1)))
-                        except ValueError:
-                            result[key] = match.group(1)
-                        break
-            
-            # ENHANCED: Extract actual data arrays/objects
-            data_array_match = re.search(r'"data":\s*\[(.*?)\]', result_text, re.DOTALL)
-            if data_array_match:
-                data_content = data_array_match.group(1).strip()
-                if data_content:
-                    try:
-                        # Try to parse as JSON array
-                        result["data"] = json.loads(f"[{data_content}]")
-                    except json.JSONDecodeError:
-                        # Store as string if not valid JSON
-                        result["data"] = [data_content[:500] + "..." if len(data_content) > 500 else data_content]
-            
-            # ENHANCED: Extract metadata information
-            metadata_patterns = {
-                "table_name": r'"table[_-]?name":\s*"([^"]+)"',
-                "database": r'"database":\s*"([^"]+)"',
-                "schema": r'"schema":\s*"([^"]+)"',
-                "query_type": r'"query[_-]?type":\s*"([^"]+)"',
-                "tool_version": r'"version":\s*"([^"]+)"'
-            }
-            
-            for key, pattern in metadata_patterns.items():
-                match = re.search(pattern, result_text, re.IGNORECASE)
-                if match:
-                    result["metadata"][key] = match.group(1)
-            
-            # ENHANCED: Extract execution details
-            if "query" in result_text.lower():
-                query_match = re.search(r'"query":\s*"([^"]+)"', result_text)
-                if query_match:
-                    query_text = query_match.group(1)
-                    result["execution_details"]["query_preview"] = query_text[:200] + "..." if len(query_text) > 200 else query_text
-            
-            # ENHANCED: Add result quality assessment
-            quality_indicators = {
-                "has_row_count": "row_count" in result,
-                "has_data": bool(result.get("data")),
-                "has_execution_time": "execution_time_ms" in result,
-                "has_metadata": bool(result.get("metadata")),
-                "has_clear_status": result.get("success") is not None
-            }
-            
-            result["quality_indicators"] = quality_indicators
-            result["quality_score"] = sum(quality_indicators.values()) / len(quality_indicators)
-            result["parsing_method"] = "enhanced_regex"
-        
+                    
         except Exception as e:
-            result["parsing_error"] = str(e)
-            result["quality_score"] = 0.0
+            logger.warning(f"Error parsing tool result: {e}")
+            result["error"] = f"Result parsing error: {str(e)}"
+            result["success"] = False
         
         return result
+    
+    def _find_matching_parsed_execution(self, execution: Dict[str, Any], parsed_executions: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Find matching parsed execution to enhance tool data"""
+        
+        tool_name = execution.get("tool_name", "")
+        
+        for parsed_exec in parsed_executions:
+            # Match by tool name
+            if parsed_exec.get("tool_name") == tool_name:
+                # Return enhanced data
+                return {
+                    "parameters": parsed_exec.get("parameters", execution.get("parameters", {})),
+                    "result": parsed_exec.get("result", execution.get("result", {})),
+                    "timestamp": parsed_exec.get("timestamp"),
+                    "execution_status": parsed_exec.get("execution_status", execution.get("execution_status")),
+                    "enhanced_parameters": parsed_exec.get("raw_parameters", "")
+                }
+        
+        return None
     
     def _extract_timing_from_text(self, text: str) -> Dict[str, Any]:
         """Extract timing information from text"""
@@ -527,12 +596,13 @@ class ReasoningTextParser:
         """Parse Bedrock trace content to extract agent handoffs and tool executions"""
         
         if not trace_content:
-            return {"agent_handoffs": [], "tool_executions": [], "messages_parsed": []}
+            return {"agent_handoffs": [], "tool_executions": [], "messages_parsed": [], "agent_communications": []}
         
         parsed_content = {
             "agent_handoffs": [],
             "tool_executions": [],
             "messages_parsed": [],
+            "agent_communications": [],
             "routing_decisions": []
         }
         
@@ -547,18 +617,78 @@ class ReasoningTextParser:
                 model_input_data = self._parse_model_invocation_input(trace_content["modelInvocationInput"])
                 parsed_content["tool_executions"].extend(model_input_data.get("tool_executions", []))
                 parsed_content["agent_handoffs"].extend(model_input_data.get("agent_handoffs", []))
+                parsed_content["agent_communications"].extend(model_input_data.get("agent_communications", []))
             
             # Parse observation content
             if "observation" in trace_content:
                 obs_data = self._parse_observation_content(trace_content["observation"])
                 parsed_content["routing_decisions"].extend(obs_data.get("routing_decisions", []))
+                parsed_content["agent_communications"].extend(obs_data.get("agent_communications", []))
         
         elif isinstance(trace_content, str):
             # Parse string-based trace content
             string_data = self._parse_string_trace_content(trace_content)
             parsed_content.update(string_data)
         
+        # ENHANCED: Extract agent collaborations from trace content
+        try:
+            agent_comms = self._extract_agent_communications_from_trace(str(trace_content))
+            parsed_content["agent_communications"].extend(agent_comms)
+        except Exception as e:
+            logger.error(f"Error extracting agent communications: {e}")
+        
         return parsed_content
+    
+    def _extract_agent_communications_from_trace(self, trace_content: str) -> List[Dict[str, Any]]:
+        """Enhanced extraction of agent communications from trace content"""
+        communications = []
+        
+        try:
+            # Pattern 1: AgentCommunication__sendMessage in tool uses
+            detailed_matches = self.agent_comm_detailed_pattern.findall(trace_content)
+            for match in detailed_matches:
+                recipient = match[0].strip().replace('"', '').replace("'", "")
+                content = match[1].strip().replace('"', '').replace("'", "")
+                
+                communications.append({
+                    "type": "agent_communication",
+                    "tool_name": "AgentCommunication__sendMessage",
+                    "recipient": recipient,
+                    "content": content[:500] + "..." if len(content) > 500 else content,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data_source": "trace_content"
+                })
+            
+            # Pattern 2: Agent collaboration output (agentCollaboratorName)
+            collab_names = self.agent_collab_output_pattern.findall(trace_content)
+            collab_aliases = self.agent_collab_alias_pattern.findall(trace_content)
+            
+            for i, name in enumerate(collab_names):
+                alias_arn = collab_aliases[i] if i < len(collab_aliases) else ""
+                
+                communications.append({
+                    "type": "agent_collaboration_output",
+                    "collaborator_name": name.strip(),
+                    "collaborator_alias_arn": alias_arn.strip(),
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data_source": "trace_content"
+                })
+            
+            # Pattern 3: Basic agent communication pattern (fallback)
+            basic_matches = self.agent_comm_pattern.findall(trace_content)
+            for match in basic_matches:
+                if not any(comm["tool_name"] == match for comm in communications):
+                    communications.append({
+                        "type": "agent_communication_basic",
+                        "tool_name": match,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data_source": "trace_content"
+                    })
+                    
+        except Exception as e:
+            logger.error(f"Error extracting agent communications from trace: {e}")
+        
+        return communications
     
     def _parse_bedrock_messages(self, messages) -> List[Dict[str, Any]]:
         """Parse Bedrock messages array for tool executions and agent communications"""
@@ -608,7 +738,8 @@ class ReasoningTextParser:
         
         parsed_data = {
             "agent_handoffs": [],
-            "tool_executions": []
+            "tool_executions": [],
+            "agent_communications": []
         }
         
         if isinstance(model_input, str):
@@ -631,14 +762,38 @@ class ReasoningTextParser:
                                     "timestamp": datetime.utcnow().isoformat()
                                 })
                             
-                            # Extract agent communications
-                            comm_matches = self.agent_comm_pattern.findall(content)
-                            for match in comm_matches:
+                            # Extract agent communications with enhanced patterns
+                            detailed_comms = self.agent_comm_detailed_pattern.findall(content)
+                            for match in detailed_comms:
+                                recipient = match[0].strip().replace('"', '').replace("'", "")
+                                comm_content = match[1].strip().replace('"', '').replace("'", "")
+                                
+                                parsed_data["agent_communications"].append({
+                                    "type": "agent_communication",
+                                    "tool_name": "AgentCommunication__sendMessage",
+                                    "recipient": recipient,
+                                    "content": comm_content[:300] + "..." if len(comm_content) > 300 else comm_content,
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "data_source": "model_invocation_input"
+                                })
+                                
+                                # Also add as handoff for backwards compatibility
                                 parsed_data["agent_handoffs"].append({
-                                    "target_agent": match,
+                                    "target_agent": recipient,
                                     "communication_type": "agent_communication",
                                     "timestamp": datetime.utcnow().isoformat()
                                 })
+                            
+                            # Fallback to basic pattern
+                            comm_matches = self.agent_comm_pattern.findall(content)
+                            for match in comm_matches:
+                                if not any(comm["tool_name"] == match for comm in parsed_data["agent_communications"]):
+                                    parsed_data["agent_communications"].append({
+                                        "type": "agent_communication_basic",
+                                        "tool_name": match,
+                                        "timestamp": datetime.utcnow().isoformat(),
+                                        "data_source": "model_invocation_input"
+                                    })
                 
             except json.JSONDecodeError:
                 pass
@@ -650,7 +805,8 @@ class ReasoningTextParser:
         
         parsed_data = {
             "routing_decisions": [],
-            "agent_responses": []
+            "agent_responses": [],
+            "agent_communications": []
         }
         
         if isinstance(observation, str):
@@ -663,6 +819,16 @@ class ReasoningTextParser:
                         "reasoning": self._extract_routing_reason(observation, match),
                         "timestamp": datetime.utcnow().isoformat()
                     })
+            
+            # Extract agent collaboration outputs from observation
+            collab_names = self.agent_collab_output_pattern.findall(observation)
+            for name in collab_names:
+                parsed_data["agent_communications"].append({
+                    "type": "agent_collaboration_output",
+                    "collaborator_name": name.strip(),
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "data_source": "observation"
+                })
         
         return parsed_data
     

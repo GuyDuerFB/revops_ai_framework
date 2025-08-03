@@ -882,6 +882,16 @@ class ConversationExporter:
                     if filtered_messages:
                         filtered_step[key] = filtered_messages
                 
+                # ENHANCED: Tool execution filtering for embedded system prompts
+                elif key == "tools_used" and isinstance(value, list):
+                    filtered_tools = self._filter_tool_execution_prompts(value)
+                    filtered_step[key] = filtered_tools
+                
+                # ENHANCED: Data operations filtering
+                elif key == "data_operations" and isinstance(value, list):
+                    filtered_ops = self._filter_data_operations_prompts(value) 
+                    filtered_step[key] = filtered_ops
+                
                 else:
                     filtered_step[key] = value
             
@@ -971,52 +981,141 @@ class ConversationExporter:
     def _is_massive_system_prompt(self, content: str) -> bool:
         """Enhanced detection for massive system prompts like the Data Analysis Agent instructions"""
         
-        if not content or len(content) < 1000:
+        if not content or len(content) < 500:
             return False
         
-        # Enhanced detection patterns for massive system prompts
-        massive_prompt_indicators = [
+        # ENHANCED: Data Analysis Agent specific indicators (more comprehensive)
+        data_agent_indicators = [
             "# Data Analysis Agent Instructions",
-            "## Agent Purpose",
+            "## Agent Purpose", 
             "You are the Data Analysis Agent for Firebolt",
+            "You are a specialized Data Analysis Agent",
             "## Core Capabilities",
             "## CRITICAL: Temporal Context Awareness",
             "**ALWAYS REMEMBER THE CURRENT DATE AND TIME CONTEXT**",
-            "## Business Context and Customer Segmentation",
+            "## Business Context and Customer Segmentation", 
             "### Customer Type Classification in SQL",
-            "## Best Practices"
+            "**CRITICAL**: Always segment analysis by customer type",
+            "### Required Analysis Patterns",
+            "### SQL Query Patterns for Temporal Analysis",
+            "### Customer Lifecycle Analysis",
+            "## Best Practices",
+            "## Function Calling",
+            "### Firebolt SQL Query", 
+            "### Gong Data Analysis",
+            "### Regional Analysis",
+            "### Lead Analysis",
+            "### Owner and User Name Resolution",
+            "## Temporal Analysis Guidelines"
         ]
         
-        # Check for multiple indicators (system prompts usually have many)
-        indicator_count = sum(1 for indicator in massive_prompt_indicators if indicator in content)
+        # ENHANCED: Lower threshold for faster detection
+        indicator_count = sum(1 for indicator in data_agent_indicators if indicator in content)
         
-        # If it has multiple indicators and is large, it's definitely a system prompt
-        if indicator_count >= 3 and len(content) > 5000:
+        # AGGRESSIVE: If it has multiple indicators and is moderately large, it's a system prompt
+        if indicator_count >= 2 and len(content) > 10000:
+            return True
+            
+        # AGGRESSIVE: If it has even one key indicator and is very large, it's a system prompt  
+        if indicator_count >= 1 and len(content) > 30000:
             return True
         
-        # Additional size-based detection for very large content
-        if len(content) > 50000:
+        # AGGRESSIVE: Size-based detection for very large content (lowered threshold)
+        if len(content) > 40000:
             return True
         
-        # Check for common system prompt patterns
+        # ENHANCED: More comprehensive system prompt patterns
         system_patterns = [
             r"You are the .* Agent",
+            r"You are a specialized .* Agent", 
             r"## Agent Purpose",
             r"## Core Capabilities", 
             r"### Required .* Format",
             r"CRITICAL.*:",
             r"ALWAYS.*:",
-            r"NEVER.*:"
+            r"NEVER.*:",
+            r"### Customer Type Classification",
+            r"## Function Calling",
+            r"### Firebolt SQL Query",
+            r"## Temporal Analysis Guidelines",
+            r"### Owner and User Name Resolution",
+            r"## Business Context"
         ]
         
         import re
         pattern_matches = sum(1 for pattern in system_patterns if re.search(pattern, content, re.IGNORECASE))
         
-        # If large content with system prompt patterns
-        if len(content) > 10000 and pattern_matches >= 2:
+        # AGGRESSIVE: Lower thresholds for pattern-based detection
+        if len(content) > 5000 and pattern_matches >= 3:
+            return True
+        elif len(content) > 15000 and pattern_matches >= 2:
+            return True
+        elif len(content) > 25000 and pattern_matches >= 1:
             return True
         
         return False
+    
+    def _filter_tool_execution_prompts(self, tools_used: List) -> List:
+        """Filter system prompts from tool execution parameters and results"""
+        
+        filtered_tools = []
+        
+        for tool in tools_used:
+            if isinstance(tool, dict):
+                filtered_tool = {}
+                
+                for key, value in tool.items():
+                    if key == "parameters" and isinstance(value, str):
+                        # Check if parameters contain system prompts
+                        if self._is_massive_system_prompt(value):
+                            filtered_tool[key] = f"[SYSTEM PROMPT FILTERED - {len(value)} chars]"
+                        else:
+                            filtered_tool[key] = value
+                    elif key == "result" and isinstance(value, str):
+                        # Check if result contains system prompts
+                        if self._is_massive_system_prompt(value):
+                            filtered_tool[key] = f"[SYSTEM PROMPT FILTERED - {len(value)} chars]"
+                        else:
+                            filtered_tool[key] = value
+                    elif key == "parameters_summary" and isinstance(value, str):
+                        # Check parameter summaries for embedded prompts
+                        if self._is_massive_system_prompt(value):
+                            filtered_tool[key] = f"[SYSTEM PROMPT FILTERED - {len(value)} chars]"
+                        else:
+                            filtered_tool[key] = value
+                    else:
+                        filtered_tool[key] = value
+                
+                filtered_tools.append(filtered_tool)
+            else:
+                # Handle non-dict tools (objects)
+                filtered_tools.append(tool)
+        
+        return filtered_tools
+    
+    def _filter_data_operations_prompts(self, data_operations: List) -> List:
+        """Filter system prompts from data operation details"""
+        
+        filtered_ops = []
+        
+        for op in data_operations:
+            if isinstance(op, dict):
+                filtered_op = {}
+                
+                for key, value in op.items():
+                    if key in ["query", "query_summary", "result_summary"] and isinstance(value, str):
+                        if self._is_massive_system_prompt(value):
+                            filtered_op[key] = f"[SYSTEM PROMPT FILTERED - {len(value)} chars]"
+                        else:
+                            filtered_op[key] = value
+                    else:
+                        filtered_op[key] = value
+                
+                filtered_ops.append(filtered_op)
+            else:
+                filtered_ops.append(op)
+        
+        return filtered_ops
     
     def _filter_json_system_prompts(self, json_content: str) -> Tuple[str, bool, int]:
         """Filter system prompts from JSON content"""
@@ -1379,53 +1478,551 @@ class ConversationExporter:
                 return data
     
     def validate_export_before_upload(self, content: str, format_name: str) -> Tuple[bool, List[str]]:
-        """Validate export content before uploading to S3"""
+        """ENHANCED: Validate export content before uploading to S3 with dynamic thresholds and comprehensive quality assessment"""
         
         validation_errors = []
+        validation_warnings = []
         
         try:
-            # Basic content validation
-            if not content or len(content) < 100:
-                validation_errors.append("Export content is too small or empty")
+            # Basic content validation with dynamic thresholds
+            if not content:
+                validation_errors.append("Export content is empty")
                 return False, validation_errors
             
-            # JSON format validation
+            content_size = len(content.encode('utf-8'))
+            
+            # ENHANCED: Dynamic size validation based on format type
+            size_thresholds = {
+                'enhanced_structured_json': {'min': 500, 'max': 75 * 1024 * 1024},  # 500 bytes to 75MB
+                'structured_json': {'min': 300, 'max': 50 * 1024 * 1024},         # 300 bytes to 50MB
+                'llm_readable': {'min': 200, 'max': 25 * 1024 * 1024},            # 200 bytes to 25MB
+                'analysis_format': {'min': 250, 'max': 10 * 1024 * 1024},         # 250 bytes to 10MB
+                'metadata_only': {'min': 100, 'max': 1 * 1024 * 1024},           # 100 bytes to 1MB
+                'agent_traces': {'min': 150, 'max': 15 * 1024 * 1024}            # 150 bytes to 15MB
+            }
+            
+            threshold = size_thresholds.get(format_name, {'min': 100, 'max': 50 * 1024 * 1024})
+            
+            if content_size < threshold['min']:
+                validation_errors.append(f"Export content too small: {content_size} bytes (minimum: {threshold['min']} bytes)")
+                return False, validation_errors
+            
+            if content_size > threshold['max']:
+                validation_errors.append(f"Export content too large: {content_size / (1024*1024):.1f}MB (maximum: {threshold['max'] / (1024*1024):.1f}MB)")
+            
+            # JSON format validation with enhanced checks
             if format_name.endswith('json'):
                 try:
                     parsed_content = json.loads(content)
                     
-                    # Check for required structure
+                    # ENHANCED: Comprehensive structure validation for enhanced JSON
                     if format_name == 'enhanced_structured_json':
-                        if "export_metadata" not in parsed_content:
-                            validation_errors.append("Missing export_metadata in enhanced JSON")
+                        # Check required top-level keys
+                        required_keys = ["export_metadata", "conversation"]
+                        for key in required_keys:
+                            if key not in parsed_content:
+                                validation_errors.append(f"Missing required key: {key}")
                         
-                        if "conversation" not in parsed_content:
-                            validation_errors.append("Missing conversation in enhanced JSON")
+                        if "export_metadata" in parsed_content:
+                            export_metadata = parsed_content["export_metadata"]
+                            
+                            # Validate export metadata structure
+                            metadata_validation = self._validate_export_metadata(export_metadata)
+                            validation_errors.extend(metadata_validation.get("errors", []))
+                            validation_warnings.extend(metadata_validation.get("warnings", []))
+                            
+                            # Check system prompt filtering
+                            if not export_metadata.get("system_prompts_excluded", False):
+                                validation_warnings.append("System prompts may not have been properly excluded")
                         
-                        # Check for system prompt leakage
-                        content_str = content.lower()
-                        if "agent purpose" in content_str and len(content) > 50000:
-                            validation_errors.append("Possible system prompt leakage detected (large content with agent purpose)")
-                        
-                        # Check export metadata quality
-                        export_metadata = parsed_content.get("export_metadata", {})
-                        if export_metadata.get("validation", {}).get("valid") is False:
-                            validation_errors.append("Export validation marked as invalid")
-                        
-                        export_quality = export_metadata.get("export_quality", {})
-                        if export_quality.get("overall_score", 0) < 0.3:
-                            validation_errors.append(f"Export quality score too low: {export_quality.get('overall_score', 0):.2f}")
+                        if "conversation" in parsed_content:
+                            conversation = parsed_content["conversation"]
+                            
+                            # ENHANCED: Validate conversation structure and quality
+                            conversation_validation = self._validate_conversation_structure(conversation)
+                            validation_errors.extend(conversation_validation.get("errors", []))
+                            validation_warnings.extend(conversation_validation.get("warnings", []))
+                            
+                            # Check for data quality indicators
+                            quality_indicators = self._assess_conversation_quality(conversation)
+                            if quality_indicators["overall_score"] < 0.3:
+                                validation_errors.append(f"Conversation quality score too low: {quality_indicators['overall_score']:.2f}")
+                            elif quality_indicators["overall_score"] < 0.5:
+                                validation_warnings.append(f"Conversation quality score below recommended threshold: {quality_indicators['overall_score']:.2f}")
+                    
+                    # ENHANCED: Check for system prompt leakage with multiple detection methods
+                    leakage_detection = self._detect_system_prompt_leakage(content, parsed_content)
+                    if leakage_detection["has_leakage"]:
+                        validation_errors.append(f"System prompt leakage detected: {leakage_detection['evidence']}")
+                    if leakage_detection["suspicious_patterns"]:
+                        validation_warnings.append(f"Suspicious patterns found: {', '.join(leakage_detection['suspicious_patterns'])}")
                 
                 except json.JSONDecodeError as e:
                     validation_errors.append(f"Invalid JSON format: {e}")
             
-            # Size validation
-            content_size = len(content.encode('utf-8'))
-            if content_size > 50 * 1024 * 1024:  # 50MB limit
-                validation_errors.append(f"Export content too large: {content_size / (1024*1024):.1f}MB")
+            # ENHANCED: Text format validation for non-JSON formats
+            elif format_name in ['llm_readable']:
+                text_validation = self._validate_text_format(content)
+                validation_errors.extend(text_validation.get("errors", []))
+                validation_warnings.extend(text_validation.get("warnings", []))
+            
+            # ENHANCED: Final quality gate with adjustable thresholds
+            if len(validation_errors) == 0:
+                # Apply quality gates based on content type
+                quality_gates = self._apply_quality_gates(content, format_name, parsed_content if format_name.endswith('json') else None)
+                validation_errors.extend(quality_gates.get("errors", []))
+                validation_warnings.extend(quality_gates.get("warnings", []))
+            
+            # Log warnings but don't fail validation
+            if validation_warnings:
+                self.logger.warning(f"Export validation warnings for {format_name}: {'; '.join(validation_warnings)}")
             
             return len(validation_errors) == 0, validation_errors
         
         except Exception as e:
             validation_errors.append(f"Validation error: {e}")
+            self.logger.error(f"Export validation failed for {format_name}: {e}")
             return False, validation_errors
+    
+    def _validate_export_metadata(self, export_metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate export metadata structure and content"""
+        
+        validation_result = {
+            "errors": [],
+            "warnings": []
+        }
+        
+        try:
+            # Check required metadata fields
+            required_fields = ["format", "version", "exported_at"]
+            for field in required_fields:
+                if field not in export_metadata:
+                    validation_result["errors"].append(f"Missing required metadata field: {field}")
+            
+            # Validate format
+            if "format" in export_metadata:
+                valid_formats = ["enhanced_structured_json", "structured_json", "llm_readable", "analysis_format", "metadata_only", "agent_traces"]
+                if export_metadata["format"] not in valid_formats:
+                    validation_result["warnings"].append(f"Unknown format: {export_metadata['format']}")
+            
+            # Validate version
+            if "version" in export_metadata:
+                version = export_metadata["version"]
+                if not isinstance(version, str) or not version:
+                    validation_result["warnings"].append("Invalid version format")
+            
+            # Check validation results if present
+            if "validation" in export_metadata:
+                validation_data = export_metadata["validation"]
+                if isinstance(validation_data, dict):
+                    if validation_data.get("valid") is False:
+                        validation_result["errors"].append("Validation marked as failed in metadata")
+                    
+                    # Check quality assessment
+                    if "quality_assessment" in validation_data:
+                        quality = validation_data["quality_assessment"]
+                        overall_score = quality.get("overall_score", 0)
+                        if overall_score < 0.2:
+                            validation_result["errors"].append(f"Very low quality assessment score: {overall_score:.2f}")
+                        elif overall_score < 0.4:
+                            validation_result["warnings"].append(f"Low quality assessment score: {overall_score:.2f}")
+            
+            # Check export quality if present
+            if "export_quality" in export_metadata:
+                export_quality = export_metadata["export_quality"]
+                if isinstance(export_quality, dict):
+                    overall_score = export_quality.get("overall_score", 0)
+                    if overall_score < 0.3:
+                        validation_result["errors"].append(f"Export quality score too low: {overall_score:.2f}")
+                    elif overall_score < 0.5:
+                        validation_result["warnings"].append(f"Export quality score below optimal: {overall_score:.2f}")
+        
+        except Exception as e:
+            validation_result["errors"].append(f"Metadata validation error: {e}")
+        
+        return validation_result
+    
+    def _validate_conversation_structure(self, conversation: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate conversation structure and content quality"""
+        
+        validation_result = {
+            "errors": [],
+            "warnings": []
+        }
+        
+        try:
+            # Check required conversation fields
+            required_fields = ["conversation_id"]
+            for field in required_fields:
+                if field not in conversation:
+                    validation_result["warnings"].append(f"Missing recommended field: {field}")
+            
+            # Validate agent flow
+            if "agent_flow" in conversation:
+                agent_flow = conversation["agent_flow"]
+                if not isinstance(agent_flow, list):
+                    validation_result["errors"].append("Agent flow must be a list")
+                elif len(agent_flow) == 0:
+                    validation_result["warnings"].append("Agent flow is empty")
+                else:
+                    # Validate each agent step
+                    for i, step in enumerate(agent_flow):
+                        step_validation = self._validate_agent_step(step, i)
+                        validation_result["errors"].extend(step_validation.get("errors", []))
+                        validation_result["warnings"].extend(step_validation.get("warnings", []))
+            else:
+                validation_result["warnings"].append("No agent flow found")
+            
+            # Validate metadata
+            if "metadata" in conversation:
+                metadata = conversation["metadata"]
+                if not isinstance(metadata, dict):
+                    validation_result["warnings"].append("Conversation metadata should be a dictionary")
+                else:
+                    # Check for essential metadata
+                    if not metadata.get("user_query"):
+                        validation_result["warnings"].append("No user query found in metadata")
+                    if not metadata.get("final_response"):
+                        validation_result["warnings"].append("No final response found in metadata")
+            
+            # Validate conversation summary
+            if "conversation_summary" in conversation:
+                summary = conversation["conversation_summary"]
+                if isinstance(summary, dict):
+                    # Check summary quality indicators
+                    if summary.get("total_agents_involved", 0) == 0:
+                        validation_result["warnings"].append("No agents involved according to summary")
+                    if summary.get("total_tool_executions", 0) == 0:
+                        validation_result["warnings"].append("No tool executions found in summary")
+                    
+                    # Check for data quality metrics
+                    if "data_quality_metrics" in summary:
+                        quality_metrics = summary["data_quality_metrics"]
+                        success_rate = quality_metrics.get("tool_execution_success_rate", 0)
+                        if success_rate < 0.5:
+                            validation_result["warnings"].append(f"Low tool execution success rate: {success_rate:.2f}")
+        
+        except Exception as e:
+            validation_result["errors"].append(f"Conversation structure validation error: {e}")
+        
+        return validation_result
+    
+    def _validate_agent_step(self, step: Dict[str, Any], step_index: int) -> Dict[str, Any]:
+        """Validate individual agent step"""
+        
+        validation_result = {
+            "errors": [],
+            "warnings": []
+        }
+        
+        try:
+            if not isinstance(step, dict):
+                validation_result["errors"].append(f"Agent step {step_index} is not a dictionary")
+                return validation_result
+            
+            # Check agent attribution
+            agent_name = step.get("agent_name", "unknown")
+            if agent_name == "unknown":
+                validation_result["warnings"].append(f"Step {step_index} has unknown agent attribution")
+            
+            # Check for reasoning breakdown
+            if "reasoning_breakdown" not in step:
+                validation_result["warnings"].append(f"Step {step_index} missing reasoning breakdown")
+            else:
+                reasoning = step["reasoning_breakdown"]
+                if not isinstance(reasoning, dict):
+                    validation_result["warnings"].append(f"Step {step_index} reasoning breakdown is not a dictionary")
+                else:
+                    # Check reasoning quality
+                    if not reasoning.get("knowledge_base_searches") and not reasoning.get("tool_executions"):
+                        validation_result["warnings"].append(f"Step {step_index} has no knowledge searches or tool executions")
+            
+            # Check timing information
+            if "timing" in step:
+                timing = step["timing"]
+                if isinstance(timing, dict):
+                    duration = timing.get("duration_ms", 0)
+                    if duration <= 0:
+                        validation_result["warnings"].append(f"Step {step_index} has invalid duration: {duration}ms")
+                    elif duration > 300000:  # 5 minutes
+                        validation_result["warnings"].append(f"Step {step_index} has unusually long duration: {duration}ms")
+        
+        except Exception as e:
+            validation_result["errors"].append(f"Agent step {step_index} validation error: {e}")
+        
+        return validation_result
+    
+    def _assess_conversation_quality(self, conversation: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess overall conversation quality with comprehensive metrics"""
+        
+        quality_assessment = {
+            "overall_score": 0.0,
+            "data_completeness": 0.0,
+            "agent_attribution_quality": 0.0,
+            "reasoning_quality": 0.0,
+            "tool_execution_quality": 0.0,
+            "structure_quality": 0.0
+        }
+        
+        try:
+            # Data completeness assessment
+            completeness_score = 0.0
+            if conversation.get("metadata"):
+                completeness_score += 0.2
+                if conversation["metadata"].get("user_query"):
+                    completeness_score += 0.1
+                if conversation["metadata"].get("final_response"):
+                    completeness_score += 0.1
+            
+            if conversation.get("agent_flow"):
+                completeness_score += 0.3
+            
+            if conversation.get("conversation_summary"):
+                completeness_score += 0.2
+            
+            if conversation.get("detected_agent_handovers"):
+                completeness_score += 0.1
+            
+            quality_assessment["data_completeness"] = min(1.0, completeness_score)
+            
+            # Agent attribution quality
+            agent_flow = conversation.get("agent_flow", [])
+            if agent_flow:
+                attributed_steps = sum(1 for step in agent_flow if step.get("agent_name", "unknown") != "unknown")
+                quality_assessment["agent_attribution_quality"] = attributed_steps / len(agent_flow)
+            
+            # Reasoning quality assessment
+            reasoning_scores = []
+            for step in agent_flow:
+                reasoning = step.get("reasoning_breakdown", {})
+                step_reasoning_score = 0.0
+                
+                if reasoning.get("knowledge_base_searches"):
+                    step_reasoning_score += 0.3
+                if reasoning.get("tool_executions"):
+                    step_reasoning_score += 0.3
+                if reasoning.get("decision_points"):
+                    step_reasoning_score += 0.2
+                if reasoning.get("final_synthesis"):
+                    step_reasoning_score += 0.2
+                
+                reasoning_scores.append(step_reasoning_score)
+            
+            if reasoning_scores:
+                quality_assessment["reasoning_quality"] = sum(reasoning_scores) / len(reasoning_scores)
+            
+            # Tool execution quality
+            total_tool_executions = 0
+            successful_tool_executions = 0
+            
+            for step in agent_flow:
+                tools = step.get("reasoning_breakdown", {}).get("tool_executions", [])
+                for tool in tools:
+                    total_tool_executions += 1
+                    if tool.get("execution_status") != "failed":
+                        successful_tool_executions += 1
+            
+            if total_tool_executions > 0:
+                quality_assessment["tool_execution_quality"] = successful_tool_executions / total_tool_executions
+            else:
+                quality_assessment["tool_execution_quality"] = 1.0  # No tools, no failures
+            
+            # Structure quality assessment
+            structure_score = 0.0
+            if conversation.get("conversation_id"):
+                structure_score += 0.2
+            if conversation.get("agents_involved"):
+                structure_score += 0.2
+            if conversation.get("detected_agent_handovers") is not None:
+                structure_score += 0.2
+            if conversation.get("conversation_summary", {}).get("data_quality_metrics"):
+                structure_score += 0.4
+            
+            quality_assessment["structure_quality"] = structure_score
+            
+            # Calculate overall score
+            quality_assessment["overall_score"] = sum([
+                quality_assessment["data_completeness"] * 0.3,
+                quality_assessment["agent_attribution_quality"] * 0.2,
+                quality_assessment["reasoning_quality"] * 0.25,
+                quality_assessment["tool_execution_quality"] * 0.15,
+                quality_assessment["structure_quality"] * 0.1
+            ])
+        
+        except Exception as e:
+            self.logger.warning(f"Quality assessment error: {e}")
+            quality_assessment["error"] = str(e)
+        
+        return quality_assessment
+    
+    def _detect_system_prompt_leakage(self, content: str, parsed_content: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Enhanced detection of system prompt leakage using multiple methods"""
+        
+        detection_result = {
+            "has_leakage": False,
+            "evidence": [],
+            "suspicious_patterns": [],
+            "confidence": 0.0
+        }
+        
+        try:
+            content_lower = content.lower()
+            
+            # High-confidence leakage indicators
+            high_confidence_patterns = [
+                "agent purpose",
+                "you are an ai assistant",
+                "your role is to",
+                "system instruction",
+                "prompt template",
+                "follow these instructions",
+                "you must always",
+                "never reveal that you are",
+                "do not mention that you are an ai"
+            ]
+            
+            # Medium-confidence suspicious patterns
+            medium_confidence_patterns = [
+                "ai assistant",
+                "language model",
+                "instructions:",
+                "guidelines:",
+                "constraints:",
+                "you should always",
+                "remember to",
+                "important notes"
+            ]
+            
+            # Check for high-confidence leakage
+            for pattern in high_confidence_patterns:
+                if pattern in content_lower:
+                    detection_result["has_leakage"] = True
+                    detection_result["evidence"].append(f"Found pattern: '{pattern}'")
+                    detection_result["confidence"] += 0.2
+            
+            # Check for suspicious patterns
+            for pattern in medium_confidence_patterns:
+                if pattern in content_lower:
+                    detection_result["suspicious_patterns"].append(pattern)
+                    detection_result["confidence"] += 0.1
+            
+            # Size-based detection for JSON content
+            if parsed_content:
+                # Check for very large agent steps that might contain system prompts
+                agent_flow = parsed_content.get("conversation", {}).get("agent_flow", [])
+                for i, step in enumerate(agent_flow):
+                    step_str = json.dumps(step, default=str)
+                    if len(step_str) > 100000:  # 100KB threshold
+                        detection_result["suspicious_patterns"].append(f"Very large agent step {i}")
+                        detection_result["confidence"] += 0.05
+            
+            # Pattern density check
+            total_patterns = len(detection_result["evidence"]) + len(detection_result["suspicious_patterns"])
+            content_kb = len(content) / 1024
+            if content_kb > 0:
+                pattern_density = total_patterns / content_kb
+                if pattern_density > 0.5:  # More than 0.5 patterns per KB
+                    detection_result["confidence"] += 0.1
+            
+            # Final confidence assessment
+            detection_result["confidence"] = min(1.0, detection_result["confidence"])
+            
+            # If confidence is very high, mark as definite leakage
+            if detection_result["confidence"] > 0.7:
+                detection_result["has_leakage"] = True
+        
+        except Exception as e:
+            self.logger.warning(f"System prompt leakage detection error: {e}")
+        
+        return detection_result
+    
+    def _validate_text_format(self, content: str) -> Dict[str, Any]:
+        """Validate text format content"""
+        
+        validation_result = {
+            "errors": [],
+            "warnings": []
+        }
+        
+        try:
+            # Check for basic readability
+            if not content.strip():
+                validation_result["errors"].append("Text content is empty")
+                return validation_result
+            
+            # Check for reasonable structure
+            lines = content.split('\n')
+            if len(lines) < 5:
+                validation_result["warnings"].append("Text content has very few lines")
+            
+            # Check for extremely long lines that might indicate formatting issues
+            long_lines = sum(1 for line in lines if len(line) > 1000)
+            if long_lines > len(lines) * 0.5:
+                validation_result["warnings"].append("Many lines are extremely long - possible formatting issues")
+            
+            # Check for reasonable character distribution
+            total_chars = len(content)
+            if total_chars > 0:
+                printable_chars = sum(1 for c in content if c.isprintable() or c in '\n\r\t')
+                printable_ratio = printable_chars / total_chars
+                if printable_ratio < 0.95:
+                    validation_result["warnings"].append("High ratio of non-printable characters")
+        
+        except Exception as e:
+            validation_result["errors"].append(f"Text format validation error: {e}")
+        
+        return validation_result
+    
+    def _apply_quality_gates(self, content: str, format_name: str, parsed_content: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Apply final quality gates based on format and content"""
+        
+        quality_result = {
+            "errors": [],
+            "warnings": []
+        }
+        
+        try:
+            content_size = len(content.encode('utf-8'))
+            
+            # Format-specific quality gates
+            if format_name == 'enhanced_structured_json':
+                if parsed_content:
+                    # Check for minimum expected structure
+                    conversation = parsed_content.get("conversation", {})
+                    agent_flow = conversation.get("agent_flow", [])
+                    
+                    if len(agent_flow) == 0:
+                        quality_result["warnings"].append("No agent steps found")
+                    elif len(agent_flow) == 1:
+                        # Single agent - check if it has meaningful content
+                        step = agent_flow[0]
+                        reasoning = step.get("reasoning_breakdown", {})
+                        if not reasoning.get("tool_executions") and not reasoning.get("knowledge_base_searches"):
+                            quality_result["warnings"].append("Single agent step with minimal activity")
+                    
+                    # Check for conversation completeness
+                    metadata = conversation.get("metadata", {})
+                    if not metadata.get("final_response"):
+                        quality_result["warnings"].append("No final response found")
+                    
+                    # Size-based quality check
+                    if content_size < 5000:  # Less than 5KB for enhanced JSON is suspicious
+                        quality_result["warnings"].append("Enhanced JSON export is unusually small")
+            
+            elif format_name == 'llm_readable':
+                # Check for reasonable text structure
+                if content_size < 1000:  # Less than 1KB for readable text
+                    quality_result["warnings"].append("LLM readable format is very short")
+                
+                # Check for conversation markers
+                if "conversation:" not in content.lower() and "user:" not in content.lower():
+                    quality_result["warnings"].append("No clear conversation structure found in readable format")
+            
+            # Universal quality gates
+            if content_size > 10 * 1024 * 1024:  # 10MB
+                quality_result["warnings"].append(f"Export is very large: {content_size / (1024*1024):.1f}MB")
+            
+        except Exception as e:
+            quality_result["errors"].append(f"Quality gate error: {e}")
+        
+        return quality_result
