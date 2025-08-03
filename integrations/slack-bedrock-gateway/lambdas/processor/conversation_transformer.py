@@ -41,6 +41,20 @@ class ConversationTransformer:
             }
             
             return enhanced_structure
+            
+        except Exception as e:
+            logger.error(f"Failed to transform conversation to enhanced structure: {e}")
+            # Return minimal structure to prevent total failure
+            return {
+                "export_metadata": {
+                    "format": "enhanced_structured_json",
+                    "version": "2.0",
+                    "exported_at": datetime.utcnow().isoformat(),
+                    "error": f"Transformation failed: {str(e)}",
+                    "fallback_mode": True
+                },
+                "conversation": conversation_data if isinstance(conversation_data, dict) else {"error": "Invalid conversation data"}
+            }
     
     def validate_enhanced_structure(self, enhanced_data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate enhanced structure and provide quality assessment"""
@@ -171,20 +185,6 @@ class ConversationTransformer:
                 transformed_step["filtered_trace_content"] = safe_trace
         
         return transformed_step
-            
-        except Exception as e:
-            logger.error(f"Error transforming conversation structure: {e}")
-            # Return fallback structure
-            return {
-                "export_metadata": {
-                    "format": "enhanced_structured_json",
-                    "version": "2.0",
-                    "exported_at": datetime.utcnow().isoformat(),
-                    "transformation_error": str(e),
-                    "note": "Transformation failed, using fallback structure"
-                },
-                "conversation": self._create_fallback_structure(conversation_data)
-            }
     
     def _transform_conversation(self, conversation: Dict[str, Any]) -> Dict[str, Any]:
         """Transform the main conversation structure"""
@@ -269,7 +269,7 @@ class ConversationTransformer:
         if bedrock_trace_content:
             trace_parsed = self.parser.parse_bedrock_trace_content(bedrock_trace_content)
             
-            # Add agent handoffs to collaboration data
+            # Add agent handoffs to collaboration data with enhanced detection
             agent_handoffs = trace_parsed.get('agent_handoffs', [])
             if agent_handoffs:
                 transformed_step["agent_handoffs"] = agent_handoffs
@@ -280,26 +280,44 @@ class ConversationTransformer:
                             transformed_step["agent_name"] = handoff['target_agent']
                             logger.info(f"Updated agent attribution from trace: {handoff['target_agent']}")
             
+            # ENHANCED: Extract agent communications with better collaboration mapping
+            agent_comms = trace_parsed.get('agent_communications', [])
+            if agent_comms:
+                transformed_step["agent_communications"] = agent_comms
+                # Build collaboration map from communications
+                collaboration_map = self._build_collaboration_map_from_communications(agent_comms)
+                if collaboration_map:
+                    transformed_step["collaboration_map"] = collaboration_map
+            
             # Enhance tool executions from trace content
             trace_tools = trace_parsed.get('tool_executions', [])
             if trace_tools:
                 transformed_step["trace_tool_executions"] = trace_tools
             
-            # Add parsed messages for detailed analysis
+            # Add parsed messages for detailed analysis with agent communication extraction
             parsed_messages = trace_parsed.get('messages_parsed', [])
             if parsed_messages:
                 transformed_step["parsed_messages"] = parsed_messages
-                # Extract agent communications from parsed messages
-                agent_communications = []
+                # Extract and consolidate agent communications from parsed messages
+                all_agent_communications = []
                 for msg in parsed_messages:
-                    agent_communications.extend(msg.get('agent_communications', []))
-                if agent_communications:
-                    transformed_step["agent_communications"] = agent_communications
+                    msg_comms = msg.get('parsed_content', {}).get('agent_communications', [])
+                    all_agent_communications.extend(msg_comms)
+                
+                if all_agent_communications:
+                    # Merge with existing communications
+                    existing_comms = transformed_step.get("agent_communications", [])
+                    merged_comms = self._merge_agent_communications(existing_comms, all_agent_communications)
+                    transformed_step["agent_communications"] = merged_comms
             
-            # Add routing decisions
+            # Add routing decisions with agent context
             routing_decisions = trace_parsed.get('routing_decisions', [])
             if routing_decisions:
                 transformed_step["routing_decisions"] = routing_decisions
+                # Extract agent handover indicators from routing decisions
+                handover_indicators = self._extract_handover_indicators_from_routing(routing_decisions)
+                if handover_indicators:
+                    transformed_step["handover_indicators"] = handover_indicators
         
         # Transform tools used (legacy format)
         transformed_step["tools_used"] = self._transform_tools_used(agent_step.get('tools_used', []))
@@ -703,3 +721,130 @@ class ConversationTransformer:
             validation['errors'].append(f"Validation error: {str(e)}")
         
         return validation
+    
+    def _build_collaboration_map_from_communications(self, agent_communications: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build collaboration map from agent communications"""
+        
+        collaboration_map = {
+            "communication_count": len(agent_communications),
+            "unique_recipients": set(),
+            "communication_types": {},
+            "message_flow": [],
+            "collaboration_timeline": []
+        }
+        
+        try:
+            for comm in agent_communications:
+                # Track recipients
+                recipient = comm.get('recipient', comm.get('collaborator_name', comm.get('target_agent', 'unknown')))
+                if recipient and recipient != 'unknown':
+                    collaboration_map["unique_recipients"].add(recipient)
+                
+                # Track communication types
+                comm_type = comm.get('type', 'unknown')
+                if comm_type not in collaboration_map["communication_types"]:
+                    collaboration_map["communication_types"][comm_type] = 0
+                collaboration_map["communication_types"][comm_type] += 1
+                
+                # Build message flow
+                flow_entry = {
+                    "type": comm_type,
+                    "recipient": recipient,
+                    "content_preview": comm.get('content', '')[:100] + "..." if len(comm.get('content', '')) > 100 else comm.get('content', ''),
+                    "timestamp": comm.get('timestamp', ''),
+                    "data_source": comm.get('data_source', 'unknown')
+                }
+                collaboration_map["message_flow"].append(flow_entry)
+                
+                # Add to timeline
+                timeline_entry = {
+                    "timestamp": comm.get('timestamp', ''),
+                    "event": f"{comm_type} to {recipient}",
+                    "details": comm.get('content', '')[:50] + "..." if len(comm.get('content', '')) > 50 else comm.get('content', '')
+                }
+                collaboration_map["collaboration_timeline"].append(timeline_entry)
+            
+            # Convert set to list for JSON serialization
+            collaboration_map["unique_recipients"] = list(collaboration_map["unique_recipients"])
+            
+            # Sort timeline by timestamp if available
+            collaboration_map["collaboration_timeline"].sort(key=lambda x: x.get('timestamp', ''))
+            
+        except Exception as e:
+            logger.warning(f"Error building collaboration map: {e}")
+            collaboration_map["error"] = str(e)
+        
+        return collaboration_map
+    
+    def _merge_agent_communications(self, existing_comms: List[Dict[str, Any]], new_comms: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Merge agent communications, avoiding duplicates"""
+        
+        merged = list(existing_comms)  # Start with existing
+        
+        try:
+            # Create a set of signatures for existing communications to avoid duplicates
+            existing_signatures = set()
+            for comm in existing_comms:
+                signature = f"{comm.get('type', '')}_{comm.get('recipient', '')}_{comm.get('content', '')[:50]}"
+                existing_signatures.add(signature)
+            
+            # Add new communications that don't already exist
+            for new_comm in new_comms:
+                signature = f"{new_comm.get('type', '')}_{new_comm.get('recipient', '')}_{new_comm.get('content', '')[:50]}"
+                if signature not in existing_signatures:
+                    merged.append(new_comm)
+                    existing_signatures.add(signature)
+            
+        except Exception as e:
+            logger.warning(f"Error merging agent communications: {e}")
+            # On error, just concatenate
+            merged = existing_comms + new_comms
+        
+        return merged
+    
+    def _extract_handover_indicators_from_routing(self, routing_decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract agent handover indicators from routing decisions"""
+        
+        handover_indicators = []
+        
+        try:
+            for decision in routing_decisions:
+                # Look for agent selection or routing to specific agents
+                if decision.get('selected_agent') or decision.get('target_agent'):
+                    target_agent = decision.get('selected_agent') or decision.get('target_agent')
+                    
+                    indicator = {
+                        "type": "routing_decision",
+                        "target_agent": target_agent,
+                        "confidence": decision.get('confidence', 0.0),
+                        "reasoning": decision.get('reasoning', ''),
+                        "timestamp": decision.get('timestamp', ''),
+                        "source": "routing_decision"
+                    }
+                    
+                    # Extract handover reasoning
+                    reasoning = decision.get('reasoning', '').lower()
+                    if any(keyword in reasoning for keyword in ['handover', 'transfer', 'route to', 'pass to', 'redirect to']):
+                        indicator["handover_type"] = "explicit_routing"
+                    elif any(keyword in reasoning for keyword in ['specialist', 'expert', 'better suited']):
+                        indicator["handover_type"] = "expertise_based"
+                    else:
+                        indicator["handover_type"] = "implicit_routing"
+                    
+                    handover_indicators.append(indicator)
+                
+                # Look for workflow progression indicators
+                if decision.get('workflow_step') or decision.get('next_action'):
+                    workflow_indicator = {
+                        "type": "workflow_progression",
+                        "next_step": decision.get('workflow_step') or decision.get('next_action'),
+                        "current_agent": decision.get('current_agent', 'unknown'),
+                        "timestamp": decision.get('timestamp', ''),
+                        "source": "workflow_decision"
+                    }
+                    handover_indicators.append(workflow_indicator)
+            
+        except Exception as e:
+            logger.warning(f"Error extracting handover indicators: {e}")
+        
+        return handover_indicators
