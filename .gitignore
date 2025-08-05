@@ -49,3 +49,7 @@ deployment/kb_sync_state.json
 response.json
 test_*.json
 temp_*.py
+
+# Claude Code configuration
+CLAUDE.md
+.gitignore
