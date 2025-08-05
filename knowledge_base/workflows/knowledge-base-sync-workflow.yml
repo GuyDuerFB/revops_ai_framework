@@ -1,0 +1,158 @@
+# GitHub Action Workflow File
+# Location: .github/workflows/knowledge-base-sync.yml
+# This is a copy for documentation purposes
+
+name: Knowledge Base Sync
+
+on:
+  push:
+    branches: [main]
+    paths: 
+      - 'knowledge_base/**/*.md'
+      - '!knowledge_base/firebolt_schema/**'
+
+jobs:
+  sync-knowledge-base:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2  # Need previous commit to detect changes
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ vars.AWS_REGION }}
+    
+    - name: Detect changes in knowledge_base directory
+      id: detect-changes
+      run: |
+        echo "Detecting changes in knowledge_base directory (excluding firebolt_schema/)..."
+        
+        # Get list of changed files in knowledge_base directory (excluding firebolt_schema)
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' || echo "")
+        DELETED_FILES=$(git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' || echo "")
+        
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+        echo "Deleted files:"
+        echo "$DELETED_FILES"
+        
+        # Set outputs for next steps
+        echo "changed-files<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "deleted-files<<EOF" >> $GITHUB_OUTPUT
+        echo "$DELETED_FILES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        # Check if there are any changes
+        if [ -n "$CHANGED_FILES" ] || [ -n "$DELETED_FILES" ]; then
+          echo "has-changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "has-changes=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Sync files to S3
+      if: steps.detect-changes.outputs.has-changes == 'true'
+      run: |
+        echo "Starting S3 sync..."
+        
+        S3_BUCKET="s3://revops-ai-framework-kb-740202120544/knowledge-base/"
+        
+        # First, sync all current .md files to S3 (excluding firebolt_schema directory)
+        echo "Uploading current .md files to S3 (excluding firebolt_schema)..."
+        if [ -d "knowledge_base" ]; then
+          find knowledge_base -name "*.md" -type f | grep -v '^knowledge_base/firebolt_schema/' | while read file; do
+            # Remove knowledge_base/ prefix for S3 path
+            s3_path="${file#knowledge_base/}"
+            echo "Uploading: $file -> $S3_BUCKET$s3_path"
+            aws s3 cp "$file" "$S3_BUCKET$s3_path" --content-type "text/markdown"
+          done
+        else
+          echo "No knowledge_base directory found"
+        fi
+        
+        # Handle deleted files - remove them from S3
+        if [ -n "${{ steps.detect-changes.outputs.deleted-files }}" ]; then
+          echo "Removing deleted files from S3..."
+          echo "${{ steps.detect-changes.outputs.deleted-files }}" | while read file; do
+            if [ -n "$file" ]; then
+              # Remove knowledge_base/ prefix for S3 path
+              s3_path="${file#knowledge_base/}"
+              echo "Deleting from S3: $S3_BUCKET$s3_path"
+              aws s3 rm "$S3_BUCKET$s3_path" || echo "File may not exist in S3: $s3_path"
+            fi
+          done
+        fi
+        
+        echo "S3 sync completed successfully!"
+    
+    - name: Trigger Bedrock Knowledge Base Ingestion
+      if: steps.detect-changes.outputs.has-changes == 'true'
+      run: |
+        echo "Triggering Bedrock knowledge base ingestion..."
+        
+        KNOWLEDGE_BASE_ID="F61WLOYZSW"
+        DATA_SOURCE_ID="0HMI5RHYUS"
+        
+        # Start ingestion job
+        INGESTION_JOB_ID=$(aws bedrock-agent start-ingestion-job \
+          --knowledge-base-id "$KNOWLEDGE_BASE_ID" \
+          --data-source-id "$DATA_SOURCE_ID" \
+          --description "GitHub Action sync - $(date -u +"%Y-%m-%d %H:%M:%S UTC")" \
+          --query 'ingestionJob.ingestionJobId' \
+          --output text)
+        
+        if [ $? -eq 0 ] && [ -n "$INGESTION_JOB_ID" ]; then
+          echo "✅ Bedrock ingestion job started successfully!"
+          echo "Job ID: $INGESTION_JOB_ID"
+          
+          # Wait a few seconds and check initial status
+          sleep 5
+          STATUS=$(aws bedrock-agent get-ingestion-job \
+            --knowledge-base-id "$KNOWLEDGE_BASE_ID" \
+            --data-source-id "$DATA_SOURCE_ID" \
+            --ingestion-job-id "$INGESTION_JOB_ID" \
+            --query 'ingestionJob.status' \
+            --output text)
+          
+          echo "Initial ingestion job status: $STATUS"
+        else
+          echo "❌ Failed to start Bedrock ingestion job"
+          echo "This is a warning - S3 sync was successful but Bedrock sync failed"
+          exit 0  # Don't fail the action, just log the issue
+        fi
+    
+    - name: Summary
+      if: steps.detect-changes.outputs.has-changes == 'true'
+      run: |
+        echo "📋 Knowledge Base Sync Summary:"
+        echo "================================"
+        
+        if [ -n "${{ steps.detect-changes.outputs.changed-files }}" ]; then
+          echo "📝 Updated/Added files:"
+          echo "${{ steps.detect-changes.outputs.changed-files }}" | sed 's/^/  - /'
+        fi
+        
+        if [ -n "${{ steps.detect-changes.outputs.deleted-files }}" ]; then
+          echo "🗑️  Deleted files:"
+          echo "${{ steps.detect-changes.outputs.deleted-files }}" | sed 's/^/  - /'
+        fi
+        
+        echo ""
+        echo "✅ S3 sync completed"
+        echo "✅ Bedrock ingestion triggered"
+        echo "🎯 Knowledge base agents will use updated content within a few minutes"
+    
+    - name: No changes detected
+      if: steps.detect-changes.outputs.has-changes == 'false'
+      run: |
+        echo "ℹ️  No changes detected in knowledge_base/*.md files (excluding firebolt_schema/)"
+        echo "Skipping sync operations"
