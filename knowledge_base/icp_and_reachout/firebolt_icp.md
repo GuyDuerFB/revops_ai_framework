@@ -1,15 +1,58 @@
-# Enhanced Firebolt Ideal Customer Profile (ICP)
+# Firebolt Ideal Customer Profile (ICP)
 
-## Executive Summary
+## Company Characteristics
 
-Firebolt's Ideal Customer Profile consists of data-intensive organizations requiring high-performance, low-latency analytics at scale for both internal operations and external-facing applications. These customers are building modern data applications, AI/GenAI systems, operational dashboards, or customer-facing analytics that demand sub-second query performance, extreme concurrency (100s to 4000+ QPS), and cost-efficient scaling without compromising on SQL functionality.
+### Industry Verticals
 
-**Key Market Context (2024-2025):**
-- Global cloud data warehouse market projected to grow from $36.31B in 2025 to $155.66B by 2034 (17.55% CAGR)
-- Rapid shift from internal analytics to external data access and data-intensive product creation
-- 180 zettabytes of data expected to be created globally by 2025
-- Increasing demand for sub-second latency in customer-facing applications
-- AI/GenAI workloads requiring hybrid vector + structured data retrieval
+#### High-Priority Verticals
+- **SaaS & Technology:** Embedded analytics, customer-facing dashboards, developer tools
+- **E-commerce & Retail:** Real-time personalization, dynamic pricing, inventory optimization
+- **Financial Services (Fintech):** Fraud detection, risk analytics, algorithmic trading, regulatory reporting
+- **Gaming & Entertainment:** Player analytics, content recommendations, real-time leaderboards
+- **AdTech & MarTech:** Real-time bidding, campaign optimization, audience segmentation
+
+#### Emerging Opportunities
+- **Healthcare & Life Sciences:** Clinical decision support, drug discovery analytics, patient data analysis
+- **Cybersecurity:** Real-time threat detection, security analytics, incident response
+- **IoT & Manufacturing:** Predictive maintenance, quality control, supply chain optimization
+- **Media & Publishing:** Content personalization, audience analytics, recommendation engines
+- **AI Native**: AI agent creation, deployment and managment, AI as a service, AI foundational model building
+
+### Company Size Indicators
+
+#### Revenue Segments
+- **Scale-ups:** $50M+ ARR with rapid growth (>50% YoY)
+- **Mid-Market:** $100M-$500M ARR with digital transformation initiatives
+
+#### Employee size
+- **50-5,000 employees**
+- **Sweet spot** at 200-1000 employees
+
+#### Technical Scale Indicators
+- **Data Volume:** Processing 50GB+ daily or managing 1TB+ total data
+- **User Scale:** Serving 100+ end customers or 50+ internal analytical users
+- **Query Volume:** Handling 1K+ queries daily or requiring 50+ concurrent QPS
+- **Growth Rate:** Data volume or query load growing >100% annually
+
+#### Organizational Maturity
+- **Technical Sophistication:** Engineering teams with cloud-native experience
+- **Innovation Focus:** Building differentiated data products or AI capabilities
+
+### Technical Environment
+
+#### Current Technology Stack
+- **Cloud-Native:** AWS, Azure, GCP deployments with containerized workloads. **AWS** is by far the most significant.
+- **Modern Data Stack:** Using tools like DBT, Airflow, Kubernetes, Terraform
+- **Current Solutions:** Snowflake, Redshift, BigQuery, ClickHouse, or legacy systems. **Redshift** is a major focus.
+- **Data Lake Integration:** S3, Azure Data Lake, GCS with Iceberg/Delta Lake
+- **Real-Time Requirements:** Sub-second to sub-minute latency needs
+
+#### Integration Requirements
+- **BI Tools:** Tableau, Looker, Power BI, Grafana connectivity
+- **Data Tools:** DBT, Airflow, Fivetran, Kafka integration
+- **Programming Languages:** Python, Java, Node.js, Go support
+- **APIs:** REST APIs for programmatic access and automation
+- **SQL Compatibility:** PostgreSQL-compatible syntax requirements
 
 ## Primary Customer Segments
 
@@ -181,117 +224,6 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 - Customer retention and engagement metrics
 - Revenue per user and monetization of data
 - Infrastructure cost as percentage of revenue
-
-## Company Characteristics
-
-### Industry Verticals
-
-#### High-Priority Verticals
-- **SaaS & Technology:** Embedded analytics, customer-facing dashboards, developer tools
-- **E-commerce & Retail:** Real-time personalization, dynamic pricing, inventory optimization
-- **Financial Services (Fintech):** Fraud detection, risk analytics, algorithmic trading, regulatory reporting
-- **Gaming & Entertainment:** Player analytics, content recommendations, real-time leaderboards
-- **AdTech & MarTech:** Real-time bidding, campaign optimization, audience segmentation
-
-#### Emerging Opportunities
-- **Healthcare & Life Sciences:** Clinical decision support, drug discovery analytics, patient data analysis
-- **Cybersecurity:** Real-time threat detection, security analytics, incident response
-- **IoT & Manufacturing:** Predictive maintenance, quality control, supply chain optimization
-- **Media & Publishing:** Content personalization, audience analytics, recommendation engines
-- **AI Native**: AI agent creation, deployment and managment, AI as a service, AI foundational model building
-
-### Company Size Indicators
-
-#### Revenue Segments
-- **Scale-ups:** $50M+ ARR with rapid growth (>50% YoY)
-- **Mid-Market:** $100M-$500M ARR with digital transformation initiatives
-
-#### Employee size
-- **50-5,000 employees**
-- **Sweet spot** at 200-1000 employees
-
-#### Technical Scale Indicators
-- **Data Volume:** Processing 1TB+ daily or managing 500TB+ total data
-- **User Scale:** Serving 1,000+ end customers or 100+ internal analytical users
-- **Query Volume:** Handling 1K+ queries daily or requiring 50+ concurrent QPS
-- **Growth Rate:** Data volume or query load growing >100% annually
-
-#### Organizational Maturity
-- **Technical Sophistication:** Engineering teams with cloud-native experience
-- **Data Culture:** Analytics-driven decision making across the organization
-- **Infrastructure Investment:** Significant budget allocated to data infrastructure
-- **Innovation Focus:** Building differentiated data products or AI capabilities
-
-### Technical Environment
-
-#### Current Technology Stack
-- **Cloud-Native:** AWS, Azure, GCP deployments with containerized workloads. **AWS** is by far the most significant.
-- **Modern Data Stack:** Using tools like DBT, Airflow, Kubernetes, Terraform
-- **Current Solutions:** Snowflake, Redshift, BigQuery, ClickHouse, or legacy systems
-- **Data Lake Integration:** S3, Azure Data Lake, GCS with Iceberg/Delta Lake
-- **Real-Time Requirements:** Sub-second to sub-minute latency needs
-
-#### Integration Requirements
-- **BI Tools:** Tableau, Looker, Power BI, Grafana connectivity
-- **Data Tools:** DBT, Airflow, Fivetran, Kafka integration
-- **Programming Languages:** Python, Java, Node.js, Go support
-- **APIs:** REST APIs for programmatic access and automation
-- **SQL Compatibility:** PostgreSQL-compatible syntax requirements
-
-## Qualifying Criteria
-
-### Must-Have Requirements
-
-#### Performance Pain Points
-1. **Latency Issues:** Current solution can't consistently deliver sub-second query performance
-2. **Concurrency Limitations:** System performance degrades with 50+ concurrent users
-3. **Scale Challenges:** Growing data volumes or user base straining current infrastructure
-4. **Cost Pressure:** Infrastructure costs growing faster than business value or revenue
-
-#### Technical Sophistication
-1. **Cloud-Native:** Team capable of evaluating and implementing modern data solutions
-2. **SQL Proficiency:** Strong SQL skills across data engineering and analytics teams
-3. **DevOps Maturity:** CI/CD processes and infrastructure-as-code practices
-4. **Performance Focus:** Understanding of query optimization and performance tuning
-
-### High-Value Indicators
-
-#### Business Criticality
-1. **Customer-Facing Analytics:** End-user applications dependent on query performance
-2. **Revenue Impact:** Data infrastructure directly affects revenue or customer experience
-3. **Competitive Advantage:** Analytics or AI capabilities as key business differentiators
-
-#### Technical Complexity
-1. **High Concurrency Needs:** Regular requirement for 100+ concurrent queries
-2. **Real-Time Requirements:** Sub-second response time requirements for business operations
-3. **Large Data Volumes:** 1+ TB datasets or multi-TB daily ingestion requirements
-4. **AI/ML Workloads:** Building or planning GenAI applications requiring hybrid retrieval
-
-#### Growth Indicators
-1. **Rapid Scaling:** Data or user growth >100% annually
-2. **Feature Velocity:** Need to launch new analytical features quickly
-3. **Technical Debt:** Recognition of performance or architectural limitations
-4. **Investment Budget:** Allocated budget for infrastructure improvements
-
-### Disqualifying Factors
-
-#### Budget and Resource Constraints
-1. **Limited Budget:** Unable to invest in infrastructure improvements (typically <$100K annually)
-2. **Resource Constraints:** No dedicated data engineering or platform team
-3. **Risk Aversion:** Unwillingness to adopt modern, cloud-native solutions
-4. **Procurement Barriers:** Inflexible procurement processes preventing trial or evaluation
-
-#### Technical Limitations
-1. **Low Performance Requirements:** Batch processing or infrequent query patterns (daily/weekly)
-2. **Small Data Volumes:** <5GB total data or minimal growth trajectory
-3. **Single-Query Focus:** Only occasional, low-concurrency analytical needs
-4. **Legacy Dependencies:** Hard requirements for legacy systems or protocols
-
-#### Business Misalignment
-1. **Cost-First Mentality:** Primary focus on minimizing costs rather than maximizing value
-2. **Internal-Only Analytics:** No customer-facing or revenue-generating data applications
-3. **Regulatory Restrictions:** Data residency or security requirements incompatible with cloud
-4. **Vendor Lock-in:** Unwillingness to consider alternatives to current vendor relationships
 
 ## Competitive Landscape & Displacement Opportunities
 
@@ -483,34 +415,6 @@ Firebolt's Ideal Customer Profile consists of data-intensive organizations requi
 - Revenue impact (new analytical capabilities driving business growth)
 - Customer satisfaction (improved product performance and capabilities)
 - Competitive advantage (differentiated data/AI capabilities)
-
-## Market Intelligence & Trends
-
-### Industry Trends Driving Adoption
-
-#### **Data Democratization**
-- Self-service analytics adoption across business functions
-- Embedded analytics in customer-facing applications
-- Real-time decision making becoming competitive necessity
-- Data literacy increasing across organizational roles
-
-#### **AI/GenAI Integration**
-- RAG systems requiring hybrid vector + structured retrieval
-- Conversational interfaces to business intelligence
-- AI-powered automation requiring real-time data access
-- Vector embeddings becoming mainstream for semantic search
-
-#### **Performance Expectations**
-- Consumer-grade user experience expectations in B2B applications
-- Sub-second latency becoming standard requirement
-- Mobile-first analytics requiring optimized performance
-- Real-time personalization across customer touchpoints
-
-#### **Infrastructure Modernization**
-- Cloud-native architectures becoming standard
-- Containerization and Kubernetes adoption for data workloads
-- Infrastructure-as-code and DevOps practices for data teams
-- Multi-cloud and hybrid deployment requirements
 
 ### Competitive Intelligence
 
