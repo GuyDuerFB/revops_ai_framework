@@ -17,7 +17,7 @@ knowledge_base/
 │   ├── firebolt_business_logic.md    # Core business logic
 │   ├── revenue_logic.md              # Revenue calculation methods
 │   └── sales_process_logic.md        # Sales process workflows
-├── firebolt_schema/                   # Database schema documentation
+├── firebolt_schema/                   # Database schema documentation (EXCLUDED from auto-sync)
 │   ├── firebolt_schema.json          # Schema definition (JSON)
 │   └── firebolt_schema.md            # Schema documentation (Markdown)
 ├── icp_and_reachout/                 # Ideal Customer Profile and messaging
@@ -62,7 +62,12 @@ When you merge changes to the `main` branch that affect `.md` files in the `know
 - **Format**: Only `.md` (Markdown) files are synchronized
 - **Location**: Must be within the `knowledge_base/` directory or subdirectories
 - **Trigger**: Changes must be merged to the `main` branch
+- **Exclusions**: The `firebolt_schema/` directory is excluded from auto-sync (managed separately)
 - **Ignored files**: Temporary files, hidden files, and non-`.md` files are ignored
+
+### Excluded Directories
+
+**`firebolt_schema/`**: This directory contains database schema documentation that is managed through a separate process and should not be automatically synchronized through GitHub Actions. Changes to schema files require manual review and controlled deployment.
 
 ## Content Guidelines
 

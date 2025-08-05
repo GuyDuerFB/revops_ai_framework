@@ -3,7 +3,9 @@ name: Knowledge Base Sync
 on:
   push:
     branches: [main]
-    paths: ['knowledge_base/**/*.md']
+    paths: 
+      - 'knowledge_base/**/*.md'
+      - '!knowledge_base/firebolt_schema/**'
 
 jobs:
   sync-knowledge-base:
@@ -25,11 +27,11 @@ jobs:
     - name: Detect changes in knowledge_base directory
       id: detect-changes
       run: |
-        echo "Detecting changes in knowledge_base directory..."
+        echo "Detecting changes in knowledge_base directory (excluding firebolt_schema/)..."
         
-        # Get list of changed files in knowledge_base directory
-        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- 'knowledge_base/**/*.md' || echo "")
-        DELETED_FILES=$(git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'knowledge_base/**/*.md' || echo "")
+        # Get list of changed files in knowledge_base directory (excluding firebolt_schema)
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' || echo "")
+        DELETED_FILES=$(git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' || echo "")
         
         echo "Changed files:"
         echo "$CHANGED_FILES"
@@ -59,10 +61,10 @@ jobs:
         
         S3_BUCKET="s3://revops-ai-framework-kb-740202120544/knowledge-base/"
         
-        # First, sync all current .md files to S3 (this handles new and modified files)
-        echo "Uploading current .md files to S3..."
+        # First, sync all current .md files to S3 (excluding firebolt_schema directory)
+        echo "Uploading current .md files to S3 (excluding firebolt_schema)..."
         if [ -d "knowledge_base" ]; then
-          find knowledge_base -name "*.md" -type f | while read file; do
+          find knowledge_base -name "*.md" -type f | grep -v '^knowledge_base/firebolt_schema/' | while read file; do
             # Remove knowledge_base/ prefix for S3 path
             s3_path="${file#knowledge_base/}"
             echo "Uploading: $file -> $S3_BUCKET$s3_path"
@@ -147,5 +149,5 @@ jobs:
     - name: No changes detected
       if: steps.detect-changes.outputs.has-changes == 'false'
       run: |
-        echo "ℹ️  No changes detected in knowledge_base/*.md files"
+        echo "ℹ️  No changes detected in knowledge_base/*.md files (excluding firebolt_schema/)"
         echo "Skipping sync operations"
