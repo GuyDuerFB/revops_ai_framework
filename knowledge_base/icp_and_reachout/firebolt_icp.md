@@ -21,7 +21,7 @@
 ### Company Size Indicators
 
 #### Revenue Segments
-- **Scale-ups:** $50M+ ARR with rapid growth (>50% YoY)
+- **Scale-ups:** $25M+ ARR with rapid growth (>50% YoY)
 - **Mid-Market:** $100M-$500M ARR with digital transformation initiatives
 
 #### Employee size
