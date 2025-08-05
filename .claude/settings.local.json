@@ -88,7 +88,16 @@
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent update-data-source --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --region us-east-1 --name \"revops-schema-data-source-consolidated\" --description \"Firebolt schema documentation data source - knowledge base only\" --data-source-configuration '{\n  \"\"type\"\": \"\"S3\"\",\n  \"\"s3Configuration\"\": {\n    \"\"bucketArn\"\": \"\"arn:aws:s3:::revops-ai-framework-kb-740202120544\"\",\n    \"\"inclusionPrefixes\"\": [\"\"knowledge-base/\"\"]\n  }\n}' --vector-ingestion-configuration '{\n  \"\"chunkingConfiguration\"\": {\n    \"\"chunkingStrategy\"\": \"\"SEMANTIC\"\",\n    \"\"semanticChunkingConfiguration\"\": {\n      \"\"breakpointPercentileThreshold\"\": 95,\n      \"\"bufferSize\"\": 0,\n      \"\"maxTokens\"\": 300\n    }\n  }\n}')",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent start-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --region us-east-1 --description \"Re-ingestion to exclude conversation history - knowledge-base/ only\")",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --ingestion-job-id CWH2KUBY7V --region us-east-1 --query 'ingestionJob.status' --output text)",
-      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --ingestion-job-id CWH2KUBY7V --region us-east-1 --query 'ingestionJob.statistics')"
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --ingestion-job-id CWH2KUBY7V --region us-east-1 --query 'ingestionJob.statistics')",
+      "Bash(git remote:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/ --recursive)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-knowledge-base --knowledge-base-id F61WLOYZSW --region us-east-1 --query 'knowledgeBase.{Name:name,Description:description,RoleArn:roleArn}' --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-data-source --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --region us-east-1 --query 'dataSource.{Name:name,DataSourceId:dataSourceId}' --output table)",
+      "Bash(gh repo view:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 cp knowledge_base/test_sync.md s3://revops-ai-framework-kb-740202120544/knowledge-base/test_sync.md --content-type \"text/markdown\")",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --ingestion-job-id OXQ4O60HEO --query 'ingestionJob.{Status:status,StartedAt:startedAt,Statistics:statistics}' --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 rm s3://revops-ai-framework-kb-740202120544/knowledge-base/test_sync.md)"
     ],
     "deny": []
   }
