@@ -118,7 +118,7 @@ WHERE status = 'active';
 ### Common Issues
 
 1. **No Sync Triggered**: Ensure changes are in `.md` files within `knowledge_base/`
-2. **S3 Upload Failed**: Check AWS credentials and permissions
+2. **S3 Upload Failed**: Check AWS credentials and permissions (ensure AWS_SESSION_TOKEN is set for temporary credentials)
 3. **Bedrock Sync Failed**: Verify knowledge base ID and data source configuration
 4. **Large Files**: Files over AWS limits will be logged as warnings
 
@@ -129,6 +129,54 @@ After making changes:
 1. Check GitHub Actions for successful workflow completion
 2. Verify files appear in S3 bucket: `s3://revops-ai-framework-kb-740202120544/knowledge-base/`
 3. Test AI agents to confirm they're using updated information
+
+## AWS Credentials Setup
+
+The GitHub Action requires AWS credentials configured as repository secrets:
+
+### Required Secrets
+
+For **temporary credentials** (Access Key starts with `ASIA`):
+- `AWS_ACCESS_KEY_ID`: Your temporary access key ID
+- `AWS_SECRET_ACCESS_KEY`: Your secret access key  
+- `AWS_SESSION_TOKEN`: Required for temporary credentials
+- `AWS_REGION`: Set as repository variable (e.g., `us-east-1`)
+
+For **permanent credentials** (Access Key starts with `AKIA`):
+- `AWS_ACCESS_KEY_ID`: Your IAM user access key ID
+- `AWS_SECRET_ACCESS_KEY`: Your IAM user secret access key
+- `AWS_REGION`: Set as repository variable (e.g., `us-east-1`)
+
+### Required AWS Permissions
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject", 
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::revops-ai-framework-kb-740202120544",
+        "arn:aws:s3:::revops-ai-framework-kb-740202120544/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agent:StartIngestionJob",
+        "bedrock-agent:GetIngestionJob"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ## Support
 
