@@ -1,0 +1,24 @@
+{
+    "logging": {
+        "level": "INFO"
+    },
+    "features": {
+        "queue_processing": {
+            "enabled": true,
+            "retries": {
+                "max_attempts": 5,
+                "base_delay_seconds": 1,
+                "max_delay_seconds": 300,
+                "backoff_multiplier": 2,
+                "jitter": true
+            }
+        },
+        "bedrock_agent_compatibility": {
+            "enabled": false
+        }
+    },
+    "webhooks": {
+        "path": null,
+        "allow_direct_url": true
+    }
+}

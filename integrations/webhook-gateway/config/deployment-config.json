@@ -1,0 +1,23 @@
+{
+  "environment_name": "prod",
+  "region": "us-east-1",
+  "manager_agent_function_name": "revops-manager-agent-wrapper",
+  "bedrock_agent_id": "PVWGKOWSOT",
+  "bedrock_agent_alias_id": "TSTALIASID",
+  "webhook_urls": {
+    "deal_analysis": "",
+    "data_analysis": "",
+    "lead_analysis": "",
+    "general": ""
+  },
+  "log_level": "INFO",
+  "cloudformation": {
+    "stack_name": "revops-webhook-gateway-stack",
+    "template_file": "infrastructure/webhook-gateway-simple.yaml"
+  },
+  "lambda": {
+    "timeout": 300,
+    "memory_size": 512,
+    "runtime": "python3.9"
+  }
+}

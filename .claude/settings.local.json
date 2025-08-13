@@ -97,7 +97,27 @@
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 cp knowledge_base/test_sync.md s3://revops-ai-framework-kb-740202120544/knowledge-base/test_sync.md --content-type \"text/markdown\")",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --ingestion-job-id OXQ4O60HEO --query 'ingestionJob.{Status:status,StartedAt:startedAt,Statistics:statistics}' --output table)",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/)",
-      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 rm s3://revops-ai-framework-kb-740202120544/knowledge-base/test_sync.md)"
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 rm s3://revops-ai-framework-kb-740202120544/knowledge-base/test_sync.md)",
+      "Bash(git pull:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/icp_and_reachout/ --human-readable)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws s3api head-object --bucket revops-ai-framework-kb-740202120544 --key knowledge-base/icp_and_reachout/firebolt_icp.md --query 'LastModified' --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent list-ingestion-jobs --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --max-results 5 --query 'ingestionJobSummaries[*].{JobId:ingestionJobId,Status:status,StartedAt:startedAt,Description:description}' --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent list-ingestion-jobs --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --max-results 3 --query 'ingestionJobSummaries[*].{JobId:ingestionJobId,Status:status,StartedAt:startedAt,Description:description}' --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent list-ingestion-jobs --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --max-results 10 --query 'ingestionJobSummaries[?startedAt >= `2025-08-05T00:00:00`].[ingestionJobId,status,startedAt,description]' --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent list-ingestion-jobs --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --max-results 10 --query 'ingestionJobSummaries[*]' --output json)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws bedrock-agent get-ingestion-job --knowledge-base-id F61WLOYZSW --data-source-id 0HMI5RHYUS --ingestion-job-id KSCLHEAVWI --query 'ingestionJob.{Status:status,StartedAt:startedAt,UpdatedAt:updatedAt,Statistics:statistics}' --output table)",
+      "Bash(PYTHONPATH=/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework python3 /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/integrations/webhook-gateway/deploy.py)",
+      "Bash(pip3 install:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs describe-log-streams --log-group-name \"/aws/lambda/revops-webhook\" --order-by LastEventTime --descending --max-items 3 --query \"logStreams[*].{StreamName:logStreamName,LastEventTime:lastEventTime}\" --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/12/[$LATEST]12a1989b01864ae4a98c7c171cf22f9f\" --query \"events[-20:].message\" --output text)",
+      "Bash(pip install:*)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws lambda wait function-updated --function-name revops-webhook --region us-east-1)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs describe-log-streams --log-group-name \"/aws/lambda/revops-webhook\" --order-by LastEventTime --descending --max-items 2 --query \"logStreams[*].{StreamName:logStreamName,LastEventTime:lastEventTime}\" --output table)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/12/[$LATEST]1508feaf7a5c40a383750fe5a147c427\" --query \"events[-20:].message\" --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]1ab420ce33254aa59310ccc3ac2cc0e6\" --query \"events[*].message\" --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/12/[$LATEST]9b6573f3f6f84da085c51382df5b7ad0\" --query \"events[*].message\" --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]b85be8c4246749ab92366a365a6649fa\" --query \"events[*].message\" --output text)",
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]b85be8c4246749ab92366a365a6649fa\" --start-time 1754270000000 --query \"events[*].message\" --output text)"
     ],
     "deny": []
   }

@@ -35,6 +35,7 @@ from typing import Dict, Any, Optional, Union, List
 from modules.core import CoreWebhookHandler
 from modules.queue_processor import QueueProcessor
 from modules.bedrock_adapter import BedrockAgentAdapter
+from modules.outbound_delivery import OutboundDeliveryHandler
 
 # Import utilities
 from utils.config_loader import load_configuration
@@ -57,8 +58,12 @@ def determine_execution_mode(event: Dict[str, Any], config: Dict[str, Any]) -> s
         config: Configuration dictionary
         
     Returns:
-        Execution mode: 'bedrock_agent', 'sqs_message', or 'direct'
+        Execution mode: 'bedrock_agent', 'sqs_message', 'outbound_delivery', or 'direct'
     """
+    # Check if it's an outbound webhook delivery SQS event
+    if is_outbound_delivery_event(event):
+        return "outbound_delivery"
+    
     # Initialize modules based on configuration
     bedrock_enabled = config.get("features", {}).get("bedrock_agent_compatibility", {}).get("enabled", False)
     queue_enabled = config.get("features", {}).get("queue_processing", {}).get("enabled", False)
@@ -77,6 +82,33 @@ def determine_execution_mode(event: Dict[str, Any], config: Dict[str, Any]) -> s
     
     # Default to direct invocation
     return "direct"
+
+def is_outbound_delivery_event(event: Dict[str, Any]) -> bool:
+    """
+    Check if the event is an outbound webhook delivery SQS event.
+    
+    Args:
+        event: Lambda event
+        
+    Returns:
+        True if this is an outbound delivery event
+    """
+    # Check if it's an SQS event
+    if 'Records' not in event or not isinstance(event['Records'], list):
+        return False
+    
+    # Check if any record has the outbound delivery characteristics
+    for record in event.get('Records', []):
+        if record.get('eventSource') == 'aws:sqs':
+            try:
+                # Check message body for delivery_id (unique to outbound delivery)
+                body = json.loads(record.get('body', '{}'))
+                if 'delivery_id' in body and 'target_webhook_url' in body:
+                    return True
+            except (json.JSONDecodeError, KeyError):
+                continue
+    
+    return False
 
 def process_direct_request(event: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -299,6 +331,53 @@ def process_bedrock_agent_request(event: Dict[str, Any], config: Dict[str, Any])
         
         return bedrock_adapter.format_bedrock_response(error_response, success=False)
 
+def process_outbound_delivery(event: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Process outbound webhook delivery SQS messages.
+    
+    Args:
+        event: SQS event with delivery Records
+        config: Configuration dictionary
+        
+    Returns:
+        Processing results
+    """
+    # Initialize outbound delivery handler
+    outbound_handler = OutboundDeliveryHandler(config)
+    
+    try:
+        # Process outbound delivery
+        results = outbound_handler.process_outbound_delivery(event)
+        
+        successful_deliveries = sum(1 for r in results if r["success"])
+        total_deliveries = len(results)
+        
+        logger.info(f"Outbound delivery batch completed", extra={
+            "total_deliveries": total_deliveries,
+            "successful_deliveries": successful_deliveries,
+            "failed_deliveries": total_deliveries - successful_deliveries
+        })
+        
+        return {
+            "success": True,
+            "message": f"Processed {total_deliveries} webhook deliveries",
+            "results": results,
+            "summary": {
+                "total": total_deliveries,
+                "successful": successful_deliveries,
+                "failed": total_deliveries - successful_deliveries
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing outbound deliveries: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        return {
+            "success": False,
+            "message": f"Error processing outbound deliveries: {str(e)}"
+        }
+
 def lambda_handler(event, context):
     """
     Unified webhook handler supporting direct invocation, SQS processing,
@@ -336,6 +415,8 @@ def lambda_handler(event, context):
         # Process according to mode
         if mode == "bedrock_agent":
             return process_bedrock_agent_request(event, config)
+        elif mode == "outbound_delivery":
+            return process_outbound_delivery(event, config)
         elif mode == "sqs_message":
             return process_queue_message(event, config)
         else:  # direct invocation
