@@ -117,7 +117,8 @@
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]1ab420ce33254aa59310ccc3ac2cc0e6\" --query \"events[*].message\" --output text)",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/12/[$LATEST]9b6573f3f6f84da085c51382df5b7ad0\" --query \"events[*].message\" --output text)",
       "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]b85be8c4246749ab92366a365a6649fa\" --query \"events[*].message\" --output text)",
-      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]b85be8c4246749ab92366a365a6649fa\" --start-time 1754270000000 --query \"events[*].message\" --output text)"
+      "Bash(AWS_PROFILE=FireboltSystemAdministrator-740202120544 aws logs get-log-events --log-group-name \"/aws/lambda/revops-webhook\" --log-stream-name \"2025/08/13/[$LATEST]b85be8c4246749ab92366a365a6649fa\" --start-time 1754270000000 --query \"events[*].message\" --output text)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }
