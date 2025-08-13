@@ -80,6 +80,177 @@ curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook
 4. **Outbound Queuing** → Message sent to SQS for async delivery
 5. **Delivery Processing** → SQS triggers Lambda for webhook delivery with retries
 
+## Developer Walkthrough
+
+### Setting Up Outbound Webhook Addresses
+
+#### Option 1: Using AWS CLI (Recommended)
+```bash
+# Set your AWS profile
+export AWS_PROFILE=FireboltSystemAdministrator-740202120544
+
+# Update webhook URLs for the gateway function
+aws lambda update-function-configuration \
+  --function-name prod-revops-webhook-gateway \
+  --environment 'Variables={
+    MANAGER_AGENT_FUNCTION_NAME=revops-manager-agent-wrapper,
+    OUTBOUND_WEBHOOK_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/740202120544/prod-revops-webhook-outbound-queue,
+    DEAL_ANALYSIS_WEBHOOK_URL=https://your-app.com/webhooks/deal-analysis,
+    DATA_ANALYSIS_WEBHOOK_URL=https://your-app.com/webhooks/data-analysis,
+    LEAD_ANALYSIS_WEBHOOK_URL=https://your-app.com/webhooks/lead-analysis,
+    GENERAL_WEBHOOK_URL=https://your-app.com/webhooks/general,
+    LOG_LEVEL=INFO
+  }' \
+  --region us-east-1
+```
+
+#### Option 2: Using AWS Console
+1. Navigate to **AWS Lambda Console** → **Functions**
+2. Search for `prod-revops-webhook-gateway`
+3. Go to **Configuration** → **Environment Variables**
+4. Update the following variables:
+   - `DEAL_ANALYSIS_WEBHOOK_URL`: `https://your-app.com/webhooks/deal-analysis`
+   - `DATA_ANALYSIS_WEBHOOK_URL`: `https://your-app.com/webhooks/data-analysis`
+   - `LEAD_ANALYSIS_WEBHOOK_URL`: `https://your-app.com/webhooks/lead-analysis`
+   - `GENERAL_WEBHOOK_URL`: `https://your-app.com/webhooks/general`
+
+### Webhook Response Classification
+
+The Manager Agent automatically routes responses to different webhook endpoints based on content analysis:
+
+- **Deal Analysis**: Responses containing deal-specific keywords (status, MEDDPICC, opportunity, etc.)
+- **Data Analysis**: Responses with data/metrics keywords (revenue, forecast, analytics, etc.)  
+- **Lead Analysis**: Responses about prospects/leads (qualification, outreach, etc.)
+- **General**: All other responses (fallback)
+
+### Tracking Message Flow
+
+#### 1. Inbound Request Tracking
+```bash
+# Test webhook and capture tracking ID
+curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What deals are closing this quarter?",
+    "source_system": "your_app",
+    "source_process": "quarterly_review",
+    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
+
+# Response includes tracking_id for flow monitoring
+# {"success": true, "tracking_id": "abc-123-def", "queued_at": "2025-08-13T10:00:00Z"}
+```
+
+#### 2. CloudWatch Log Monitoring
+
+**Webhook Gateway Logs** (`/aws/lambda/prod-revops-webhook-gateway`):
+```bash
+aws logs get-log-events \
+  --log-group-name "/aws/lambda/prod-revops-webhook-gateway" \
+  --log-stream-name "LATEST_STREAM_NAME" \
+  --query "events[*].message" --output text
+```
+
+**Queue Processor Logs** (`/aws/lambda/revops-webhook`):
+```bash
+aws logs get-log-events \
+  --log-group-name "/aws/lambda/revops-webhook" \
+  --log-stream-name "LATEST_STREAM_NAME" \
+  --query "events[*].message" --output text
+```
+
+**Manager Agent Logs** (`/aws/lambda/revops-manager-agent-wrapper`):
+```bash
+aws logs get-log-events \
+  --log-group-name "/aws/lambda/revops-manager-agent-wrapper" \
+  --log-stream-name "LATEST_STREAM_NAME" \
+  --query "events[*].message" --output text
+```
+
+#### 3. SQS Queue Monitoring
+```bash
+# Check outbound webhook queue status
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/prod-revops-webhook-outbound-queue \
+  --attribute-names All \
+  --query 'Attributes.{Available:ApproximateNumberOfMessages,InFlight:ApproximateNumberOfMessagesNotVisible}' \
+  --output table
+```
+
+#### 4. End-to-End Flow Verification
+
+**Complete flow tracking script:**
+```bash
+#!/bin/bash
+# Track a message from webhook to delivery
+
+# 1. Send webhook request
+echo "🚀 Sending webhook request..."
+RESPONSE=$(curl -s -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Show me pipeline analysis for Q4",
+    "source_system": "tracking_test",
+    "source_process": "flow_verification",
+    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }')
+
+TRACKING_ID=$(echo $RESPONSE | jq -r '.tracking_id')
+echo "📋 Tracking ID: $TRACKING_ID"
+
+# 2. Wait for processing
+echo "⏱️  Waiting for async processing..."
+sleep 10
+
+# 3. Check queue processor logs
+echo "🔍 Checking queue processor logs..."
+aws logs describe-log-streams \
+  --log-group-name "/aws/lambda/revops-webhook" \
+  --order-by LastEventTime --descending --max-items 1 \
+  --query "logStreams[0].logStreamName" --output text
+
+# 4. Check manager agent logs  
+echo "🤖 Checking manager agent logs..."
+aws logs describe-log-streams \
+  --log-group-name "/aws/lambda/revops-manager-agent-wrapper" \
+  --order-by LastEventTime --descending --max-items 1 \
+  --query "logStreams[0].logStreamName" --output text
+
+# 5. Check outbound queue status
+echo "📤 Checking outbound delivery status..."
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/prod-revops-webhook-outbound-queue \
+  --attribute-names ApproximateNumberOfMessages \
+  --query 'Attributes.ApproximateNumberOfMessages' --output text
+```
+
+### Error Handling and Troubleshooting
+
+**Common Issues:**
+
+1. **Manager Agent Permission Errors**:
+   ```bash
+   # Check if webhook Lambda has invoke permissions
+   aws iam list-attached-role-policies --role-name webhook-lambda-role
+   ```
+
+2. **SQS Visibility Timeout Issues**:
+   ```bash
+   # Increase visibility timeout for long AI processing
+   aws sqs set-queue-attributes \
+     --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/prod-revops-webhook-outbound-queue \
+     --attributes VisibilityTimeout=360
+   ```
+
+3. **Webhook Delivery Failures**:
+   ```bash
+   # Check delivery logs for HTTP errors
+   aws logs filter-log-events \
+     --log-group-name "/aws/lambda/revops-webhook" \
+     --filter-pattern "ERROR" \
+     --start-time $(date -d '1 hour ago' +%s)000
+   ```
+
 ## Next Steps (Phase 3)
 - Implement conversation tracking and S3 export (similar to Slack integration)
 - Add comprehensive monitoring and alerting

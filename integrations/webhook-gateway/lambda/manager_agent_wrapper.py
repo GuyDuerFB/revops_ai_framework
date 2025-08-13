@@ -28,6 +28,25 @@ def generate_session_id() -> str:
     unique_id = str(uuid.uuid4())[:8]
     return f"webhook_{timestamp}_{unique_id}"
 
+def get_current_date_context() -> str:
+    """Get current date and time context for agents"""
+    now = datetime.now(timezone.utc)
+    
+    date_context = f"""
+📅 **CURRENT DATE AND TIME CONTEXT:**
+- Current Date: {now.strftime('%A, %B %d, %Y')}
+- Current Time: {now.strftime('%H:%M UTC')}
+- Current Quarter: Q{((now.month - 1) // 3) + 1} {now.year}
+- Current Month: {now.strftime('%B %Y')}
+- Current Year: {now.year}
+
+**IMPORTANT**: Use this current date information to interpret all time-based references in the user's request.
+
+----
+
+"""
+    return date_context
+
 def invoke_bedrock_agent(query: str, session_id: str) -> Dict[str, Any]:
     """
     Invoke the Bedrock Manager Agent.
@@ -40,18 +59,23 @@ def invoke_bedrock_agent(query: str, session_id: str) -> Dict[str, Any]:
         Processed response from Bedrock Agent
     """
     try:
+        # Add current date context to query
+        date_context = get_current_date_context()
+        enhanced_query = f"{date_context}**USER REQUEST:**\n{query}"
+        
         logger.info(f"Invoking Bedrock Agent", extra={
             "agent_id": BEDROCK_AGENT_ID,
             "session_id": session_id,
-            "query_length": len(query)
+            "query_length": len(enhanced_query),
+            "has_date_context": True
         })
         
-        # Invoke Bedrock Agent
+        # Invoke Bedrock Agent with enhanced query
         response = bedrock_agent_runtime.invoke_agent(
             agentId=BEDROCK_AGENT_ID,
             agentAliasId=BEDROCK_AGENT_ALIAS_ID,
             sessionId=session_id,
-            inputText=query,
+            inputText=enhanced_query,
             enableTrace=True
         )
         
@@ -73,13 +97,23 @@ def invoke_bedrock_agent(query: str, session_id: str) -> Dict[str, Any]:
             "trace_count": len(traces)
         })
         
+        # Convert traces to JSON-serializable format
+        serializable_traces = []
+        for trace in traces:
+            try:
+                # Convert trace to string to avoid datetime serialization issues
+                serializable_traces.append(str(trace))
+            except Exception as trace_error:
+                logger.warning(f"Error serializing trace: {str(trace_error)}")
+        
         return {
             "success": True,
             "response": response_text,
             "outputText": response_text,  # For compatibility
             "sessionId": session_id,
             "source": "manager_agent_bedrock",
-            "traces": traces
+            "traces": serializable_traces,
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:
@@ -88,7 +122,8 @@ def invoke_bedrock_agent(query: str, session_id: str) -> Dict[str, Any]:
             "success": False,
             "error": str(e),
             "sessionId": session_id,
-            "source": "manager_agent_bedrock"
+            "source": "manager_agent_bedrock",
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 def lambda_handler(event, context):
