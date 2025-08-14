@@ -13,19 +13,23 @@ The Webhook Gateway provides HTTP webhook access to the RevOps AI Framework, all
 ## Directory Structure
 ```
 integrations/webhook-gateway/
-├── README.md                    # This documentation file
-├── deploy.py                    # Lambda function deployment script
+├── README.md                         # This documentation file
+├── deploy.py                         # Lambda function deployment script
 ├── config/
-│   └── deployment-config.json   # Deployment configuration
-└── lambda/                      # Lambda function source code
-    ├── webhook_handler.py       # API Gateway → SQS handler (prod-revops-webhook-gateway)
-    ├── lambda_function.py       # SQS → AI → Webhook processor (revops-webhook)
-    ├── manager_agent_wrapper.py # Bedrock Agent wrapper (revops-manager-agent-wrapper)
-    ├── request_transformer.py   # Request validation & transformation utilities
-    └── requirements.txt         # Python dependencies
+│   └── deployment-config.json        # Deployment configuration
+├── infrastructure/
+│   └── current-deployed-template.yaml # Currently deployed CloudFormation template
+└── lambda/                           # Lambda function source code
+    ├── webhook_handler.py            # API Gateway → SQS handler (prod-revops-webhook-gateway)
+    ├── lambda_function.py            # SQS → AI → Webhook processor (revops-webhook)
+    ├── manager_agent_wrapper.py      # Bedrock Agent wrapper (revops-manager-agent-wrapper)
+    ├── request_transformer.py        # Request validation & transformation utilities
+    └── requirements.txt              # Python dependencies
 ```
 
-**Note**: Infrastructure (API Gateway, SQS, IAM roles) is managed manually via AWS CLI. Lambda functions are deployed via `deploy.py`.
+**Infrastructure Management**: 
+- Core infrastructure managed via CloudFormation stack `revops-webhook-gateway-stack`
+- The `revops-webhook` queue processor exists outside the CloudFormation stack
 
 ## Status: ✅ PRODUCTION READY
 ### Phase 1: ✅ COMPLETED - Basic webhook functionality
@@ -34,10 +38,15 @@ integrations/webhook-gateway/
 ### Timeout & Reliability Fixes: ✅ COMPLETED - Production-grade reliability
 
 ### Deployed Resources
+
+**CloudFormation Stack: `revops-webhook-gateway-stack`**
 - **Webhook Endpoint**: `https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook`
-- **Manager Agent Wrapper**: `revops-manager-agent-wrapper` (15-min timeout, retry logic)
 - **Webhook Gateway Function**: `prod-revops-webhook-gateway` (15-min timeout)
+- **Manager Agent Wrapper**: `revops-manager-agent-wrapper` (15-min timeout, retry logic)
 - **SQS Outbound Queue**: `prod-revops-webhook-outbound-queue` (16-min visibility timeout)
+- **IAM Roles**: Service roles with least-privilege permissions
+
+**Manual Resources (outside CloudFormation):**
 - **Outbound Delivery Function**: `revops-webhook` (SQS processor, 15-min timeout)
 
 ### Performance Specifications
@@ -578,7 +587,17 @@ aws cloudwatch put-metric-alarm \
 
 ## Deployment & Updates
 
-### Quick Deployment (Recommended)
+### Infrastructure Management
+The webhook gateway uses a **hybrid deployment approach**:
+
+**CloudFormation Stack** (`revops-webhook-gateway-stack`):
+- Manages API Gateway, SQS Queue, IAM roles
+- Manages `prod-revops-webhook-gateway` and `revops-manager-agent-wrapper` Lambda functions
+
+**Manual Resources**:
+- The `revops-webhook` queue processor was created outside CloudFormation
+
+### Lambda Function Updates (Recommended)
 ```bash
 cd integrations/webhook-gateway
 export AWS_PROFILE=FireboltSystemAdministrator-740202120544
@@ -589,9 +608,9 @@ This will automatically:
 - Validate prerequisites (Bedrock Agent & Lambda functions exist)
 - Package each Lambda function with its dependencies
 - Update all three Lambda functions:
-  - `prod-revops-webhook-gateway` (API Gateway handler)
-  - `revops-webhook` (SQS queue processor)  
-  - `revops-manager-agent-wrapper` (Bedrock Agent wrapper)
+  - `prod-revops-webhook-gateway` (CloudFormation managed)
+  - `revops-webhook` (manual resource)  
+  - `revops-manager-agent-wrapper` (CloudFormation managed)
 
 ### Manual Updates (Advanced)
 ```bash

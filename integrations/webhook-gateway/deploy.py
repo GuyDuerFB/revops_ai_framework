@@ -2,7 +2,11 @@
 """
 Webhook Gateway Deployment Script
 Updates the RevOps AI Framework Webhook Gateway Lambda functions
-Note: Infrastructure is managed manually via AWS CLI
+
+Infrastructure Notes:
+- Core infrastructure (API Gateway, SQS, IAM roles) managed via CloudFormation stack 'revops-webhook-gateway-stack'  
+- Lambda functions are updated independently via this script
+- The 'revops-webhook' queue processor exists outside the CloudFormation stack (created manually)
 """
 
 import boto3
