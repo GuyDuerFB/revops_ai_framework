@@ -20,9 +20,9 @@ integrations/webhook-gateway/
 ├── infrastructure/
 │   └── current-deployed-template.yaml # Currently deployed CloudFormation template
 └── lambda/                           # Lambda function source code
-    ├── webhook_handler.py            # API Gateway → SQS handler (prod-revops-webhook-gateway)
-    ├── lambda_function.py            # SQS → AI → Webhook processor (revops-webhook)
-    ├── manager_agent_wrapper.py      # Bedrock Agent wrapper (revops-manager-agent-wrapper)
+    ├── prod_revops_webhook_gateway.py # API Gateway → SQS handler (prod-revops-webhook-gateway)
+    ├── revops_webhook.py             # SQS → AI → Webhook processor (revops-webhook)
+    ├── revops_manager_agent_wrapper.py # Bedrock Agent wrapper (revops-manager-agent-wrapper)
     ├── request_transformer.py        # Request validation & transformation utilities
     └── requirements.txt              # Python dependencies
 ```
@@ -617,23 +617,29 @@ This will automatically:
 # Update individual functions manually
 cd lambda/
 
-# Update webhook gateway
+# Update webhook gateway (rename file to match handler expectation)
+cp prod_revops_webhook_gateway.py webhook_handler.py
 zip webhook-gateway.zip webhook_handler.py request_transformer.py
 aws lambda update-function-code \
   --function-name prod-revops-webhook-gateway \
   --zip-file fileb://webhook-gateway.zip
+rm webhook_handler.py
 
-# Update queue processor  
+# Update queue processor (rename file to match handler expectation)
+cp revops_webhook.py lambda_function.py  
 zip queue-processor.zip lambda_function.py
 aws lambda update-function-code \
   --function-name revops-webhook \
   --zip-file fileb://queue-processor.zip
+rm lambda_function.py
 
-# Update manager agent wrapper
+# Update manager agent wrapper (rename file to match handler expectation)
+cp revops_manager_agent_wrapper.py manager_agent_wrapper.py
 zip manager-wrapper.zip manager_agent_wrapper.py
 aws lambda update-function-code \
   --function-name revops-manager-agent-wrapper \
   --zip-file fileb://manager-wrapper.zip
+rm manager_agent_wrapper.py
 
 # Wait for updates to complete
 aws lambda wait function-updated --function-name prod-revops-webhook-gateway
