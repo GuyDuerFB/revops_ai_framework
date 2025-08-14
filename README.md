@@ -133,30 +133,76 @@ python3 deploy.py
 
 ## Usage Examples
 
-### Revenue Analysis
+### Slack Integration
+#### Revenue Analysis
 ```
 @RevBot analyze Q4 revenue performance by customer segment
 @RevBot identify top expansion opportunities based on usage trends
 @RevBot which customers show declining engagement patterns?
 ```
 
-### Lead Assessment
+#### Lead Assessment
 ```
 @RevBot assess if John Smith from DataCorp is a good lead
 @RevBot score our MQL leads from this week against ICP criteria
 ```
 
-### Deal Analysis
+#### Deal Analysis
 ```
 @RevBot what is the status of the Microsoft Enterprise deal?
 @RevBot assess the probability and risks of the TechCorp opportunity
 @RevBot what are the main risk factors for deals closing this quarter?
 ```
 
-### Competitive Intelligence
+#### Competitive Intelligence
 ```
 @RevBot which competitors were mentioned in our last call with Acme Corp?
 @RevBot analyze competitor mentions across all Q3 sales calls
+```
+
+### Webhook API Integration
+#### HTTP POST Request
+```bash
+curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What deals are closing this quarter?",
+    "source_system": "your_app",
+    "source_process": "quarterly_review",
+    "timestamp": "2025-08-13T16:00:00Z"
+  }'
+```
+
+#### Response Handling
+```json
+{
+  "success": true,
+  "tracking_id": "abc-123-def",
+  "message": "Request queued for processing",
+  "queued_at": "2025-08-13T16:00:01Z",
+  "estimated_processing_time": "30-60 seconds"
+}
+```
+
+#### Outbound Webhook Delivery
+Your configured webhook endpoint will receive:
+```json
+{
+  "tracking_id": "abc-123-def",
+  "source_system": "your_app",
+  "source_process": "quarterly_review",
+  "original_query": "What deals are closing this quarter?",
+  "ai_response": {
+    "response": "**Q4 2025 Deal Pipeline Analysis**\n- Stage: Negotiate...",
+    "response_plain": "Q4 2025 Deal Pipeline Analysis\nStage: Negotiate...",
+    "session_id": "webhook_20250814_abc123",
+    "timestamp": "2025-08-14T09:20:00Z"
+  },
+  "webhook_metadata": {
+    "delivered_at": "2025-08-14T09:20:00Z",
+    "webhook_url": "https://your-app.com/webhook"
+  }
+}
 ```
 
 ## Project Structure
@@ -176,7 +222,8 @@ revops_ai_framework/V5/
 │   ├── deploy_lead_analysis_agent.py # Lead agent deployment
 │   └── secrets.template.json       # Configuration template
 ├── integrations/                    # External integrations
-│   └── slack-bedrock-gateway/      # Slack integration (production-ready)
+│   ├── slack-bedrock-gateway/      # Slack integration (production-ready)
+│   └── webhook-gateway/            # HTTP Webhook integration (production-ready)
 │       ├── config/                 # Configuration files
 │       ├── deploy.py               # Deployment script
 │       ├── infrastructure/         # CloudFormation templates
@@ -249,6 +296,7 @@ revops_ai_framework/V5/
 | WebSearch Agent | ✅ Production | External intelligence gathering |
 | Execution Agent | ✅ Production | Notifications and CRM updates |
 | Slack Integration | ✅ Production | Full end-to-end functionality |
+| Webhook Gateway | ✅ Production | HTTP API with 15-min timeout support |
 | Enhanced Monitoring V5.1 | Production | Quality-assured S3 exports with 0.725+ scores |
 | Agent Communication Detection | Production | Advanced pattern matching and collaboration mapping |
 | System Prompt Filtering | Production | 100% effective filtering with dynamic thresholds |
