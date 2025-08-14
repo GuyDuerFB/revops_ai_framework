@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'RevOps AI Framework - Webhook Gateway Infrastructure (Production-Aligned)'
+Description: 'RevOps AI Framework - Webhook Gateway Infrastructure (Simplified)'
 
 Parameters:
   EnvironmentName:
@@ -22,10 +22,25 @@ Parameters:
     Default: 'TSTALIASID'
     Description: Bedrock Agent Alias ID for the Manager Agent
     
-  WebhookUrl:
+  DealAnalysisWebhookUrl:
     Type: String
-    Default: 'https://hooks.zapier.com/hooks/catch/16566961/uy6pi1l/'
-    Description: Outbound webhook URL for notifications
+    Default: ''
+    Description: Webhook URL for deal analysis responses
+    
+  DataAnalysisWebhookUrl:
+    Type: String
+    Default: ''
+    Description: Webhook URL for data analysis responses
+    
+  LeadAnalysisWebhookUrl:
+    Type: String
+    Default: ''
+    Description: Webhook URL for lead analysis responses
+    
+  GeneralWebhookUrl:
+    Type: String
+    Default: ''
+    Description: Fallback webhook URL for general responses
     
   LogLevel:
     Type: String
@@ -34,14 +49,11 @@ Parameters:
     Description: Lambda function log level
 
 Resources:
-  # SQS Queue for outbound webhook delivery
+  # SQS Queue for outbound webhook delivery (minimal config)
   OutboundWebhookQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub '${EnvironmentName}-revops-webhook-outbound-queue'
-      VisibilityTimeout: 960  # 16 minutes to handle long-running Lambda
-      MessageRetentionPeriod: 345600  # 4 days
-      ReceiveMessageWaitTimeSeconds: 0
 
   # IAM Role for Manager Agent Wrapper Lambda
   ManagerAgentWrapperRole:
@@ -89,7 +101,7 @@ Resources:
           import json
           def lambda_handler(event, context):
               return {'success': False, 'error': 'Function not yet deployed'}
-      Timeout: 900  # 15 minutes for long-running AI processing
+      Timeout: 900
       MemorySize: 512
       Environment:
         Variables:
@@ -150,12 +162,16 @@ Resources:
           import json
           def lambda_handler(event, context):
               return {'statusCode': 200, 'body': json.dumps('Function not yet deployed')}
-      Timeout: 900  # 15 minutes for long-running processing
+      Timeout: 900
       MemorySize: 512
       Environment:
         Variables:
           MANAGER_AGENT_FUNCTION_NAME: !Ref ManagerAgentWrapperFunction
           OUTBOUND_WEBHOOK_QUEUE_URL: !Ref OutboundWebhookQueue
+          DEAL_ANALYSIS_WEBHOOK_URL: !Ref DealAnalysisWebhookUrl
+          DATA_ANALYSIS_WEBHOOK_URL: !Ref DataAnalysisWebhookUrl
+          LEAD_ANALYSIS_WEBHOOK_URL: !Ref LeadAnalysisWebhookUrl
+          GENERAL_WEBHOOK_URL: !Ref GeneralWebhookUrl
           LOG_LEVEL: !Ref LogLevel
 
   # API Gateway for webhook endpoint
@@ -215,9 +231,3 @@ Outputs:
     Value: !Ref WebhookGatewayFunction
     Export:
       Name: !Sub '${EnvironmentName}-revops-webhook-gateway-function-name'
-
-  OutboundWebhookQueueUrl:
-    Description: 'SQS Queue URL for outbound webhooks'
-    Value: !Ref OutboundWebhookQueue
-    Export:
-      Name: !Sub '${EnvironmentName}-revops-outbound-webhook-queue-url'
