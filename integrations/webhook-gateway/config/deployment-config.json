@@ -5,10 +5,10 @@
   "bedrock_agent_id": "PVWGKOWSOT",
   "bedrock_agent_alias_id": "TSTALIASID",
   "webhook_urls": {
-    "deal_analysis": "",
-    "data_analysis": "",
-    "lead_analysis": "",
-    "general": ""
+    "deal_analysis": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51",
+    "data_analysis": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51",
+    "lead_analysis": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51",
+    "general": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51"
   },
   "log_level": "INFO",
   "cloudformation": {
