@@ -1,23 +1,13 @@
 {
-  "environment_name": "prod",
   "region": "us-east-1",
-  "manager_agent_function_name": "revops-manager-agent-wrapper",
   "bedrock_agent_id": "PVWGKOWSOT",
   "bedrock_agent_alias_id": "TSTALIASID",
-  "webhook_urls": {
-    "deal_analysis": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51",
-    "data_analysis": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51",
-    "lead_analysis": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51",
-    "general": "https://webhook.site/24e5ca5e-5f4e-4f46-8c8e-8b3f2a8c4d51"
+  "lambda_functions": {
+    "webhook_gateway": "prod-revops-webhook-gateway",
+    "queue_processor": "revops-webhook",
+    "manager_wrapper": "revops-manager-agent-wrapper"
   },
-  "log_level": "INFO",
-  "cloudformation": {
-    "stack_name": "revops-webhook-gateway-stack",
-    "template_file": "infrastructure/webhook-gateway-simple.yaml"
-  },
-  "lambda": {
-    "timeout": 300,
-    "memory_size": 512,
-    "runtime": "python3.9"
-  }
+  "webhook_endpoint": "https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook",
+  "current_webhook_url": "https://hooks.zapier.com/hooks/catch/16566961/uy6pi1l/",
+  "log_level": "INFO"
 }

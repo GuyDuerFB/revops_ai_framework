@@ -18,15 +18,8 @@ from typing import Dict, Any, Optional, List
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 
-# Initialize AWS clients with extended timeout
-lambda_client = boto3.client(
-    'lambda',
-    config=boto3.session.Config(
-        read_timeout=900,  # 15 minutes to match Lambda function timeout
-        connect_timeout=60,
-        retries={'max_attempts': 3}
-    )
-)
+# Initialize AWS clients
+lambda_client = boto3.client('lambda')
 
 # Environment variables
 MANAGER_AGENT_FUNCTION_NAME = os.environ.get('MANAGER_AGENT_FUNCTION_NAME', 'revops-manager-agent-wrapper')

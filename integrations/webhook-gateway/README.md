@@ -10,6 +10,23 @@ The Webhook Gateway provides HTTP webhook access to the RevOps AI Framework, all
 - **SQS Queue**: Asynchronous outbound webhook delivery with configurable timeouts
 - **Queue Processor Lambda**: Handles SQS messages with robust error handling and webhook delivery
 
+## Directory Structure
+```
+integrations/webhook-gateway/
+├── README.md                    # This documentation file
+├── deploy.py                    # Lambda function deployment script
+├── config/
+│   └── deployment-config.json   # Deployment configuration
+└── lambda/                      # Lambda function source code
+    ├── webhook_handler.py       # API Gateway → SQS handler (prod-revops-webhook-gateway)
+    ├── lambda_function.py       # SQS → AI → Webhook processor (revops-webhook)
+    ├── manager_agent_wrapper.py # Bedrock Agent wrapper (revops-manager-agent-wrapper)
+    ├── request_transformer.py   # Request validation & transformation utilities
+    └── requirements.txt         # Python dependencies
+```
+
+**Note**: Infrastructure (API Gateway, SQS, IAM roles) is managed manually via AWS CLI. Lambda functions are deployed via `deploy.py`.
+
 ## Status: ✅ PRODUCTION READY
 ### Phase 1: ✅ COMPLETED - Basic webhook functionality
 ### Phase 2: ✅ COMPLETED - Asynchronous outbound delivery  
@@ -561,32 +578,48 @@ aws cloudwatch put-metric-alarm \
 
 ## Deployment & Updates
 
-### Initial Deployment
+### Quick Deployment (Recommended)
 ```bash
 cd integrations/webhook-gateway
 export AWS_PROFILE=FireboltSystemAdministrator-740202120544
 python3 deploy.py
 ```
 
-### Rolling Updates (Zero Downtime)
+This will automatically:
+- Validate prerequisites (Bedrock Agent & Lambda functions exist)
+- Package each Lambda function with its dependencies
+- Update all three Lambda functions:
+  - `prod-revops-webhook-gateway` (API Gateway handler)
+  - `revops-webhook` (SQS queue processor)  
+  - `revops-manager-agent-wrapper` (Bedrock Agent wrapper)
+
+### Manual Updates (Advanced)
 ```bash
-# Update manager agent wrapper
+# Update individual functions manually
 cd lambda/
-zip manager_agent_wrapper_v2.zip manager_agent_wrapper.py
+
+# Update webhook gateway
+zip webhook-gateway.zip webhook_handler.py request_transformer.py
 aws lambda update-function-code \
-  --function-name revops-manager-agent-wrapper \
-  --zip-file fileb://manager_agent_wrapper_v2.zip
+  --function-name prod-revops-webhook-gateway \
+  --zip-file fileb://webhook-gateway.zip
 
-# Wait for update completion
-aws lambda wait function-updated --function-name revops-manager-agent-wrapper
-
-# Update queue processor
-zip queue_processor_v2.zip lambda_function.py
+# Update queue processor  
+zip queue-processor.zip lambda_function.py
 aws lambda update-function-code \
   --function-name revops-webhook \
-  --zip-file fileb://queue_processor_v2.zip
+  --zip-file fileb://queue-processor.zip
 
-aws lambda wait function-updated --function-name revops-webhook
+# Update manager agent wrapper
+zip manager-wrapper.zip manager_agent_wrapper.py
+aws lambda update-function-code \
+  --function-name revops-manager-agent-wrapper \
+  --zip-file fileb://manager-wrapper.zip
+
+# Wait for updates to complete
+aws lambda wait function-updated --function-name prod-revops-webhook-gateway
+aws lambda wait function-updated --function-name revops-webhook  
+aws lambda wait function-updated --function-name revops-manager-agent-wrapper
 ```
 
 ### Rollback Procedure
