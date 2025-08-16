@@ -4,6 +4,8 @@
 
 Firebolt targets **digital native companies, startups, and high-growth companies** that need high-performance, low-latency analytics for customer-facing applications and AI workloads. These organizations require sub-second query performance with extreme concurrency while maintaining cost efficiency.
 
+*Last updated: August 2025*
+
 ## Company Profile
 
 ### Company Characteristics
