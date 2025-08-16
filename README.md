@@ -8,21 +8,21 @@ The RevOps AI Framework V5 is a production-ready, enterprise-grade revenue opera
 
 ## Key Features
 
-### ✅ **Production-Ready Architecture**
+### Production-Ready Architecture
 - **Specialized Agent Framework**: 6 specialized AI agents for different revenue operations tasks
 - **Enhanced Conversation Monitoring**: Complete LLM-readable conversation tracking with structured reasoning breakdown
 - **Real-time Agent Narration**: Live visibility into AI decision-making processes
 - **Slack Integration**: Natural language interface with conversation continuity
 - **AWS Best Practices**: Serverless, scalable infrastructure with comprehensive monitoring
 
-### ✅ **AI-Powered Revenue Intelligence**
+### AI-Powered Revenue Intelligence
 - **Lead Assessment**: Automated ICP scoring and qualification with engagement strategies
 - **Deal Analysis**: MEDDPICC-based probability assessment and risk analysis
 - **Customer Analytics**: Churn risk scoring and expansion opportunity identification
 - **Competitive Intelligence**: Automated competitor analysis from sales call transcripts
 - **Revenue Forecasting**: Data-driven pipeline analysis and gap identification
 
-### ✅ **Enterprise Data Integration**
+### Enterprise Data Integration
 - **Firebolt Data Warehouse**: Direct SQL query execution for analytics
 - **Salesforce CRM**: Complete opportunity and contact data access
 - **Gong Conversation Intelligence**: Sales call transcript analysis
@@ -114,7 +114,7 @@ s3://revops-ai-framework-kb-740202120544/conversation-history/
 ```bash
 # 1. Clone repository
 git clone <repository-url>
-cd revops_ai_framework/V5
+cd revops_ai_framework
 
 # 2. Configure AWS SSO
 aws configure sso --profile FireboltSystemAdministrator-740202120544
@@ -289,14 +289,14 @@ revops_ai_framework/V5/
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Manager Agent | ✅ Production | SUPERVISOR routing with Claude 3.7 |
-| Deal Analysis Agent | ✅ Production | MEDDPICC evaluation with embedded SQL |
-| Lead Analysis Agent | ✅ Production | ICP analysis and engagement strategies |
-| Data Agent | ✅ Production | Firebolt, Salesforce, Gong integration |
-| WebSearch Agent | ✅ Production | External intelligence gathering |
-| Execution Agent | ✅ Production | Notifications and CRM updates |
-| Slack Integration | ✅ Production | Full end-to-end functionality |
-| Webhook Gateway | ✅ Production | HTTP API with 15-min timeout support |
+| Manager Agent | Production | SUPERVISOR routing with Claude 3.7 |
+| Deal Analysis Agent | Production | MEDDPICC evaluation with embedded SQL |
+| Lead Analysis Agent | Production | ICP analysis and engagement strategies |
+| Data Agent | Production | Firebolt, Salesforce, Gong integration |
+| WebSearch Agent | Production | External intelligence gathering |
+| Execution Agent | Production | Notifications and CRM updates |
+| Slack Integration | Production | Full end-to-end functionality |
+| Webhook Gateway | Production | HTTP API with 15-minute timeout support |
 | Enhanced Monitoring V5.1 | Production | Quality-assured S3 exports with 0.725+ scores |
 | Agent Communication Detection | Production | Advanced pattern matching and collaboration mapping |
 | System Prompt Filtering | Production | 100% effective filtering with dynamic thresholds |
@@ -390,16 +390,579 @@ aws logs filter-log-events \
 - **Codebase Cleanup**: Production-ready file structure
 - **Performance Improvements**: Streamlined processing pipeline
 
+## Agent Management
+
+### Creating and Modifying Agents
+
+The system supports six specialized AI agents. Each agent has specific capabilities and can be customized for your business needs.
+
+#### Agent Types and Capabilities
+
+**Manager Agent (Router)**
+- Routes requests to appropriate specialists
+- Handles simple queries directly
+- Coordinates multi-agent workflows
+- Location: `agents/manager_agent/`
+
+**Deal Analysis Agent**
+- MEDDPICC methodology assessment
+- Risk analysis and probability scoring
+- Location: `agents/deal_analysis_agent/`
+
+**Lead Analysis Agent**
+- ICP scoring and qualification
+- Engagement strategy development
+- Location: `agents/lead_analysis_agent/`
+
+**Data Agent**
+- SQL queries against Firebolt warehouse
+- Salesforce and Gong data retrieval
+- Location: `agents/data_agent/`
+
+**Web Search Agent**
+- Market intelligence gathering
+- Company research and competitive analysis
+- Location: `agents/web_search_agent/`
+
+**Execution Agent**
+- Webhook and notification execution
+- CRM updates and data writing
+- Location: `agents/execution_agent/`
+
+#### Modifying Agent Instructions
+
+1. **Edit Instructions File**
+   ```bash
+   # Navigate to agent directory
+   cd agents/[agent_name]/
+   
+   # Edit the instructions file
+   vim instructions.md
+   ```
+
+2. **Deploy Agent Updates**
+   ```bash
+   cd deployment/
+   
+   # Deploy specific agent
+   python3 deploy_manager_agent.py
+   python3 deploy_lead_analysis_agent.py
+   
+   # Or deploy all agents
+   python3 deploy.py
+   ```
+
+3. **Verify Deployment**
+   ```bash
+   # Check agent status
+   aws bedrock-agent get-agent --agent-id [AGENT_ID] --query 'agent.agentStatus'
+   
+   # Test agent functionality
+   # In Slack: @RevBot test [agent_type] functionality
+   ```
+
+#### Adding New Agents
+
+1. **Create Agent Directory Structure**
+   ```bash
+   mkdir agents/new_agent/
+   touch agents/new_agent/instructions.md
+   touch agents/new_agent/new_agent.py
+   ```
+
+2. **Define Agent Instructions**
+   Create comprehensive instructions in `instructions.md` following existing patterns:
+   - Role and responsibilities
+   - Input/output formats
+   - Tool usage guidelines
+   - Collaboration patterns
+
+3. **Update Configuration**
+   Add agent configuration to `deployment/config.json`:
+   ```json
+   "new_agent": {
+     "agent_id": "NEW_AGENT_ID",
+     "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+     "description": "Agent description",
+     "instructions_file": "agents/new_agent/instructions.md"
+   }
+   ```
+
+4. **Create Deployment Script**
+   Model after existing deployment scripts in `deployment/` directory.
+
+### Agent Collaboration Configuration
+
+Agents collaborate through the Manager Agent's supervisor pattern:
+
+1. **Add Collaborator to Manager Agent**
+   Update `deployment/config.json` manager_agent collaborators section:
+   ```json
+   {
+     "collaborator_id": "UNIQUE_ID",
+     "collaborator_name": "NewAgent",
+     "agent_id": "NEW_AGENT_ID",
+     "agent_alias_arn": "arn:aws:bedrock:us-east-1:ACCOUNT:agent-alias/NEW_AGENT_ID/ALIAS_ID",
+     "collaboration_instruction": "Detailed instructions for when to use this agent"
+   }
+   ```
+
+2. **Redeploy Manager Agent**
+   ```bash
+   cd deployment/
+   python3 deploy_manager_agent.py
+   ```
+
+## Knowledge Base Management
+
+### Understanding the Knowledge Base
+
+The knowledge base contains structured information that powers agent intelligence:
+
+- **Business Logic**: Revenue operations rules and calculations
+- **Schema Documentation**: Database structure and relationships  
+- **SQL Patterns**: Reusable query templates
+- **Workflows**: Step-by-step process documentation
+- **ICP & Messaging**: Customer profiles and communication templates
+
+### Adding Knowledge Content
+
+1. **Create or Edit Markdown Files**
+   ```bash
+   cd knowledge_base/
+   
+   # Add new business logic
+   vim business_logic/new_process.md
+   
+   # Add SQL patterns
+   vim sql_patterns/new_analysis.md
+   
+   # Add workflow documentation
+   vim workflows/new_workflow.md
+   ```
+
+2. **Follow Content Guidelines**
+   - Use clear, descriptive headings
+   - Include business context and reasoning
+   - Provide concrete examples
+   - Keep content current and accurate
+
+3. **Automatic Synchronization**
+   When you commit changes to the main branch:
+   ```bash
+   git add knowledge_base/
+   git commit -m "Add new knowledge content"
+   git push origin main
+   ```
+   
+   The GitHub Action automatically:
+   - Detects changed markdown files
+   - Syncs to S3 bucket
+   - Triggers Bedrock knowledge base refresh
+   - Updates AI agents within minutes
+
+### Knowledge Base Operations
+
+#### Manual Sync
+```bash
+cd deployment/
+python3 sync_knowledge_base.py
+```
+
+#### Monitor Sync Status
+```bash
+# Check GitHub Action logs
+# Visit: https://github.com/[repo]/actions
+
+# Verify S3 upload
+aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/ --recursive
+
+# Check Bedrock ingestion
+aws bedrock-agent list-ingestion-jobs \
+  --knowledge-base-id F61WLOYZSW \
+  --data-source-id 0HMI5RHYUS
+```
+
+#### Troubleshooting Knowledge Sync
+
+**Common Issues:**
+- Only `.md` files in `knowledge_base/` directory are synced
+- Changes must be merged to `main` branch
+- Large files (>5MB) may be rejected
+- AWS credentials must be properly configured in GitHub secrets
+
+**Verification Steps:**
+1. Check GitHub Actions workflow completion
+2. Verify files appear in S3 bucket
+3. Confirm Bedrock ingestion job success
+4. Test agents to ensure they use updated information
+
+## Slack Integration Usage and Monitoring
+
+### Basic Usage
+
+Users interact with the system through Slack mentions:
+
+#### Revenue Analysis Commands
+```
+@RevBot analyze Q4 revenue performance by customer segment
+@RevBot identify top expansion opportunities based on usage trends
+@RevBot which customers show declining engagement patterns?
+@RevBot compare revenue performance vs same quarter last year
+```
+
+#### Lead Assessment Commands
+```
+@RevBot assess if John Smith from DataCorp is a good lead
+@RevBot score our MQL leads from this week against ICP criteria
+@RevBot research TechCorp and assess their fit for our solution
+@RevBot what is the best outreach strategy for enterprise leads?
+```
+
+#### Deal Analysis Commands
+```
+@RevBot what is the status of the Microsoft Enterprise deal?
+@RevBot assess the probability and risks of the TechCorp opportunity
+@RevBot what are the main risk factors for deals closing this quarter?
+@RevBot analyze competitor mentions in recent sales calls
+```
+
+### Advanced Monitoring
+
+#### Real-time Monitoring
+```bash
+# Monitor live processing
+aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow
+
+# Watch for errors
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'ERROR' \
+  --start-time $(date -d '1 hour ago' +%s)000
+```
+
+#### Performance Analysis
+```bash
+# Check queue metrics
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/revops-slack-bedrock-processing-queue \
+  --attribute-names All
+
+# Analyze response times
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'REPORT' \
+  --start-time $(date -d '24 hours ago' +%s)000
+```
+
+#### Conversation Tracking
+
+The system exports detailed conversation data to S3:
+
+**Access Conversation History**
+```bash
+# List recent conversations
+aws s3 ls s3://revops-ai-framework-kb-740202120544/conversation-history/ --recursive
+
+# Download specific conversation
+aws s3 cp s3://revops-ai-framework-kb-740202120544/conversation-history/YYYY/MM/DD/timestamp/ ./analysis/ --recursive
+```
+
+**Conversation Data Structure**
+- `conversation.json`: Complete conversation with agent interactions
+- `metadata.json`: Quality metrics and export information
+
+**Quality Metrics Available**
+- Export quality scores (target: 0.725+)
+- Agent communication detection accuracy
+- Tool execution success rates
+- Response time analytics
+- User engagement patterns
+
+## Webhook Integration Usage and Monitoring
+
+### API Usage
+
+The webhook integration provides HTTP access to the AI framework:
+
+#### Making Requests
+```bash
+curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What deals are closing this quarter?",
+    "source_system": "your_app",
+    "source_process": "quarterly_review",
+    "timestamp": "2025-08-16T10:00:00Z"
+  }'
+```
+
+#### Response Format
+```json
+{
+  "success": true,
+  "tracking_id": "unique-request-id",
+  "message": "Request queued for processing",
+  "queued_at": "2025-08-16T10:00:01Z",
+  "estimated_processing_time": "30-60 seconds"
+}
+```
+
+### Webhook Monitoring
+
+#### Track Request Processing
+```bash
+# Monitor webhook gateway
+aws logs tail /aws/lambda/prod-revops-webhook-gateway --follow
+
+# Monitor queue processor
+aws logs tail /aws/lambda/revops-webhook --follow
+
+# Track specific request by ID
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-webhook' \
+  --filter-pattern 'unique-request-id'
+```
+
+#### Performance Metrics
+```bash
+# Check queue status
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/prod-revops-webhook-outbound-queue \
+  --attribute-names ApproximateNumberOfMessages,ApproximateNumberOfMessagesNotVisible
+
+# Monitor delivery success rates
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-webhook' \
+  --filter-pattern 'Webhook processing completed successfully' \
+  --start-time $(date -d '24 hours ago' +%s)000
+```
+
+#### Configure Outbound Webhooks
+```bash
+# Update webhook delivery URL
+aws lambda update-function-configuration \
+  --function-name revops-webhook \
+  --environment 'Variables={
+    MANAGER_AGENT_FUNCTION_NAME=revops-manager-agent-wrapper,
+    WEBHOOK_URL=https://your-app.com/webhook,
+    LOG_LEVEL=INFO
+  }'
+```
+
+## Agent Usage Tracking
+
+### System-wide Usage Analytics
+
+#### Track Agent Utilization
+```bash
+# Analyze agent invocation patterns
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'Agent:' \
+  --start-time $(date -d '7 days ago' +%s)000
+
+# Monitor specific agent performance
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'DealAnalysisAgent' \
+  --start-time $(date -d '24 hours ago' +%s)000
+```
+
+#### Usage Reporting
+
+**Generate Usage Reports**
+```bash
+# Create usage analysis script
+cat > usage_analysis.py << 'EOF'
+import boto3
+import json
+from datetime import datetime, timedelta
+
+client = boto3.client('logs')
+
+# Analyze agent usage patterns
+response = client.filter_log_events(
+    logGroupName='/aws/lambda/revops-slack-bedrock-processor',
+    filterPattern='Agent collaboration:',
+    startTime=int((datetime.now() - timedelta(days=7)).timestamp() * 1000)
+)
+
+# Process and analyze usage data
+for event in response['events']:
+    print(f"{event['timestamp']}: {event['message']}")
+EOF
+
+python3 usage_analysis.py
+```
+
+**Key Metrics to Track**
+- Agent response times by type
+- User engagement frequency
+- Tool execution success rates
+- Error rates by agent
+- Peak usage periods
+- Most common query types
+
+#### Performance Optimization
+
+**Monitor Resource Usage**
+```bash
+# Check Lambda function performance
+aws lambda get-function-configuration \
+  --function-name revops-manager-agent-wrapper \
+  --query '{Timeout:Timeout,MemorySize:MemorySize,CodeSize:CodeSize}'
+
+# Monitor concurrent executions
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/Lambda \
+  --metric-name ConcurrentExecutions \
+  --dimensions Name=FunctionName,Value=revops-slack-bedrock-processor \
+  --start-time $(date -d '24 hours ago' --iso-8601) \
+  --end-time $(date --iso-8601) \
+  --period 3600 \
+  --statistics Average,Maximum
+```
+
+**Optimization Recommendations**
+- Monitor timeout configurations for long-running queries
+- Track memory usage patterns for right-sizing
+- Analyze error patterns for proactive fixes
+- Review agent collaboration efficiency
+- Optimize knowledge base content based on usage patterns
+
+## System Administration
+
+### User Management
+
+**Slack Access Control**
+- Manage through Slack workspace administration
+- Configure channel permissions for bot access
+- Set up private channels for sensitive operations
+- Control user access through workspace membership
+
+**AWS Resource Access**
+- IAM roles control system permissions
+- Least privilege principle applied throughout
+- Separate roles for different components
+- Regular permission audits recommended
+
+### Maintenance Operations
+
+#### Regular Maintenance Tasks
+
+**Weekly Operations**
+```bash
+# Check system health
+cd deployment/
+python3 validate-deployment.py
+
+# Update knowledge base if needed
+python3 sync_knowledge_base.py
+
+# Review error logs
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'ERROR' \
+  --start-time $(date -d '7 days ago' +%s)000
+```
+
+**Monthly Operations**
+```bash
+# Review and rotate credentials
+aws secretsmanager update-secret \
+  --secret-id revops-slack-bedrock-secrets \
+  --secret-string '{"SLACK_BOT_TOKEN":"new-token","SLACK_SIGNING_SECRET":"new-secret"}'
+
+# Analyze usage patterns and optimize
+# Review CloudWatch dashboards
+# Update agent instructions based on usage patterns
+```
+
+#### Backup and Recovery
+
+**Configuration Backup**
+```bash
+# Backup deployment configuration
+cp deployment/config.json deployment/config.backup.$(date +%Y%m%d).json
+
+# Export agent configurations
+aws bedrock-agent get-agent --agent-id PVWGKOWSOT > backups/manager_agent.json
+```
+
+**Recovery Procedures**
+```bash
+# Restore from backup
+cp deployment/config.backup.YYYYMMDD.json deployment/config.json
+
+# Redeploy system
+cd deployment/
+python3 deploy.py
+
+# Verify functionality
+# Test Slack integration
+# Test webhook endpoints
+# Verify agent responses
+```
+
 ## Support
 
-For technical support and enhancements:
-- **Architecture**: Review CloudFormation templates in `infrastructure/`
-- **Agent Configuration**: Update instructions in `agents/*/instructions.md`
-- **Monitoring**: Check enhanced conversation tracking in `monitoring/`
-- **Troubleshooting**: Use CloudWatch logs and health check commands
+### Technical Support Resources
+
+**Monitoring and Logs**
+- CloudWatch logs for all Lambda functions
+- S3 conversation exports for detailed analysis
+- SQS queue metrics for processing status
+- API Gateway metrics for request patterns
+
+**Configuration Management**
+- Agent instructions in `agents/*/instructions.md`
+- Deployment configuration in `deployment/config.json`
+- Infrastructure templates in `infrastructure/`
+- Knowledge base content in `knowledge_base/`
+
+**Troubleshooting Guides**
+- Slack integration: `integrations/slack-bedrock-gateway/README.md`
+- Webhook integration: `integrations/webhook-gateway/README.md`
+- Knowledge base: `knowledge_base/README.md`
+- Deployment issues: `deployment/SECURITY_CONFIG.md`
+
+### Common Issues and Solutions
+
+**Agent Not Responding**
+1. Check agent status in AWS Bedrock console
+2. Verify IAM permissions for agent invocation
+3. Review CloudWatch logs for errors
+4. Test agent directly through AWS console
+
+**Slow Response Times**
+1. Monitor queue processing delays
+2. Check agent timeout configurations
+3. Review database connection performance
+4. Analyze tool execution times
+
+**Knowledge Base Out of Date**
+1. Verify GitHub Action completion
+2. Check S3 bucket for updated files
+3. Trigger manual ingestion if needed
+4. Test agent responses for new information
+
+### Getting Help
+
+**Internal Resources**
+- System documentation in repository
+- CloudWatch dashboards and metrics
+- AWS console for resource status
+- GitHub Actions for deployment history
+
+**Escalation Procedures**
+- Check logs and metrics first
+- Document error conditions and steps to reproduce
+- Include relevant timestamps and tracking IDs
+- Provide system configuration details
 
 ---
 
 **Built for Revenue Teams - Powered by Amazon Bedrock**
 
-*Version: V5.1 Quality Enhanced | Status: Production Ready | Last Updated: August 3, 2025*
+*Version: V5.1 Quality Enhanced | Status: Production Ready | Last Updated: August 15, 2025*
