@@ -1,6 +1,6 @@
-# Update Manager Agent Instructions
+# Agent Management Guide
 
-This guide provides methods to update the Manager Agent (ID: PVWGKOWSOT) with new instructions from `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/agents/manager_agent/instructions.md`.
+This guide provides methods to update and manage agents in the RevOps AI Framework.
 
 ## Prerequisites
 
@@ -8,78 +8,40 @@ This guide provides methods to update the Manager Agent (ID: PVWGKOWSOT) with ne
 2. **AWS permissions** for Bedrock Agent operations
 3. **Python 3.9+** for deployment scripts
 
-## Method 1: Complete V4 Deployment (Recommended)
+## Quick Start
 
-Use the comprehensive V4 deployment script:
+### Update All Agents (Recommended)
 
-```bash
-cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment
-python3 deploy_v4.py
-```
-
-## Method 2: Manager Agent Only
-
-Update only the Manager Agent:
+Use the unified deployment script:
 
 ```bash
-cd /Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment
-python3 deploy_manager_agent.py
+cd deployment/
+python3 deploy.py
 ```
 
-## Method 3: Manual AWS CLI Commands
+### Update Specific Agent
 
-If you prefer to run the AWS CLI commands manually:
-
-### Step 1: Update Agent Instructions
+Update only a specific agent:
 
 ```bash
-# Set variables
-AGENT_ID="PVWGKOWSOT"
-AGENT_ALIAS_ID="LH87RBMCUQ"
-PROFILE="FireboltSystemAdministrator-740202120544"
-REGION="us-east-1"
-
-# Get current agent details
-aws bedrock-agent get-agent \
-  --agent-id "$AGENT_ID" \
-  --profile "$PROFILE" \
-  --region "$REGION"
-
-# Update agent with new instructions
-aws bedrock-agent update-agent \
-  --agent-id "$AGENT_ID" \
-  --agent-name "Manager_Agent_V4" \
-  --description "Manager Agent V4 - Claude 3.7 intelligent router and coordinator" \
-  --instruction "$(cat ../agents/manager_agent/instructions.md)" \
-  --foundation-model "us.anthropic.claude-3-7-sonnet-20250219-v1:0" \
-  --agent-resource-role-arn "arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops" \
-  --idle-session-ttl-in-seconds 1800 \
-  --profile "$PROFILE" \
-  --region "$REGION"
+cd deployment/
+python3 deploy.py --agent manager
+python3 deploy.py --agent data
+python3 deploy.py --agent deal_analysis
 ```
 
-### Step 2: Prepare Agent
+## Validate Deployment
+
+Check system health after updates:
 
 ```bash
-# Prepare agent (creates new version)
-aws bedrock-agent prepare-agent \
-  --agent-id "$AGENT_ID" \
-  --profile "$PROFILE" \
-  --region "$REGION"
+cd deployment/
+python3 validate_deployment.py
 ```
 
-### Step 3: Update Agent Alias
+## Manual Agent Management
 
-```bash
-# Update alias to point to new version (replace VERSION with actual version)
-aws bedrock-agent update-agent-alias \
-  --agent-id "$AGENT_ID" \
-  --agent-alias-id "$AGENT_ALIAS_ID" \
-  --agent-alias-name "Manager_Agent_Prod" \
-  --routing-configuration agentVersion="VERSION" \
-  --profile "$PROFILE" \
-  --region "$REGION"
-```
+For direct agent management, you can use AWS CLI commands. All agent IDs and configuration are available in `config.json`.
 
 ## V4 Architecture Overview
 
@@ -97,66 +59,23 @@ The V4 architecture includes:
 - **WebSearchAgent** (QKRQXXPJOJ): External intelligence gathering
 - **ExecutionAgent** (AINAPUEIZU): Action execution and integration
 
-## Verification
+## Agent Instructions
 
-After updating, test the agent with:
+Agent instructions are stored in the `agents/` directory:
 
-```bash
-# Test the updated agent
-aws bedrock-agent-runtime invoke-agent \
-  --agent-id "PVWGKOWSOT" \
-  --agent-alias-id "LH87RBMCUQ" \
-  --session-id "test-session-$(date +%s)" \
-  --input-text "What is the status of the ACME Corp deal?" \
-  --profile "FireboltSystemAdministrator-740202120544" \
-  --region "us-east-1"
-```
+- **Manager Agent**: `agents/manager_agent/instructions.md`
+- **Data Agent**: `agents/data_agent/instructions.md`
+- **Deal Analysis Agent**: `agents/deal_analysis_agent/instructions.md`
+- **Lead Analysis Agent**: `agents/lead_analysis_agent/instructions.md`
+- **Web Search Agent**: `agents/web_search_agent/instructions.md`
+- **Execution Agent**: `agents/execution_agent/instructions.md`
 
-## Troubleshooting
+## Configuration
 
-### Common Issues:
+All agent settings and AWS resource configuration are centralized in `deployment/config.json`.
 
-1. **Permission Denied**
-   ```bash
-   aws sts get-caller-identity --profile FireboltSystemAdministrator-740202120544
-   ```
+---
 
-2. **Agent Not Ready**
-   - Wait for agent status to be `NOT_PREPARED` or `PREPARED`
-   - Check agent status with `get-agent` command
-
-3. **Alias Update Fails**
-   - Ensure agent preparation is complete
-   - Verify agent version exists
-
-### Monitoring:
-
-```bash
-# Check agent status
-aws bedrock-agent get-agent \
-  --agent-id "PVWGKOWSOT" \
-  --profile "FireboltSystemAdministrator-740202120544" \
-  --region "us-east-1"
-
-# Check alias status
-aws bedrock-agent get-agent-alias \
-  --agent-id "PVWGKOWSOT" \
-  --agent-alias-id "LH87RBMCUQ" \
-  --profile "FireboltSystemAdministrator-740202120544" \
-  --region "us-east-1"
-```
-
-## File Locations
-
-- **Manager Agent Instructions**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/agents/manager_agent/instructions.md`
-- **Configuration**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment/config.json`
-- **Deployment Scripts**: `/Users/firebolt/firebolt_coding/1_fb_code/revops_ai_framework/V4/deployment/`
-
-## Agent Configuration
-
-- **Agent ID**: PVWGKOWSOT
-- **Agent Alias ID**: LH87RBMCUQ
-- **Foundation Model**: us.anthropic.claude-3-7-sonnet-20250219-v1:0
-- **Profile**: FireboltSystemAdministrator-740202120544
-- **Region**: us-east-1
-- **Architecture**: V4 Multi-Agent Collaboration
+**Last Updated**: August 2025  
+**Version**: V5.1  
+**For detailed system documentation, see the main README.md**
