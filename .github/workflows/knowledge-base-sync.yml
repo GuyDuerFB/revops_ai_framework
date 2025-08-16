@@ -64,17 +64,19 @@ jobs:
         
         S3_BUCKET="s3://revops-ai-framework-kb-740202120544/knowledge-base/"
         
-        # First, sync all current .md files to S3 (excluding firebolt_schema directory)
-        echo "Uploading current .md files to S3 (excluding firebolt_schema)..."
-        if [ -d "knowledge_base" ]; then
-          find knowledge_base -name "*.md" -type f | grep -v '^knowledge_base/firebolt_schema/' | while read file; do
-            # Remove knowledge_base/ prefix for S3 path
-            s3_path="${file#knowledge_base/}"
-            echo "Uploading: $file -> $S3_BUCKET$s3_path"
-            aws s3 cp "$file" "$S3_BUCKET$s3_path" --content-type "text/markdown"
+        # Upload only changed/added files to S3
+        if [ -n "${{ steps.detect-changes.outputs.changed-files }}" ]; then
+          echo "Uploading changed/added files to S3..."
+          echo "${{ steps.detect-changes.outputs.changed-files }}" | while read file; do
+            if [ -n "$file" ]; then
+              # Remove knowledge_base/ prefix for S3 path
+              s3_path="${file#knowledge_base/}"
+              echo "Uploading: $file -> $S3_BUCKET$s3_path"
+              aws s3 cp "$file" "$S3_BUCKET$s3_path" --content-type "text/markdown"
+            fi
           done
         else
-          echo "No knowledge_base directory found"
+          echo "No changed files to upload"
         fi
         
         # Handle deleted files - remove them from S3
