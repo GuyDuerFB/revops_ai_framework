@@ -442,11 +442,11 @@ The system supports six specialized AI agents. Each agent has specific capabilit
 
 2. **Deploy Agent Updates**
    ```bash
-   cd deployment/
+   cd deployment/scripts/
    
    # Deploy specific agent
-   python3 deploy_manager_agent.py
-   python3 deploy_lead_analysis_agent.py
+   python3 deploy.py --agent manager
+   python3 deploy.py --agent lead_analysis
    
    # Or deploy all agents
    python3 deploy.py
@@ -509,8 +509,8 @@ Agents collaborate through the Manager Agent's supervisor pattern:
 
 2. **Redeploy Manager Agent**
    ```bash
-   cd deployment/
-   python3 deploy_manager_agent.py
+   cd deployment/scripts/
+   python3 deploy.py --agent manager
    ```
 
 ## Knowledge Base Management
@@ -565,7 +565,7 @@ The knowledge base contains structured information that powers agent intelligenc
 
 #### Manual Sync
 ```bash
-cd deployment/
+cd deployment/scripts/
 python3 sync_knowledge_base.py
 ```
 
@@ -854,8 +854,8 @@ aws cloudwatch get-metric-statistics \
 **Weekly Operations**
 ```bash
 # Check system health
-cd deployment/
-python3 validate-deployment.py
+cd deployment/scripts/
+python3 validate_deployment.py
 
 # Update knowledge base if needed
 python3 sync_knowledge_base.py
@@ -884,7 +884,7 @@ aws secretsmanager update-secret \
 **Configuration Backup**
 ```bash
 # Backup deployment configuration
-cp deployment/config.json deployment/config.backup.$(date +%Y%m%d).json
+cp deployment/config/config.json deployment/config/config.backup.$(date +%Y%m%d).json
 
 # Export agent configurations
 aws bedrock-agent get-agent --agent-id PVWGKOWSOT > backups/manager_agent.json
@@ -893,10 +893,10 @@ aws bedrock-agent get-agent --agent-id PVWGKOWSOT > backups/manager_agent.json
 **Recovery Procedures**
 ```bash
 # Restore from backup
-cp deployment/config.backup.YYYYMMDD.json deployment/config.json
+cp deployment/config/config.backup.YYYYMMDD.json deployment/config/config.json
 
 # Redeploy system
-cd deployment/
+cd deployment/scripts/
 python3 deploy.py
 
 # Verify functionality
@@ -917,7 +917,7 @@ python3 deploy.py
 
 **Configuration Management**
 - Agent instructions in `agents/*/instructions.md`
-- Deployment configuration in `deployment/config.json`
+- Deployment configuration in `deployment/config/config.json`
 - Infrastructure templates in `infrastructure/`
 - Knowledge base content in `knowledge_base/`
 
@@ -925,7 +925,7 @@ python3 deploy.py
 - Slack integration: `integrations/slack-bedrock-gateway/README.md`
 - Webhook integration: `integrations/webhook-gateway/README.md`
 - Knowledge base: `knowledge_base/README.md`
-- Deployment issues: `deployment/SECURITY_CONFIG.md`
+- Deployment issues: `deployment/docs/agent_management.md`
 
 ### Common Issues and Solutions
 

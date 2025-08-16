@@ -2,27 +2,28 @@
 
 ## Overview
 
-This directory contains deployment scripts and configuration for the RevOps AI Framework. All deployment operations are centralized here for consistency and maintainability.
+This directory contains all deployment scripts, configuration, and documentation for the RevOps AI Framework. The structure is organized into logical subdirectories for maintainability and clarity.
 
-## Files and Purpose
+## Directory Structure
 
-### Core Configuration
-- **`config.json`** - Master configuration for all agents, Lambda functions, and AWS resources
-- **`secrets.template.json`** - Template for AWS Secrets Manager configuration
-
-### Active Scripts
-- **`deploy.py`** - Unified deployment script for agents and Lambda functions  
-- **`sync_knowledge_base.py`** - Knowledge base synchronization to S3 and Bedrock
-- **`validate_deployment.py`** - System validation and health checks
-
-### Supporting Files
-- **`kb_sync_state.json`** - Knowledge base synchronization state (auto-generated)
-- **`firebolt_api_schema.json`** - API schema for Firebolt integrations
-- **`web_search_api_schema.json`** - API schema for web search functions
-
-### Documentation
-- **`DEPLOYMENT_GUIDE.md`** - Step-by-step deployment procedures
-- **`TROUBLESHOOTING.md`** - Common issues and solutions
+```
+deployment/
+├── README.md                    # This overview document
+├── scripts/                     # Deployment and maintenance scripts
+│   ├── deploy.py               # Unified deployment script
+│   ├── validate_deployment.py  # System health validation
+│   └── sync_knowledge_base.py  # Knowledge base synchronization
+├── config/                      # Configuration files
+│   ├── config.json             # Master configuration
+│   ├── secrets.template.json   # AWS Secrets template
+│   ├── firebolt_api_schema.json # Firebolt API schema
+│   ├── web_search_api_schema.json # Web search API schema
+│   └── kb_sync_state.json      # Knowledge base sync state (auto-generated)
+└── docs/                        # Documentation
+    ├── README.md               # Complete deployment guide (this file)
+    ├── agent_management.md     # Agent update procedures
+    └── security_config.md      # Security configuration details
+```
 
 ## Quick Start
 
@@ -37,129 +38,160 @@ python3 --version  # Requires 3.9+
 
 ### Deploy All Components
 ```bash
-cd deployment/
+cd deployment/scripts/
 python3 deploy.py
 ```
 
 ### Deploy Specific Agent
 ```bash
-# Deploy manager agent only
+cd deployment/scripts/
 python3 deploy.py --agent manager
+python3 deploy.py --agent data
+```
 
-# Deploy with validation
-python3 deploy.py --validate-only
+### Validate System Health
+```bash
+cd deployment/scripts/
+python3 validate_deployment.py
 ```
 
 ### Sync Knowledge Base
 ```bash
+cd deployment/scripts/
 python3 sync_knowledge_base.py
-```
-
-### Validate Deployment
-```bash
-python3 validate_deployment.py
 ```
 
 ## Configuration Management
 
-### Agent Configuration
-All agent settings are centralized in `config.json`:
-
-```json
-{
-  "manager_agent": {
-    "agent_id": "PVWGKOWSOT",
-    "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    "instructions_file": "agents/manager_agent/instructions.md"
-  }
-}
-```
+### Master Configuration
+All system configuration is centralized in `config/config.json`:
+- Agent IDs and settings
+- Lambda function configurations  
+- AWS resource ARNs
+- Foundation model specifications
 
 ### Environment Variables
-Required environment variables are documented in each deployment script.
+Required AWS profile: `FireboltSystemAdministrator-740202120544`
+Required region: `us-east-1`
 
-### AWS Permissions
-All scripts use the profile: `FireboltSystemAdministrator-740202120544`
+### Secrets Management
+Template for AWS Secrets Manager configuration is in `config/secrets.template.json`
 
-Required permissions are documented in the main README.md.
+## Scripts Overview
 
-## Deployment Workflow
+### `scripts/deploy.py`
+**Unified deployment script** for all agents and components.
 
-1. **Validation**: Scripts validate prerequisites and configuration
-2. **Incremental Updates**: Only changed components are redeployed
-3. **Health Checks**: Automatic validation after deployment
-4. **Rollback**: Failed deployments can be rolled back
+```bash
+# Deploy all agents
+python3 deploy.py
+
+# Deploy specific agent
+python3 deploy.py --agent manager
+
+# Validation only (no changes)
+python3 deploy.py --validate-only
+
+# List current agents
+python3 deploy.py --list-agents
+```
+
+### `scripts/validate_deployment.py`
+**Comprehensive system health validation** with detailed diagnostics.
+
+```bash
+# Full system validation
+python3 validate_deployment.py
+
+# Component-specific validation
+python3 validate_deployment.py --agents
+python3 validate_deployment.py --lambdas
+python3 validate_deployment.py --integrations
+python3 validate_deployment.py --knowledge-base
+```
+
+### `scripts/sync_knowledge_base.py`
+**Knowledge base synchronization** to S3 and Bedrock ingestion.
+
+```bash
+# Manual sync with detailed output
+python3 sync_knowledge_base.py
+```
 
 ## Agent Management
 
 ### Update Agent Instructions
-```bash
-# Edit the instructions file
-vim ../agents/manager_agent/instructions.md
-
-# Deploy the update
-python3 deploy.py --agent manager
-```
+1. Edit the agent instructions file: `../agents/{agent_name}/instructions.md`
+2. Deploy the update: `python3 scripts/deploy.py --agent {agent_name}`
+3. Validate: `python3 scripts/validate_deployment.py --agents`
 
 ### Add New Agent
-1. Create agent directory in `../agents/new_agent/`
-2. Add configuration to `config.json`
-3. Run deployment: `python3 deploy.py --agent new_agent`
+1. Create agent directory: `../agents/new_agent/`
+2. Add configuration to `config/config.json`
+3. Deploy: `python3 scripts/deploy.py --agent new_agent`
+
+See `docs/agent_management.md` for detailed procedures.
 
 ## Knowledge Base Management
 
 ### Automatic Sync
-Knowledge base files are automatically synced when:
-- Changes are committed to main branch
-- GitHub Action runs the sync workflow
+Changes to `../knowledge_base/*.md` files are automatically synced via GitHub Actions when committed to main branch.
 
 ### Manual Sync
-```bash
-python3 sync_knowledge_base.py
-```
+Use `scripts/sync_knowledge_base.py` for immediate synchronization.
 
-### Monitor Sync Status
-```bash
-# Check sync state
-cat kb_sync_state.json
+### Monitor Status
+Check `config/kb_sync_state.json` for last sync status and timestamps.
 
-# View S3 bucket contents
-aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/ --recursive
-```
+## Security Configuration
+
+All security settings and configurations are documented in `docs/security_config.md`:
+- API Gateway client certificates
+- IAM roles and permissions
+- Encryption settings
+- Access control policies
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Agent Update Fails**
-1. Check agent status: `aws bedrock-agent get-agent --agent-id AGENT_ID`
-2. Verify IAM permissions
-3. Check CloudWatch logs for detailed errors
+**Agent Deployment Fails**
+1. Run validation: `python3 scripts/validate_deployment.py --agents`
+2. Check AWS credentials: `aws sts get-caller-identity`
+3. Verify agent status in AWS Bedrock console
 
-**Knowledge Base Sync Fails**
-1. Verify S3 bucket permissions
-2. Check AWS credentials
-3. Review sync state file for errors
+**Knowledge Base Sync Issues**
+1. Check S3 permissions and bucket access
+2. Review sync state: `cat config/kb_sync_state.json`
+3. Verify Bedrock knowledge base status
 
-**Lambda Function Deployment Fails**
-1. Check function size limits
-2. Verify IAM role permissions
-3. Review deployment logs
+**Lambda Function Problems**
+1. Run validation: `python3 scripts/validate_deployment.py --lambdas`
+2. Check CloudWatch logs for errors
+3. Verify IAM role permissions
 
 ### Getting Help
-- Check main README.md for system-wide documentation
-- Review CloudWatch logs for runtime errors
-- Use `validate_deployment.py` for comprehensive health checks
+- Review main system README: `../README.md`
+- Check CloudWatch logs for runtime errors
+- Use validation scripts for comprehensive diagnostics
 
-## Security
+## Deployment Workflow
 
-- All credentials managed through AWS Secrets Manager
-- IAM roles follow least privilege principle
-- API endpoints secured with certificate authentication
-- Detailed security configuration in main README.md
+1. **Prerequisites Check**: Scripts validate AWS credentials and permissions
+2. **Configuration Validation**: Verify all required settings are present
+3. **Incremental Updates**: Only changed components are redeployed
+4. **Health Validation**: Automatic system health checks after deployment
+5. **Status Reporting**: Clear success/failure reporting with actionable errors
+
+## File Naming Conventions
+
+- **Scripts**: `snake_case.py` (executable Python scripts)
+- **Config**: `snake_case.json` (configuration and data files)  
+- **Docs**: `snake_case.md` (documentation files)
+- **Consistency**: All files use lowercase with underscores
 
 ---
 
 **Last Updated**: August 2025  
 **Version**: V5.1  
-**Architecture**: Production-ready with Bedrock Agent collaboration
+**Architecture**: Production-ready Bedrock Agent collaboration with organized deployment structure

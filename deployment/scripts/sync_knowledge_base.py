@@ -24,8 +24,8 @@ S3_PREFIX = "knowledge-base/"
 
 # Local knowledge base directory
 SCRIPT_DIR = Path(__file__).parent
-KNOWLEDGE_BASE_DIR = SCRIPT_DIR.parent / "knowledge_base"
-SYNC_STATE_FILE = SCRIPT_DIR / "kb_sync_state.json"
+KNOWLEDGE_BASE_DIR = SCRIPT_DIR.parent.parent / "knowledge_base"
+SYNC_STATE_FILE = SCRIPT_DIR.parent / "config" / "kb_sync_state.json"
 
 class KnowledgeBaseSync:
     """Main class for knowledge base synchronization"""

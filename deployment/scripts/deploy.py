@@ -57,7 +57,7 @@ Region: {region_name}
     
     def _load_config(self) -> Dict[str, Any]:
         """Load deployment configuration"""
-        config_file = Path(__file__).parent / "config.json"
+        config_file = Path(__file__).parent.parent / "config" / "config.json"
         try:
             with open(config_file, 'r') as f:
                 return json.load(f)
@@ -132,7 +132,7 @@ Region: {region_name}
         
         try:
             # Read instructions file
-            instructions_file = Path(__file__).parent.parent / agent_config['instructions_file']
+            instructions_file = Path(__file__).parent.parent.parent / agent_config['instructions_file']
             if not instructions_file.exists():
                 print(f"❌ Instructions file not found: {instructions_file}")
                 return False

@@ -52,7 +52,7 @@ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     
     def _load_config(self) -> Dict[str, Any]:
         """Load deployment configuration"""
-        config_file = Path(__file__).parent / "config.json"
+        config_file = Path(__file__).parent.parent / "config" / "config.json"
         try:
             with open(config_file, 'r') as f:
                 return json.load(f)
