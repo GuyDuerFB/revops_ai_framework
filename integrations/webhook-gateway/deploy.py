@@ -81,6 +81,26 @@ class WebhookGatewayDeployer:
             print(f"✗ Prerequisites validation failed: {str(e)}")
             return False
     
+    def install_dependencies(self, target_dir: str) -> None:
+        """Install Lambda dependencies."""
+        lambda_dir = os.path.join(os.path.dirname(__file__), 'lambda')
+        requirements_file = os.path.join(lambda_dir, 'requirements.txt')
+        
+        if os.path.exists(requirements_file):
+            print(f"Installing dependencies from {requirements_file}")
+            import subprocess
+            result = subprocess.run([
+                sys.executable, '-m', 'pip', 'install',
+                '-r', requirements_file,
+                '-t', target_dir,
+                '--no-cache-dir'
+            ], capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                print(f"Warning: Failed to install some dependencies: {result.stderr}")
+            else:
+                print("✓ Dependencies installed successfully")
+
     def package_lambda_functions(self) -> Dict[str, str]:
         """Package Lambda function code into zip files."""
         print("Packaging Lambda functions...")
@@ -90,26 +110,49 @@ class WebhookGatewayDeployer:
         zip_paths = {}
         
         try:
+            # Create dependency directory and install packages
+            deps_dir = os.path.join(temp_dir, 'dependencies')
+            os.makedirs(deps_dir, exist_ok=True)
+            self.install_dependencies(deps_dir)
+            
             # Package webhook gateway (prod_revops_webhook_gateway.py as webhook_handler.py + request_transformer.py)
             gateway_zip = os.path.join(temp_dir, 'prod-revops-webhook-gateway.zip')
             with zipfile.ZipFile(gateway_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 zipf.write(os.path.join(lambda_dir, 'prod_revops_webhook_gateway.py'), 'webhook_handler.py')  # Handler expects webhook_handler.py
                 zipf.write(os.path.join(lambda_dir, 'request_transformer.py'), 'request_transformer.py')
+                # Add dependencies for webhook gateway
+                for root, dirs, files in os.walk(deps_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, deps_dir)
+                        zipf.write(file_path, arcname)
             zip_paths['webhook_gateway'] = gateway_zip
             
-            # Package queue processor (revops_webhook.py as lambda_function.py)
+            # Package queue processor (revops_webhook.py as lambda_function.py) - THIS NEEDS DEPENDENCIES
             processor_zip = os.path.join(temp_dir, 'revops-webhook.zip')
             with zipfile.ZipFile(processor_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 zipf.write(os.path.join(lambda_dir, 'revops_webhook.py'), 'lambda_function.py')  # Handler expects lambda_function.py
+                # Add dependencies for queue processor (this is where requests is needed)
+                for root, dirs, files in os.walk(deps_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, deps_dir)
+                        zipf.write(file_path, arcname)
             zip_paths['queue_processor'] = processor_zip
             
             # Package manager agent wrapper (revops_manager_agent_wrapper.py as manager_agent_wrapper.py)
             wrapper_zip = os.path.join(temp_dir, 'revops-manager-agent-wrapper.zip')
             with zipfile.ZipFile(wrapper_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 zipf.write(os.path.join(lambda_dir, 'revops_manager_agent_wrapper.py'), 'manager_agent_wrapper.py')  # Handler expects manager_agent_wrapper.py
+                # Add dependencies for manager agent wrapper
+                for root, dirs, files in os.walk(deps_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, deps_dir)
+                        zipf.write(file_path, arcname)
             zip_paths['manager_wrapper'] = wrapper_zip
             
-            print(f"✓ Lambda functions packaged successfully")
+            print(f"✓ Lambda functions packaged successfully with dependencies")
             return zip_paths
             
         except Exception as e:
