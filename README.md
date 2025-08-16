@@ -359,35 +359,6 @@ s3://revops-ai-framework-kb-740202120544/conversation-history/
 - Comprehensive validation metadata with quality assessment and error detection
 - System prompt leak prevention with confidence-based detection algorithms
 
-## Technology Stack
-
-### AI and Intelligence Layer
-- **AI Platform**: Amazon Bedrock (Claude 3.7 Sonnet inference profiles)
-- **Agent Framework**: Amazon Bedrock Agents with SUPERVISOR/COLLABORATOR architecture
-- **Knowledge Management**: Amazon Bedrock Knowledge Bases with Titan embeddings
-- **Multi-Agent Orchestration**: Manager Agent with 5 specialized collaborators
-
-### Integration and Input Layer  
-- **Slack Integration**: Natural language interface with conversation continuity
-- **API Integration**: HTTP webhook gateway with asynchronous processing
-- **Message Processing**: SQS-based async architecture with retry logic
-- **Response Delivery**: Real-time Slack responses and configurable webhook delivery
-
-### Data and Analytics Layer
-- **Data Warehouse**: Firebolt (dwh_prod database, dwh_prod_analytics engine)
-- **CRM Integration**: Salesforce (contacts, leads, opportunities)
-- **Conversation Intelligence**: Gong (sales call transcripts and analysis)
-- **External Intelligence**: Web search and company research capabilities
-
-### Infrastructure and Operations
-- **Compute**: AWS Lambda (8 specialized functions with optimized timeouts)
-- **API Layer**: Amazon API Gateway (HTTPS endpoints with security)
-- **Message Queuing**: Amazon SQS (async processing with dead letter queues)
-- **Storage**: Amazon S3 (conversation exports and knowledge base)
-- **Security**: AWS IAM, Secrets Manager, encryption at rest and in transit
-- **Monitoring**: CloudWatch (comprehensive logging, metrics, and alerting)
-- **Infrastructure as Code**: CloudFormation templates for reproducible deployments
-
 ## Quick Start
 
 ### Prerequisites
