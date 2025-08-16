@@ -6,6 +6,7 @@ on:
     paths: 
       - 'knowledge_base/**/*.md'
       - '!knowledge_base/firebolt_schema/**'
+      - '!knowledge_base/README.md'
 
 jobs:
   sync-knowledge-base:
@@ -30,11 +31,11 @@ jobs:
     - name: Detect changes in knowledge_base directory
       id: detect-changes
       run: |
-        echo "Detecting changes in knowledge_base directory (excluding firebolt_schema/)..."
+        echo "Detecting changes in knowledge_base directory (excluding firebolt_schema/ and README.md)..."
         
-        # Get list of changed files in knowledge_base directory (excluding firebolt_schema)
-        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' || echo "")
-        DELETED_FILES=$(git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' || echo "")
+        # Get list of changed files in knowledge_base directory (excluding firebolt_schema and README.md)
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' | grep -v '^knowledge_base/README.md$' || echo "")
+        DELETED_FILES=$(git diff --name-only --diff-filter=D HEAD~1 HEAD -- 'knowledge_base/**/*.md' | grep -v '^knowledge_base/firebolt_schema/' | grep -v '^knowledge_base/README.md$' || echo "")
         
         echo "Changed files:"
         echo "$CHANGED_FILES"
@@ -154,5 +155,5 @@ jobs:
     - name: No changes detected
       if: steps.detect-changes.outputs.has-changes == 'false'
       run: |
-        echo "ℹ️  No changes detected in knowledge_base/*.md files (excluding firebolt_schema/)"
+        echo "ℹ️  No changes detected in knowledge_base/*.md files (excluding firebolt_schema/ and README.md)"
         echo "Skipping sync operations"
