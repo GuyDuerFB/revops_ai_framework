@@ -10,6 +10,9 @@ on:
 jobs:
   sync-knowledge-base:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: read    # Required to checkout repository
     
     steps:
     - name: Checkout repository
@@ -20,10 +23,9 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-        aws-region: ${{ vars.AWS_REGION }}
+        role-to-assume: arn:aws:iam::740202120544:role/GitHubActionsRevOpsKBSyncRole
+        role-session-name: GitHubActionsKBSync
+        aws-region: us-east-1
     
     - name: Detect changes in knowledge_base directory
       id: detect-changes
