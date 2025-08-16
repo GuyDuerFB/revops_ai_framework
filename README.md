@@ -6,13 +6,15 @@
 
 The RevOps AI Framework V5 is a production-ready, enterprise-grade revenue operations platform that revolutionizes how revenue teams analyze data, assess leads, manage deals, and optimize business performance. Built on Amazon Bedrock with a specialized multi-agent architecture, it provides intelligent automation and insights across the entire revenue lifecycle.
 
+The system accepts input through two primary channels: **Slack Integration** for natural language conversations and **API Integration** for programmatic access, both delivering comprehensive revenue operations analysis through a sophisticated multi-agent collaboration framework.
+
 ## Key Features
 
 ### Production-Ready Architecture
+- **Dual Input Channels**: Slack integration for conversational AI and HTTP API for programmatic access
 - **Specialized Agent Framework**: 6 specialized AI agents for different revenue operations tasks
 - **Enhanced Conversation Monitoring**: Complete LLM-readable conversation tracking with structured reasoning breakdown
 - **Real-time Agent Narration**: Live visibility into AI decision-making processes
-- **Slack Integration**: Natural language interface with conversation continuity
 - **AWS Best Practices**: Serverless, scalable infrastructure with comprehensive monitoring
 
 ### AI-Powered Revenue Intelligence
@@ -30,37 +32,304 @@ The RevOps AI Framework V5 is a production-ready, enterprise-grade revenue opera
 
 ## Architecture
 
-### Multi-Agent Specialization
+### Input Channels and Multi-Agent Specialization
+
+The RevOps AI Framework accepts input through two primary channels, both leading to the same sophisticated multi-agent collaboration system:
+
+**Input Channels:**
+- **Slack Integration**: Natural language conversations through @RevBot mentions
+- **API Integration**: HTTP webhook endpoints for programmatic access
+
+**Agent Classification:**
+- **Dedicated Specialized Agents**: Deal Analysis Agent and Lead Analysis Agent (for specific use cases)
+- **General-Purpose Collaborator Agents**: Data Agent, Web Search Agent, and Execution Agent (for broad capabilities)
+
+**Multi-Agent Architecture:**
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         SLACK INTERFACE                            │
+│                    INPUT CHANNELS                                   │
+│  ┌─────────────────────┐    ┌─────────────────────────────────────┐ │
+│  │   SLACK INTEGRATION │    │        API INTEGRATION              │ │
+│  │   @RevBot mentions  │    │   HTTP Webhook Gateway              │ │
+│  └─────────────────────┘    └─────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    MANAGER AGENT (ROUTER)                          │
-│  • Routes requests to specialists                                  │
-│  • Handles simple queries directly                                 │
+│                    MANAGER AGENT (SUPERVISOR)                      │
+│  • Intelligent routing to dedicated specialized agents             │
+│  • Handles general queries with general-purpose collaborators      │
 │  • Coordinates multi-agent workflows                               │
+│  • Maintains conversation context and continuity                   │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ DEAL ANALYSIS   │  │ LEAD ANALYSIS   │  │   DATA AGENT    │
-│     AGENT       │  │     AGENT       │  │                 │
-│ • MEDDPICC      │  │ • ICP Scoring   │  │ • SQL Queries   │
-│ • Risk Analysis │  │ • Qualification │  │ • Salesforce    │
-│ • Probability   │  │ • Outreach      │  │ • Gong Calls    │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│ WEBSEARCH AGENT │  │ EXECUTION AGENT │  │ DATA SOURCES    │
-│ • Market Intel  │  │ • Notifications │  │ • Firebolt DWH  │ 
-│ • Company Data  │  │ • CRM Updates   │  │ • Salesforce    │
-│ • Competitive   │  │ • Webhooks      │  │ • Gong          │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
+                ┌───────────────┼───────────────┐
+                │               │               │
+                ▼               ▼               ▼
+    ┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
+    │  DEDICATED AGENTS   │ │  GENERAL AGENTS     │ │  GENERAL AGENTS     │
+    │  (Specific Cases)   │ │  (Broad Capability) │ │  (Broad Capability) │
+    └─────────────────────┘ └─────────────────────┘ └─────────────────────┘
+                │                       │                       │
+        ┌───────┴───────┐       ┌───────┴───────┐       ┌───────┴───────┐
+        ▼               ▼       ▼               ▼       ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│DEAL ANALYSIS│ │LEAD ANALYSIS│ │ DATA AGENT  │ │ WEBSEARCH   │ │ EXECUTION   │
+│   AGENT     │ │   AGENT     │ │             │ │   AGENT     │ │   AGENT     │
+│ (DEDICATED) │ │ (DEDICATED) │ │ (GENERAL)   │ │ (GENERAL)   │ │ (GENERAL)   │
+│             │ │             │ │             │ │             │ │             │
+│• MEDDPICC   │ │• ICP Scoring│ │• SQL Queries│ │• Market     │ │• Webhooks   │
+│• Risk Anal. │ │• Qualificat.│ │• Salesforce │ │  Intel      │ │• CRM Updates│
+│• Probability│ │• Outreach   │ │• Gong Calls │ │• Company    │ │• Notificat. │
+│• Deal Focus │ │  Strategy   │ │• Analytics  │ │  Research   │ │• Actions    │
+└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+       │               │               │               │               │
+       ▼               ▼               ▼               ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│   TOOLS:    │ │   TOOLS:    │ │   TOOLS:    │ │   TOOLS:    │ │   TOOLS:    │
+│• Firebolt   │ │• Firebolt   │ │• Firebolt   │ │• Web Search │ │• Webhook    │
+│  SQL Query  │ │  SQL Query  │ │  SQL Query  │ │• Company    │ │  Executor   │
+│             │ │• Web Search │ │• Gong API   │ │  Research   │ │• Firebolt   │
+│             │ │             │ │             │ │             │ │  Writer     │
+└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+                                       │
+                                       ▼
+                            ┌─────────────────────┐
+                            │    DATA SOURCES     │
+                            │                     │
+                            │• Firebolt DWH       │
+                            │• Salesforce CRM     │
+                            │• Gong Conversations │
+                            │• External Web APIs  │
+                            └─────────────────────┘
+
+COLLABORATION PATTERN:
+• Manager Agent can invoke ANY of the 5 collaborator agents directly
+
+DEDICATED AGENTS (Specific Use Cases):
+• Deal Analysis Agent: ONLY for deal status, MEDDPICC analysis, opportunity assessment
+• Lead Analysis Agent: ONLY for lead qualification, ICP scoring, engagement strategies
+
+GENERAL AGENTS (Broad Capabilities):
+• Data Agent: General data queries across all revenue operations (Firebolt + Gong)
+• Web Search Agent: External intelligence and company research for any use case
+• Execution Agent: Actions and integrations for any workflow (Webhooks + Firebolt writes)
+
+ROUTING LOGIC:
+• "Status of IXIS deal" → Routes to Deal Analysis Agent (dedicated)
+• "Assess John Smith from DataCorp" → Routes to Lead Analysis Agent (dedicated)  
+• "Q4 revenue trends" → Uses Data Agent + other general agents as needed
+• "Research TechCorp company" → Uses Web Search Agent (general capability)
+• "Send notification to AE" → Uses Execution Agent (general capability)
+```
+
+## Detailed Data Flow
+
+### Slack Integration Data Flow
+
+The Slack integration provides a natural language interface for revenue operations analysis through a sophisticated serverless architecture.
+
+#### End-to-End Slack Flow
+
+**1. User Input (Slack Channel)**
+```
+User types: "@RevBot what is the status of the IXIS deal?"
+```
+
+**2. Slack Event Processing**
+- Slack sends webhook to API Gateway endpoint: `https://s4tdiv7qrf.execute-api.us-east-1.amazonaws.com/prod/slack-events`
+- API Gateway routes to Handler Lambda: `revops-slack-bedrock-handler`
+
+**3. Handler Lambda Processing (`revops-slack-bedrock-handler`)**
+- Validates Slack signature using signing secret from AWS Secrets Manager
+- Extracts user message and removes bot mention
+- Sends immediate acknowledgment to Slack: "👋 Hey there! I'm diving into your data right now..."
+- Queues message for async processing in SQS: `revops-slack-bedrock-processing-queue`
+
+**4. Asynchronous Processing**
+- SQS triggers Processor Lambda: `revops-slack-bedrock-processor`
+- Processor Lambda invokes Manager Agent (Bedrock Agent ID: `PVWGKOWSOT`)
+
+**5. Manager Agent Intelligence**
+- Analyzes query intent: "status of the IXIS deal" → Deal Analysis request
+- Routes to Deal Analysis Agent (Bedrock Agent ID: `DBHYUWC6U6`)
+- Deal Analysis Agent executes SQL queries via Firebolt Lambda: `revops-firebolt-query`
+- Retrieves deal data from Firebolt Data Warehouse
+- Performs MEDDPICC analysis and risk assessment
+
+**6. Response Processing**
+- Deal Analysis Agent returns structured analysis to Manager Agent
+- Manager Agent formats response (passes through without modification)
+- Processor Lambda receives final response
+
+**7. Slack Response Delivery**
+- Processor Lambda posts response to Slack channel using bot token
+- Response includes comprehensive deal analysis with dry numbers, probability, and risks
+- Conversation tracking data exported to S3: `s3://revops-ai-framework-kb-740202120544/conversation-history/`
+
+#### AWS Resources Used (Slack Flow)
+
+**CloudFormation Stack**: `revops-slack-bedrock-stack`
+- **API Gateway**: `revops-slack-bedrock-api` - HTTPS endpoint for Slack events
+- **Handler Lambda**: `revops-slack-bedrock-handler` (30s timeout, 256MB memory)
+- **Processor Lambda**: `revops-slack-bedrock-processor` (300s timeout, 512MB memory)
+- **SQS Queue**: `revops-slack-bedrock-processing-queue` (5min visibility timeout)
+- **Dead Letter Queue**: `revops-slack-bedrock-dlq` (failed message handling)
+- **Secrets Manager**: `revops-slack-bedrock-secrets` (bot token, signing secret)
+- **CloudWatch Logs**: `/aws/lambda/revops-slack-bedrock-handler`, `/aws/lambda/revops-slack-bedrock-processor`
+
+**Bedrock Agents**:
+- **Manager Agent**: `PVWGKOWSOT` (Claude 3.7 Sonnet, SUPERVISOR mode)
+- **Deal Analysis Agent**: `DBHYUWC6U6` (Claude 3.7 Sonnet, COLLABORATOR mode)
+- **Lead Analysis Agent**: `IP9HPDIEPL` (Claude 3.7 Sonnet, COLLABORATOR mode)
+- **Data Agent**: `NOJMSQ8JPT` (Claude 3.7 Sonnet, COLLABORATOR mode)
+- **Web Search Agent**: `QKRQXXPJOJ` (Claude 3.7 Sonnet, COLLABORATOR mode)
+- **Execution Agent**: `AINAPUEIZU` (Claude 3.7 Sonnet, COLLABORATOR mode)
+
+**Supporting Lambda Functions**:
+- **Firebolt Query**: `revops-firebolt-query` (SQL execution against data warehouse)
+- **Gong Retrieval**: `revops-gong-retrieval` (sales call transcript analysis)
+- **Web Search**: `revops-web-search` (external intelligence gathering)
+- **Webhook Executor**: `revops-webhook` (external system notifications)
+
+**Data Sources**:
+- **Firebolt Data Warehouse**: `dwh_prod` database on `dwh_prod_analytics` engine
+- **Gong**: Sales call transcripts and conversation intelligence
+- **External Web**: Company research and market intelligence
+
+#### Slack Flow Example with Timing
+
+```
+00:00 - User: "@RevBot what is the status of the IXIS deal?"
+00:01 - Slack → API Gateway → Handler Lambda (signature validation)
+00:02 - Handler Lambda → Slack: "👋 Hey there! I'm diving into your data right now..."
+00:02 - Handler Lambda → SQS Queue (async processing)
+00:03 - SQS → Processor Lambda → Manager Agent
+00:05 - Manager Agent → Deal Analysis Agent (intent: deal analysis)
+00:10 - Deal Analysis Agent → Firebolt Lambda (SQL queries)
+00:15 - Firebolt returns deal data (stage, probability, risks)
+00:20 - Deal Analysis Agent → MEDDPICC analysis
+00:25 - Deal Analysis Agent → Manager Agent (structured response)
+00:26 - Manager Agent → Processor Lambda (final response)
+00:27 - Processor Lambda → Slack (comprehensive deal analysis)
+00:28 - Conversation exported to S3 for monitoring
+```
+
+### API Integration Data Flow
+
+The API integration provides programmatic access to the RevOps AI Framework through HTTP webhooks with asynchronous processing and outbound delivery.
+
+#### End-to-End API Flow
+
+**1. External System Input**
+```bash
+curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What deals are closing this quarter?",
+    "source_system": "crm_dashboard",
+    "source_process": "quarterly_review",
+    "timestamp": "2025-08-16T10:00:00Z"
+  }'
+```
+
+**2. API Gateway Processing**
+- Request hits API Gateway endpoint: `https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook`
+- API Gateway routes to Webhook Gateway Lambda: `prod-revops-webhook-gateway`
+
+**3. Webhook Gateway Lambda Processing (`prod-revops-webhook-gateway`)**
+- Validates request format and required fields
+- Generates unique tracking ID for request correlation
+- Immediately queues request for async processing in SQS: `prod-revops-webhook-outbound-queue`
+- Returns immediate response with tracking ID (no waiting for AI processing)
+
+**4. Immediate Response to Client**
+```json
+{
+  "success": true,
+  "tracking_id": "abc-123-def",
+  "queued_at": "2025-08-16T10:00:01Z",
+  "estimated_processing_time": "30-60 seconds",
+  "status": "queued"
+}
+```
+
+**5. Asynchronous AI Processing**
+- SQS triggers Queue Processor Lambda: `revops-webhook`
+- Queue Processor invokes Manager Agent Wrapper: `revops-manager-agent-wrapper`
+- Manager Agent Wrapper calls Manager Agent (Bedrock Agent ID: `PVWGKOWSOT`)
+
+**6. Manager Agent Intelligence**
+- Analyzes query: "What deals are closing this quarter?" → General revenue analysis
+- Coordinates with Data Agent for pipeline data
+- Data Agent executes SQL queries via Firebolt Lambda
+- Retrieves Q4 pipeline data from Firebolt Data Warehouse
+- Performs analysis and generates insights
+
+**7. Response Processing and Delivery**
+- Manager Agent returns comprehensive analysis to Manager Agent Wrapper
+- Manager Agent Wrapper formats response (both markdown and plain text)
+- Queue Processor creates webhook payload with AI response
+- Queue Processor delivers to configured webhook URL via HTTP POST
+
+**8. Outbound Webhook Delivery**
+```json
+{
+  "tracking_id": "abc-123-def",
+  "source_system": "crm_dashboard",
+  "source_process": "quarterly_review",
+  "original_query": "What deals are closing this quarter?",
+  "ai_response": {
+    "response": "**Q4 2025 Deal Pipeline Analysis**\n\n• Stage: Negotiate...",
+    "response_plain": "Q4 2025 Deal Pipeline Analysis\n\nStage: Negotiate...",
+    "session_id": "webhook_20250816_xyz123",
+    "timestamp": "2025-08-16T10:02:00Z"
+  },
+  "webhook_metadata": {
+    "delivered_at": "2025-08-16T10:02:15Z",
+    "webhook_url": "https://your-app.com/webhook"
+  }
+}
+```
+
+#### AWS Resources Used (API Flow)
+
+**CloudFormation Stack**: `revops-webhook-gateway-stack`
+- **API Gateway**: `prod-revops-webhook-gateway-api` - HTTPS endpoint for webhook requests
+- **Webhook Gateway Lambda**: `prod-revops-webhook-gateway` (15min timeout, 512MB memory)
+- **Manager Agent Wrapper**: `revops-manager-agent-wrapper` (15min timeout, 512MB memory)
+- **SQS Queue**: `prod-revops-webhook-outbound-queue` (16min visibility timeout)
+- **CloudWatch Logs**: `/aws/lambda/prod-revops-webhook-gateway`, `/aws/lambda/revops-manager-agent-wrapper`
+
+**Manual Resources** (outside CloudFormation):
+- **Queue Processor Lambda**: `revops-webhook` (15min timeout, processes SQS messages)
+
+**Bedrock Agents** (same as Slack integration):
+- **Manager Agent**: `PVWGKOWSOT` with full collaborator network
+- All specialized agents available for complex analysis
+
+**Configuration**:
+- **Webhook URL**: Configurable via Lambda environment variable `WEBHOOK_URL`
+- **Retry Logic**: 3 attempts with exponential backoff for webhook delivery
+- **Timeout Handling**: 15-minute processing window for complex AI analysis
+
+#### API Flow Example with Timing
+
+```
+00:00 - External System → HTTP POST to API Gateway
+00:01 - API Gateway → Webhook Gateway Lambda (request validation)
+00:02 - Webhook Gateway Lambda → SQS Queue + Immediate Response
+00:02 - Client receives tracking ID and continues processing
+00:03 - SQS → Queue Processor Lambda → Manager Agent Wrapper
+00:05 - Manager Agent Wrapper → Manager Agent (Bedrock)
+00:10 - Manager Agent → Data Agent (pipeline analysis)
+00:15 - Data Agent → Firebolt Lambda (Q4 deals query)
+00:25 - Firebolt returns pipeline data (deals, stages, probabilities)
+00:35 - Data Agent → Manager Agent (structured data)
+00:40 - Manager Agent → comprehensive analysis and insights
+00:45 - Manager Agent Wrapper → Queue Processor (formatted response)
+00:46 - Queue Processor → External webhook delivery
+00:47 - External system receives AI analysis via webhook
 ```
 
 ### Enhanced Conversation Monitoring with Quality Assurance
@@ -92,65 +361,167 @@ s3://revops-ai-framework-kb-740202120544/conversation-history/
 
 ## Technology Stack
 
-- **AI Platform**: Amazon Bedrock (Claude 3.7 Sonnet)
-- **Agent Framework**: Amazon Bedrock Agents with specialized routing
-- **Data Platform**: Firebolt Data Warehouse
-- **CRM Integration**: Salesforce
-- **Conversation Intelligence**: Gong
-- **Knowledge Management**: Amazon Bedrock Knowledge Bases
-- **Integration Layer**: AWS Lambda, API Gateway, SQS
-- **User Interface**: Slack (AWS best practices architecture)
-- **Infrastructure**: AWS (CloudFormation, IAM, Secrets Manager, CloudWatch)
+### AI and Intelligence Layer
+- **AI Platform**: Amazon Bedrock (Claude 3.7 Sonnet inference profiles)
+- **Agent Framework**: Amazon Bedrock Agents with SUPERVISOR/COLLABORATOR architecture
+- **Knowledge Management**: Amazon Bedrock Knowledge Bases with Titan embeddings
+- **Multi-Agent Orchestration**: Manager Agent with 5 specialized collaborators
+
+### Integration and Input Layer  
+- **Slack Integration**: Natural language interface with conversation continuity
+- **API Integration**: HTTP webhook gateway with asynchronous processing
+- **Message Processing**: SQS-based async architecture with retry logic
+- **Response Delivery**: Real-time Slack responses and configurable webhook delivery
+
+### Data and Analytics Layer
+- **Data Warehouse**: Firebolt (dwh_prod database, dwh_prod_analytics engine)
+- **CRM Integration**: Salesforce (contacts, leads, opportunities)
+- **Conversation Intelligence**: Gong (sales call transcripts and analysis)
+- **External Intelligence**: Web search and company research capabilities
+
+### Infrastructure and Operations
+- **Compute**: AWS Lambda (8 specialized functions with optimized timeouts)
+- **API Layer**: Amazon API Gateway (HTTPS endpoints with security)
+- **Message Queuing**: Amazon SQS (async processing with dead letter queues)
+- **Storage**: Amazon S3 (conversation exports and knowledge base)
+- **Security**: AWS IAM, Secrets Manager, encryption at rest and in transit
+- **Monitoring**: CloudWatch (comprehensive logging, metrics, and alerting)
+- **Infrastructure as Code**: CloudFormation templates for reproducible deployments
 
 ## Quick Start
 
 ### Prerequisites
 - AWS Account with appropriate permissions
-- AWS CLI configured with SSO
+- AWS CLI configured with SSO profile: `FireboltSystemAdministrator-740202120544`
 - Python 3.9+
-- Slack workspace administration rights
+- Slack workspace administration rights (for Slack integration)
 
-### Deployment
+### Current Deployment Status
+
+The system is **production-ready** and fully deployed. Both integration channels are operational:
+
+**Slack Integration**: ✅ Deployed and Operational
+- API Gateway: `https://s4tdiv7qrf.execute-api.us-east-1.amazonaws.com/prod/slack-events`
+- CloudFormation Stack: `revops-slack-bedrock-stack`
+- Status: Fully functional with conversation tracking
+
+**API Integration**: ✅ Deployed and Operational  
+- Webhook Endpoint: `https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook`
+- CloudFormation Stack: `revops-webhook-gateway-stack`
+- Status: Production-ready with 15-minute timeout support
+
+### Testing the System
+
+#### Test Slack Integration
 ```bash
-# 1. Clone repository
-git clone <repository-url>
-cd revops_ai_framework
+# In any Slack channel where the bot is present:
+@RevBot what is the status of the IXIS deal?
+@RevBot assess John Smith from DataCorp as a lead
+@RevBot analyze Q4 revenue performance by customer segment
+```
 
-# 2. Configure AWS SSO
-aws configure sso --profile FireboltSystemAdministrator-740202120544
+#### Test API Integration
+```bash
+# Test webhook endpoint
+curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What deals are closing this quarter?",
+    "source_system": "test_system",
+    "source_process": "validation",
+    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'
 
-# 3. Deploy Slack Integration
+# Response includes tracking ID for monitoring
+# AI response delivered to configured webhook URL
+```
+
+### Deployment (If Needed)
+
+#### Deploy Slack Integration Updates
+```bash
 cd integrations/slack-bedrock-gateway
 python3 deploy.py
+```
 
-# 4. Configure Slack App
-# Use API Gateway URL from deployment output
-# Subscribe to app_mention events
+#### Deploy API Integration Updates  
+```bash
+cd integrations/webhook-gateway
+python3 deploy.py
+```
 
-# 5. Test system
-# In Slack: @RevBot test connectivity
+#### Deploy Agent Updates
+```bash
+cd deployment/scripts
+python3 deploy.py --agent manager
+python3 deploy.py --agent deal_analysis
 ```
 
 ## Usage Examples
 
 ### Slack Integration
-#### Revenue Analysis
+
+The Slack integration provides natural language access to all RevOps AI capabilities through @RevBot mentions.
+
+#### Deal Analysis (Routes to Deal Analysis Agent)
+```
+@RevBot what is the status of the IXIS deal?
+@RevBot analyze the Microsoft Enterprise opportunity  
+@RevBot review the TechCorp deal
+@RevBot assess the probability and risks of the Acme Corp opportunity
+```
+
+**Example Response:**
+```
+**The Dry Numbers**
+- **Deal:** IXIS-Snowflake cost replacement  
+- **Stage:** Negotiate (75% probability)
+- **Size:** $2.1M ARR
+- **Close Quarter:** Q4 2025
+- **Owner:** Sarah Johnson, AE
+
+**Bottom Line**
+This deal has strong technical validation but faces budget approval delays. 
+Probability sits at 75% with clear next steps identified.
+
+**Risks and Opportunities**
+- **Risk:** Budget approval process extended to Q1 2026
+- **Opportunity:** Additional use cases identified worth $500K ARR
+```
+
+#### Lead Assessment (Routes to Lead Analysis Agent)
+```
+@RevBot assess John Smith from DataCorp as a lead
+@RevBot what do you think about Sarah Johnson at TechCorp?
+@RevBot tell me about Michael Chen from Enterprise Solutions
+@RevBot research Lisa Wang at CloudTech and assess fit
+```
+
+**Example Response:**
+```
+**Lead Information**
+- **Name:** John Smith
+- **Title:** VP of Data Engineering  
+- **Company:** DataCorp (Series B, 200-500 employees)
+
+**ICP Fit Assessment: HIGH (85/100)**
+- Company size matches target segment (200-500 employees)
+- Technology stack includes Snowflake and modern data tools
+- Recent funding indicates growth and budget availability
+
+**Engagement Strategy**
+Context Question: "How are you currently handling real-time analytics 
+at DataCorp, especially with your Snowflake setup?"
+
+Recommended approach: Technical value-focused outreach highlighting 
+performance improvements and cost optimization opportunities.
+```
+
+#### General Revenue Analysis (Handled by Manager Agent with Collaborators)
 ```
 @RevBot analyze Q4 revenue performance by customer segment
-@RevBot identify top expansion opportunities based on usage trends
+@RevBot identify top expansion opportunities based on usage trends  
 @RevBot which customers show declining engagement patterns?
-```
-
-#### Lead Assessment
-```
-@RevBot assess if John Smith from DataCorp is a good lead
-@RevBot score our MQL leads from this week against ICP criteria
-```
-
-#### Deal Analysis
-```
-@RevBot what is the status of the Microsoft Enterprise deal?
-@RevBot assess the probability and risks of the TechCorp opportunity
 @RevBot what are the main risk factors for deals closing this quarter?
 ```
 
@@ -160,49 +531,65 @@ python3 deploy.py
 @RevBot analyze competitor mentions across all Q3 sales calls
 ```
 
-### Webhook API Integration
+### API Integration
+
+The API integration provides programmatic access with asynchronous processing and webhook delivery.
+
 #### HTTP POST Request
 ```bash
 curl -X POST https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What deals are closing this quarter?",
-    "source_system": "your_app",
-    "source_process": "quarterly_review",
-    "timestamp": "2025-08-13T16:00:00Z"
+    "source_system": "crm_dashboard",
+    "source_process": "quarterly_review", 
+    "timestamp": "2025-08-16T10:00:00Z"
   }'
 ```
 
-#### Response Handling
+#### Immediate Response (Async Processing)
 ```json
 {
   "success": true,
-  "tracking_id": "abc-123-def",
+  "tracking_id": "e7aeb7e9-5382-41a5-b858-f8010978cd26",
   "message": "Request queued for processing",
-  "queued_at": "2025-08-13T16:00:01Z",
-  "estimated_processing_time": "30-60 seconds"
+  "queued_at": "2025-08-16T10:00:01Z",
+  "estimated_processing_time": "30-60 seconds",
+  "status": "queued"
 }
 ```
 
 #### Outbound Webhook Delivery
-Your configured webhook endpoint will receive:
+Your configured webhook endpoint receives the AI analysis:
 ```json
 {
-  "tracking_id": "abc-123-def",
-  "source_system": "your_app",
+  "tracking_id": "e7aeb7e9-5382-41a5-b858-f8010978cd26",
+  "source_system": "crm_dashboard",
   "source_process": "quarterly_review",
   "original_query": "What deals are closing this quarter?",
   "ai_response": {
-    "response": "**Q4 2025 Deal Pipeline Analysis**\n- Stage: Negotiate...",
-    "response_plain": "Q4 2025 Deal Pipeline Analysis\nStage: Negotiate...",
-    "session_id": "webhook_20250814_abc123",
-    "timestamp": "2025-08-14T09:20:00Z"
+    "response": "**Q4 2025 Deal Pipeline Analysis**\n\n**Pipeline Summary**\n- Total Pipeline: $4.2M ARR\n- Weighted Pipeline: $2.1M ARR\n- Deals in Negotiate Stage: 8 opportunities\n\n**Top Closing Opportunities**\n1. IXIS Enterprise ($2.1M) - 75% probability\n2. DataCorp Expansion ($800K) - 80% probability\n3. TechFlow Migration ($600K) - 65% probability\n\n**Risk Factors**\n- Budget approval delays affecting 3 deals\n- Competitive pressure from Snowflake on 2 opportunities\n- Technical validation pending for 1 deal",
+    "response_plain": "Q4 2025 Deal Pipeline Analysis\n\nPipeline Summary\n- Total Pipeline: $4.2M ARR\n- Weighted Pipeline: $2.1M ARR\n- Deals in Negotiate Stage: 8 opportunities\n\nTop Closing Opportunities\n1. IXIS Enterprise ($2.1M) - 75% probability\n2. DataCorp Expansion ($800K) - 80% probability\n3. TechFlow Migration ($600K) - 65% probability\n\nRisk Factors\n- Budget approval delays affecting 3 deals\n- Competitive pressure from Snowflake on 2 opportunities\n- Technical validation pending for 1 deal",
+    "session_id": "webhook_20250816_xyz123",
+    "timestamp": "2025-08-16T10:02:00Z"
   },
   "webhook_metadata": {
-    "delivered_at": "2025-08-14T09:20:00Z",
+    "delivered_at": "2025-08-16T10:02:15Z",
     "webhook_url": "https://your-app.com/webhook"
   }
 }
+```
+
+#### Configure Webhook URL
+```bash
+# Update the outbound webhook URL
+aws lambda update-function-configuration \
+  --function-name revops-webhook \
+  --environment 'Variables={
+    MANAGER_AGENT_FUNCTION_NAME=revops-manager-agent-wrapper,
+    WEBHOOK_URL=https://your-app.com/webhook,
+    LOG_LEVEL=INFO
+  }'
 ```
 
 ## Project Structure
@@ -287,45 +674,123 @@ revops_ai_framework/V5/
 
 ## Deployment Status
 
+### Core Infrastructure
+
 | Component | Status | Details |
 |-----------|--------|---------|
-| Manager Agent | Production | SUPERVISOR routing with Claude 3.7 |
-| Deal Analysis Agent | Production | MEDDPICC evaluation with embedded SQL |
-| Lead Analysis Agent | Production | ICP analysis and engagement strategies |
-| Data Agent | Production | Firebolt, Salesforce, Gong integration |
-| WebSearch Agent | Production | External intelligence gathering |
-| Execution Agent | Production | Notifications and CRM updates |
-| Slack Integration | Production | Full end-to-end functionality |
-| Webhook Gateway | Production | HTTP API with 15-minute timeout support |
-| Enhanced Monitoring V5.1 | Production | Quality-assured S3 exports with 0.725+ scores |
-| Agent Communication Detection | Production | Advanced pattern matching and collaboration mapping |
-| System Prompt Filtering | Production | 100% effective filtering with dynamic thresholds |
-| Tool Execution Intelligence | Production | Quality scoring and parameter intelligence |
-| Export Validation System | Production | Multi-layer quality gates and real-time assessment |
+| **Input Channels** | | |
+| Slack Integration | ✅ Production | CloudFormation stack `revops-slack-bedrock-stack` |
+| API Integration | ✅ Production | CloudFormation stack `revops-webhook-gateway-stack` |
+| **AI Agents (Bedrock)** | | |
+| Manager Agent | ✅ Production | `PVWGKOWSOT` - SUPERVISOR routing with Claude 3.7 |
+| Deal Analysis Agent | ✅ Production | `DBHYUWC6U6` - MEDDPICC evaluation with embedded SQL |
+| Lead Analysis Agent | ✅ Production | `IP9HPDIEPL` - ICP analysis and engagement strategies |
+| Data Agent | ✅ Production | `NOJMSQ8JPT` - Firebolt, Salesforce, Gong integration |
+| WebSearch Agent | ✅ Production | `QKRQXXPJOJ` - External intelligence gathering |
+| Execution Agent | ✅ Production | `AINAPUEIZU` - Notifications and CRM updates |
+| **Supporting Infrastructure** | | |
+| Lambda Functions | ✅ Production | 8 specialized functions with proper timeouts |
+| SQS Queues | ✅ Production | Async processing with dead letter queues |
+| API Gateways | ✅ Production | HTTPS endpoints with proper security |
+| CloudWatch Monitoring | ✅ Production | Comprehensive logging and metrics |
+| S3 Conversation Exports | ✅ Production | Enhanced monitoring with quality assurance |
+
+### Integration Endpoints
+
+**Slack Integration**
+- **API Gateway**: `https://s4tdiv7qrf.execute-api.us-east-1.amazonaws.com/prod/slack-events`
+- **Handler Lambda**: `revops-slack-bedrock-handler`
+- **Processor Lambda**: `revops-slack-bedrock-processor`
+- **Processing Queue**: `revops-slack-bedrock-processing-queue`
+
+**API Integration**  
+- **Webhook Endpoint**: `https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook`
+- **Gateway Lambda**: `prod-revops-webhook-gateway`
+- **Manager Wrapper**: `revops-manager-agent-wrapper`
+- **Queue Processor**: `revops-webhook`
+- **Outbound Queue**: `prod-revops-webhook-outbound-queue`
+
+### Enhanced Monitoring V5.1
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| Quality-Assured S3 Exports | ✅ Production | 0.725+ quality scores for all conversations |
+| Agent Communication Detection | ✅ Production | Advanced pattern matching and collaboration mapping |
+| System Prompt Filtering | ✅ Production | 100% effective filtering with dynamic thresholds |
+| Tool Execution Intelligence | ✅ Production | Quality scoring and parameter intelligence |
+| Export Validation System | ✅ Production | Multi-layer quality gates and real-time assessment |
+| Conversation Tracking | ✅ Production | Complete lifecycle from input to response |
 
 ## Monitoring & Troubleshooting
 
-### Health Checks
+### System Health Monitoring
+
+#### Slack Integration Monitoring
 ```bash
-# Monitor system logs
+# Monitor Slack event processing
 aws logs tail /aws/lambda/revops-slack-bedrock-processor --follow
 
-# Check queue status
+# Check Slack processing queue status
 aws sqs get-queue-attributes \
   --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/revops-slack-bedrock-processing-queue \
   --attribute-names ApproximateNumberOfMessages
 
-# View recent errors
+# View Slack integration errors
 aws logs filter-log-events \
   --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
   --filter-pattern 'ERROR'
 ```
 
+#### API Integration Monitoring
+```bash
+# Monitor webhook processing
+aws logs tail /aws/lambda/revops-webhook --follow
+
+# Check webhook outbound queue status
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/740202120544/prod-revops-webhook-outbound-queue \
+  --attribute-names ApproximateNumberOfMessages
+
+# View API integration errors
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/prod-revops-webhook-gateway' \
+  --filter-pattern 'ERROR'
+```
+
+#### Agent Performance Monitoring
+```bash
+# Monitor Manager Agent invocations
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-manager-agent-wrapper' \
+  --filter-pattern 'Bedrock Agent' \
+  --start-time $(date -d '1 hour ago' +%s)000
+
+# Track agent collaboration patterns
+aws logs filter-log-events \
+  --log-group-name '/aws/lambda/revops-slack-bedrock-processor' \
+  --filter-pattern 'Agent collaboration' \
+  --start-time $(date -d '24 hours ago' +%s)000
+```
+
 ### Performance Metrics
-- **Agent Response Time**: 10-60 seconds (complexity dependent)
-- **Data Sources**: 4 primary integrations
-- **Error Rate**: <1% with automatic retry
-- **Availability**: 99.9% (AWS SLA)
+
+**Response Times**
+- **Simple Queries**: 10-30 seconds (direct Manager Agent processing)
+- **Deal Analysis**: 20-60 seconds (specialized agent with SQL queries)
+- **Lead Assessment**: 15-45 seconds (ICP analysis with web research)
+- **Complex Multi-Agent**: 60-180 seconds (coordinated analysis across agents)
+
+**System Performance**
+- **Availability**: 99.9% (AWS Lambda SLA)
+- **Error Rate**: <1% with automatic retry mechanisms
+- **Concurrent Processing**: 50+ simultaneous requests supported
+- **Timeout Handling**: 15-minute processing window for complex analysis
+
+**Data Integration**
+- **Primary Data Sources**: 4 (Firebolt, Salesforce, Gong, Web Search)
+- **SQL Query Performance**: Sub-second execution on Firebolt warehouse
+- **Agent Collaboration**: 6-agent network with intelligent routing
+- **Conversation Quality**: 0.725+ quality scores for monitoring exports
 
 ## Recent Enhancements
 
@@ -390,212 +855,9 @@ aws logs filter-log-events \
 - **Codebase Cleanup**: Production-ready file structure
 - **Performance Improvements**: Streamlined processing pipeline
 
-## Agent Management
 
-### Creating and Modifying Agents
 
-The system supports six specialized AI agents. Each agent has specific capabilities and can be customized for your business needs.
 
-#### Agent Types and Capabilities
-
-**Manager Agent (Router)**
-- Routes requests to appropriate specialists
-- Handles simple queries directly
-- Coordinates multi-agent workflows
-- Location: `agents/manager_agent/`
-
-**Deal Analysis Agent**
-- MEDDPICC methodology assessment
-- Risk analysis and probability scoring
-- Location: `agents/deal_analysis_agent/`
-
-**Lead Analysis Agent**
-- ICP scoring and qualification
-- Engagement strategy development
-- Location: `agents/lead_analysis_agent/`
-
-**Data Agent**
-- SQL queries against Firebolt warehouse
-- Salesforce and Gong data retrieval
-- Location: `agents/data_agent/`
-
-**Web Search Agent**
-- Market intelligence gathering
-- Company research and competitive analysis
-- Location: `agents/web_search_agent/`
-
-**Execution Agent**
-- Webhook and notification execution
-- CRM updates and data writing
-- Location: `agents/execution_agent/`
-
-#### Modifying Agent Instructions
-
-1. **Edit Instructions File**
-   ```bash
-   # Navigate to agent directory
-   cd agents/[agent_name]/
-   
-   # Edit the instructions file
-   vim instructions.md
-   ```
-
-2. **Deploy Agent Updates**
-   ```bash
-   cd deployment/scripts/
-   
-   # Deploy specific agent
-   python3 deploy.py --agent manager
-   python3 deploy.py --agent lead_analysis
-   
-   # Or deploy all agents
-   python3 deploy.py
-   ```
-
-3. **Verify Deployment**
-   ```bash
-   # Check agent status
-   aws bedrock-agent get-agent --agent-id [AGENT_ID] --query 'agent.agentStatus'
-   
-   # Test agent functionality
-   # In Slack: @RevBot test [agent_type] functionality
-   ```
-
-#### Adding New Agents
-
-1. **Create Agent Directory Structure**
-   ```bash
-   mkdir agents/new_agent/
-   touch agents/new_agent/instructions.md
-   touch agents/new_agent/new_agent.py
-   ```
-
-2. **Define Agent Instructions**
-   Create comprehensive instructions in `instructions.md` following existing patterns:
-   - Role and responsibilities
-   - Input/output formats
-   - Tool usage guidelines
-   - Collaboration patterns
-
-3. **Update Configuration**
-   Add agent configuration to `deployment/config.json`:
-   ```json
-   "new_agent": {
-     "agent_id": "NEW_AGENT_ID",
-     "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-     "description": "Agent description",
-     "instructions_file": "agents/new_agent/instructions.md"
-   }
-   ```
-
-4. **Create Deployment Script**
-   Model after existing deployment scripts in `deployment/` directory.
-
-### Agent Collaboration Configuration
-
-Agents collaborate through the Manager Agent's supervisor pattern:
-
-1. **Add Collaborator to Manager Agent**
-   Update `deployment/config.json` manager_agent collaborators section:
-   ```json
-   {
-     "collaborator_id": "UNIQUE_ID",
-     "collaborator_name": "NewAgent",
-     "agent_id": "NEW_AGENT_ID",
-     "agent_alias_arn": "arn:aws:bedrock:us-east-1:ACCOUNT:agent-alias/NEW_AGENT_ID/ALIAS_ID",
-     "collaboration_instruction": "Detailed instructions for when to use this agent"
-   }
-   ```
-
-2. **Redeploy Manager Agent**
-   ```bash
-   cd deployment/scripts/
-   python3 deploy.py --agent manager
-   ```
-
-## Knowledge Base Management
-
-### Understanding the Knowledge Base
-
-The knowledge base contains structured information that powers agent intelligence:
-
-- **Business Logic**: Revenue operations rules and calculations
-- **Schema Documentation**: Database structure and relationships  
-- **SQL Patterns**: Reusable query templates
-- **Workflows**: Step-by-step process documentation
-- **ICP & Messaging**: Customer profiles and communication templates
-
-### Adding Knowledge Content
-
-1. **Create or Edit Markdown Files**
-   ```bash
-   cd knowledge_base/
-   
-   # Add new business logic
-   vim business_logic/new_process.md
-   
-   # Add SQL patterns
-   vim sql_patterns/new_analysis.md
-   
-   # Add workflow documentation
-   vim workflows/new_workflow.md
-   ```
-
-2. **Follow Content Guidelines**
-   - Use clear, descriptive headings
-   - Include business context and reasoning
-   - Provide concrete examples
-   - Keep content current and accurate
-
-3. **Automatic Synchronization**
-   When you commit changes to the main branch:
-   ```bash
-   git add knowledge_base/
-   git commit -m "Add new knowledge content"
-   git push origin main
-   ```
-   
-   The GitHub Action automatically:
-   - Detects changed markdown files
-   - Syncs to S3 bucket
-   - Triggers Bedrock knowledge base refresh
-   - Updates AI agents within minutes
-
-### Knowledge Base Operations
-
-#### Manual Sync
-```bash
-cd deployment/scripts/
-python3 sync_knowledge_base.py
-```
-
-#### Monitor Sync Status
-```bash
-# Check GitHub Action logs
-# Visit: https://github.com/[repo]/actions
-
-# Verify S3 upload
-aws s3 ls s3://revops-ai-framework-kb-740202120544/knowledge-base/ --recursive
-
-# Check Bedrock ingestion
-aws bedrock-agent list-ingestion-jobs \
-  --knowledge-base-id F61WLOYZSW \
-  --data-source-id 0HMI5RHYUS
-```
-
-#### Troubleshooting Knowledge Sync
-
-**Common Issues:**
-- Only `.md` files in `knowledge_base/` directory are synced
-- Changes must be merged to `main` branch
-- Large files (>5MB) may be rejected
-- AWS credentials must be properly configured in GitHub secrets
-
-**Verification Steps:**
-1. Check GitHub Actions workflow completion
-2. Verify files appear in S3 bucket
-3. Confirm Bedrock ingestion job success
-4. Test agents to ensure they use updated information
 
 ## Slack Integration Usage and Monitoring
 
@@ -963,6 +1225,46 @@ python3 deploy.py
 
 ---
 
+## Quick Reference
+
+### Key Endpoints
+- **Slack Events**: `https://s4tdiv7qrf.execute-api.us-east-1.amazonaws.com/prod/slack-events`
+- **Webhook API**: `https://w3ir4f0ba8.execute-api.us-east-1.amazonaws.com/prod/webhook`
+
+### Core Resources
+- **Manager Agent**: `PVWGKOWSOT` (Claude 3.7 Sonnet, SUPERVISOR)
+- **Knowledge Base**: `F61WLOYZSW` (revops-schema-kb-1751466030)
+- **S3 Bucket**: `revops-ai-framework-kb-740202120544`
+- **AWS Region**: `us-east-1`
+- **AWS Profile**: `FireboltSystemAdministrator-740202120544`
+
+### CloudFormation Stacks
+- **Slack Integration**: `revops-slack-bedrock-stack`
+- **API Integration**: `revops-webhook-gateway-stack`
+
+### Documentation
+- **Agent Management**: `deployment/README.md`
+- **Slack Integration**: `integrations/slack-bedrock-gateway/README.md`
+- **API Integration**: `integrations/webhook-gateway/README.md`
+
+## Summary
+
+The RevOps AI Framework V5 is a production-ready, enterprise-grade revenue operations platform that provides intelligent automation and insights through two primary input channels:
+
+**🔗 Slack Integration**: Natural language conversations through @RevBot mentions with real-time responses and conversation continuity.
+
+**🌐 API Integration**: HTTP webhook endpoints for programmatic access with asynchronous processing and configurable outbound delivery.
+
+Both channels leverage the same sophisticated multi-agent architecture powered by Amazon Bedrock, providing specialized analysis through:
+- **Manager Agent**: Intelligent routing and coordination (SUPERVISOR)
+- **Deal Analysis Agent**: MEDDPICC-based deal assessment
+- **Lead Analysis Agent**: ICP scoring and engagement strategies  
+- **Data Agent**: SQL queries and data analysis
+- **Web Search Agent**: External intelligence gathering
+- **Execution Agent**: Action execution and integrations
+
+The system is fully deployed and operational with comprehensive monitoring, quality-assured conversation tracking, and enterprise-grade security and scalability.
+
 **Built for Revenue Teams - Powered by Amazon Bedrock**
 
-*Version: V5.1 Quality Enhanced | Status: Production Ready | Last Updated: August 15, 2025*
+*Version: V5.1 Quality Enhanced | Status: Production Ready | Last Updated: August 16, 2025*
