@@ -116,13 +116,12 @@ def create_error_response(status_code: int, error_message: str,
         "body": json.dumps(error_body)
     }
 
-def create_queued_response(tracking_id: str, estimated_processing_time: str = "30-60 seconds") -> Dict[str, Any]:
+def create_queued_response(tracking_id: str) -> Dict[str, Any]:
     """
     Create response indicating request was successfully queued.
     
     Args:
         tracking_id: Unique tracking ID
-        estimated_processing_time: Estimated time for processing
         
     Returns:
         Success response in API Gateway format
@@ -132,7 +131,6 @@ def create_queued_response(tracking_id: str, estimated_processing_time: str = "3
         "message": "Request queued for processing",
         "tracking_id": tracking_id,
         "queued_at": datetime.now(timezone.utc).isoformat(),
-        "estimated_processing_time": estimated_processing_time,
         "status": "queued"
     }
     
