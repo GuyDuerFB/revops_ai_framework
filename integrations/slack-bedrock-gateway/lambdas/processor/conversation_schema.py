@@ -160,8 +160,8 @@ class ConversationUnit:
     success: bool
     processing_time_ms: int
     error_details: Optional[Dict[str, Any]] = None
-    prompt_references: Dict[str, str] = field(default_factory=dict)  # step_id -> prompt_id
-    system_prompts: Dict[str, str] = field(default_factory=dict)  # prompt_id -> full_prompt (for export)
+    # System prompts are now handled separately by SystemPromptStripper
+    # prompt_references and system_prompts fields removed to prevent contamination
     
     def to_json(self) -> str:
         """Convert to JSON for CloudWatch logging"""
@@ -235,45 +235,5 @@ class ConversationUnit:
         """Convert to analysis-ready JSON for S3 export"""
         return self.to_structured_json(include_full_traces=True)
     
-    def deduplicate_system_prompts(self) -> Dict[str, int]:
-        """Deduplicate system prompts across agent flow and return stats"""
-        
-        from prompt_deduplicator import PromptDeduplicator
-        deduplicator = PromptDeduplicator()
-        
-        deduplication_stats = {
-            "original_size_bytes": 0,
-            "deduplicated_size_bytes": 0,
-            "prompts_found": 0,
-            "unique_prompts": 0
-        }
-        
-        for i, step in enumerate(self.agent_flow):
-            step_id = f"{step.agent_name}_{i}"
-            
-            # Calculate original size
-            if step.bedrock_trace_content.modelInvocationInput:
-                deduplication_stats["original_size_bytes"] += len(step.bedrock_trace_content.modelInvocationInput)
-            
-            # Process deduplication
-            deduplicated_trace, prompt_id = deduplicator.process_trace_content(step.bedrock_trace_content)
-            
-            if prompt_id:
-                self.prompt_references[step_id] = prompt_id
-                self.system_prompts[prompt_id] = deduplicator.get_prompt_by_id(prompt_id)
-                deduplication_stats["prompts_found"] += 1
-            
-            # Update step with deduplicated trace
-            step.bedrock_trace_content = deduplicated_trace
-            
-            # Calculate new size
-            if step.bedrock_trace_content.modelInvocationInput:
-                deduplication_stats["deduplicated_size_bytes"] += len(step.bedrock_trace_content.modelInvocationInput)
-        
-        deduplication_stats["unique_prompts"] = len(self.system_prompts)
-        deduplication_stats["compression_ratio"] = (
-            1 - (deduplication_stats["deduplicated_size_bytes"] / deduplication_stats["original_size_bytes"])
-            if deduplication_stats["original_size_bytes"] > 0 else 0
-        )
-        
-        return deduplication_stats
+    # System prompt deduplication is now handled by SystemPromptStripper during preprocessing
+    # This method has been removed to prevent system prompt contamination

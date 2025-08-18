@@ -10,7 +10,7 @@ import logging
 import uuid
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from decimal import Decimal
 from botocore.exceptions import ClientError, BotoCoreError
 
@@ -218,43 +218,123 @@ def invoke_bedrock_agent(query: str, session_id: str) -> Dict[str, Any]:
 
 def lambda_handler(event, context):
     """
-    AWS Lambda handler for Manager Agent wrapper.
+    AWS Lambda handler for Manager Agent wrapper with full conversation tracing.
     
     Args:
         event: Lambda event containing the request
         context: Lambda context
         
     Returns:
-        Manager Agent response
+        Manager Agent response with comprehensive tracing
     """
+    
+    # Initialize conversation adapter for full tracing
+    conversation_adapter = None
+    full_tracing_available = False
+    
     try:
-        logger.info(f"Manager Agent wrapper invoked", extra={
-            "request_id": context.aws_request_id
+        from http_api_conversation_adapter import HTTPAPIConversationAdapter
+        conversation_adapter = HTTPAPIConversationAdapter(s3_bucket=os.environ.get('S3_BUCKET'))
+        full_tracing_available = True
+        logger.info("Full conversation tracing enabled for Manager Agent wrapper")
+    except ImportError as e:
+        logger.warning(f"Conversation adapter not available: {e}")
+    
+    try:
+        correlation_id = event.get("correlation_id") or str(uuid.uuid4())
+        
+        logger.info(f"Manager Agent wrapper invoked with full tracing", extra={
+            "request_id": context.aws_request_id,
+            "correlation_id": correlation_id,
+            "full_tracing_enabled": full_tracing_available
         })
         
         # Extract query from event
-        query = event.get("query") or event.get("user_query") or event.get("inputText")
+        query = event.get("query") or event.get("user_query") or event.get("user_message") or event.get("inputText")
         if not query:
             return {
                 "success": False,
                 "error": "No query provided in event",
-                "sessionId": None
+                "sessionId": None,
+                "correlation_id": correlation_id
             }
         
-        # Generate or extract session ID
-        session_id = event.get("sessionId") or event.get("correlation_id") or generate_session_id()
-        
-        # Invoke Bedrock Agent
-        result = invoke_bedrock_agent(query, session_id)
+        if full_tracing_available and conversation_adapter:
+            # Use full conversation tracing
+            start_time = time.time()
+            
+            # Create API conversation context
+            api_metadata = conversation_adapter.create_api_conversation_context(event, correlation_id)
+            
+            # Trace Bedrock agent invocation with full monitoring
+            response_text, trace_events = conversation_adapter.trace_bedrock_agent_invocation(
+                api_metadata=api_metadata,
+                agent_id=BEDROCK_AGENT_ID,
+                agent_alias_id=BEDROCK_AGENT_ALIAS_ID,
+                user_message=query
+            )
+            
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Complete conversation tracking
+            conversation_summary = conversation_adapter.complete_api_conversation(
+                api_metadata=api_metadata,
+                final_response=response_text,
+                trace_events=trace_events,
+                response_status=200
+            )
+            
+            # Build comprehensive result with full trace data
+            result = {
+                "success": True,
+                "response": response_text,
+                "outputText": response_text,  # For compatibility
+                "sessionId": api_metadata.conversation_id,
+                "correlation_id": correlation_id,
+                "source": "manager_agent_bedrock_enhanced",
+                "processing_time_ms": processing_time_ms,
+                "conversation_metadata": {
+                    "conversation_id": api_metadata.conversation_id,
+                    "api_endpoint": api_metadata.api_endpoint,
+                    "client_identifier": api_metadata.client_identifier,
+                    "trace_events_count": len(trace_events),
+                    "conversation_summary": conversation_summary['summary_stats']
+                },
+                "trace_summary": {
+                    "total_events": len(trace_events),
+                    "agent_invocation_events": len([e for e in trace_events if 'agent_invocation' in e.event_type]),
+                    "bedrock_trace_events": len([e for e in trace_events if e.event_type == 'bedrock_trace_captured']),
+                    "processing_events": len([e for e in trace_events if 'processing' in e.event_type])
+                },
+                "full_tracing_enabled": True,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            
+            logger.info(f"Manager Agent wrapper completed with full tracing", extra={
+                "success": True,
+                "session_id": api_metadata.conversation_id,
+                "trace_events": len(trace_events),
+                "processing_time_ms": processing_time_ms
+            })
+            
+        else:
+            # Fallback to basic invocation without full tracing
+            session_id = event.get("sessionId") or correlation_id or generate_session_id()
+            
+            # Invoke Bedrock Agent with basic tracing
+            result = invoke_bedrock_agent(query, session_id)
+            result["correlation_id"] = correlation_id
+            result["full_tracing_enabled"] = False
+            
+            logger.info(f"Manager Agent wrapper completed with basic tracing", extra={
+                "success": result.get("success", False),
+                "session_id": session_id,
+                "correlation_id": correlation_id
+            })
         
         # Add metadata from original event if available
         if "webhook_metadata" in event:
             result["webhook_metadata"] = event["webhook_metadata"]
-        
-        logger.info(f"Manager Agent wrapper completed", extra={
-            "success": result.get("success", False),
-            "session_id": session_id
-        })
         
         return result
         
@@ -263,5 +343,7 @@ def lambda_handler(event, context):
         return {
             "success": False,
             "error": f"Manager Agent wrapper error: {str(e)}",
-            "sessionId": event.get("sessionId")
+            "sessionId": event.get("sessionId"),
+            "correlation_id": event.get("correlation_id"),
+            "full_tracing_enabled": full_tracing_available
         }

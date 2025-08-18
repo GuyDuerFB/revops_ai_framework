@@ -24,6 +24,7 @@ lambda_client = boto3.client('lambda')
 # Environment variables
 MANAGER_AGENT_FUNCTION_NAME = os.environ.get('MANAGER_AGENT_FUNCTION_NAME', 'revops-manager-agent-wrapper')
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL', '')
+S3_BUCKET = os.environ.get('S3_BUCKET', 'revops-ai-framework-kb-740202120544')
 
 def convert_markdown_to_plain_text(markdown_text: str) -> str:
     """Convert markdown text to plain text."""
@@ -147,6 +148,7 @@ def deliver_webhook(payload: Dict[str, Any], tracking_id: str) -> bool:
 def process_webhook_message(message_body: Dict[str, Any]) -> Dict[str, Any]:
     """Process a single webhook message."""
     tracking_id = message_body.get("tracking_id", str(uuid.uuid4()))
+    start_time = time.time()
     
     try:
         logger.info(f"Processing webhook message", extra={
@@ -208,11 +210,41 @@ def process_webhook_message(message_body: Dict[str, Any]) -> Dict[str, Any]:
         # Deliver webhook
         delivery_success = deliver_webhook(webhook_payload, tracking_id)
         
+        # Calculate processing time
+        processing_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Export conversation to S3 with enhanced monitoring
+        try:
+            from simple_s3_exporter import SimpleS3Exporter
+            
+            s3_bucket = S3_BUCKET
+            exporter = SimpleS3Exporter(s3_bucket)
+            
+            s3_path = exporter.export_webhook_conversation(
+                webhook_request=webhook_request,
+                agent_response=agent_response,
+                tracking_id=tracking_id,
+                processing_time_ms=processing_time_ms
+            )
+            
+            logger.info(f"Webhook conversation exported to S3", extra={
+                "tracking_id": tracking_id,
+                "s3_path": s3_path,
+                "processing_time_ms": processing_time_ms
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to export webhook conversation to S3", extra={
+                "tracking_id": tracking_id,
+                "error": str(e)
+            })
+        
         result = {
             "success": delivery_success,
             "tracking_id": tracking_id,
             "webhook_url": WEBHOOK_URL,
-            "delivery_success": delivery_success
+            "delivery_success": delivery_success,
+            "processing_time_ms": processing_time_ms
         }
         
         if delivery_success:

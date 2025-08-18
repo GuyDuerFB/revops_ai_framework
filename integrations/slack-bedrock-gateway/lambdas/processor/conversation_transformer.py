@@ -12,33 +12,81 @@ from reasoning_parser import ReasoningTextParser
 logger = logging.getLogger(__name__)
 
 class ConversationTransformer:
-    """Transforms conversation data into enhanced LLM-readable format"""
+    """Transforms conversation data into enhanced LLM-readable format with full processing pipeline"""
     
-    def __init__(self):
+    def __init__(self, s3_bucket: Optional[str] = None):
         self.parser = ReasoningTextParser()
+        
+        # Initialize all processing components
+        try:
+            from system_prompt_manager import SystemPromptStripper
+            from agent_attribution_engine import AgentAttributionEngine
+            from tool_execution_normalizer import ToolExecutionNormalizer
+            from user_query_extractor import UserQueryExtractor
+            from response_content_parser import ResponseContentParser
+            from conversation_quality_analyzer import ConversationQualityAnalyzer
+            
+            self.system_prompt_stripper = SystemPromptStripper(s3_bucket)
+            self.agent_attribution_engine = AgentAttributionEngine()
+            self.tool_normalizer = ToolExecutionNormalizer()
+            self.query_extractor = UserQueryExtractor()
+            self.response_parser = ResponseContentParser()
+            self.quality_analyzer = ConversationQualityAnalyzer()
+            
+            self.full_pipeline_available = True
+            logger.info("ConversationTransformer initialized with full processing pipeline")
+            
+        except ImportError as e:
+            logger.warning(f"Some processing components not available: {e}")
+            self.system_prompt_stripper = None
+            self.agent_attribution_engine = None
+            self.tool_normalizer = None
+            self.query_extractor = None
+            self.response_parser = None
+            self.quality_analyzer = None
+            self.full_pipeline_available = False
     
     def transform_to_enhanced_structure(self, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Transform conversation data to enhanced LLM-readable structure"""
+        """Transform conversation data to enhanced LLM-readable structure with full processing pipeline"""
         
         try:
-            # Extract base conversation info
-            if isinstance(conversation_data, dict) and 'conversation' in conversation_data:
-                conversation = conversation_data['conversation']
+            # Apply full processing pipeline if available
+            if self.full_pipeline_available:
+                processed_data = self._apply_full_processing_pipeline(conversation_data)
             else:
-                conversation = conversation_data
+                processed_data = conversation_data
+            
+            # Extract base conversation info
+            if isinstance(processed_data, dict) and 'conversation' in processed_data:
+                conversation = processed_data['conversation']
+            else:
+                conversation = processed_data
             
             # Build enhanced structure
             enhanced_structure = {
                 "export_metadata": {
                     "format": "enhanced_structured_json",
-                    "version": "2.0",
+                    "version": "3.0",  # Updated version for new pipeline
                     "exported_at": datetime.utcnow().isoformat(),
-                    "deduplication_applied": conversation_data.get('export_metadata', {}).get('deduplication_applied', False),
+                    "deduplication_applied": processed_data.get('export_metadata', {}).get('deduplication_applied', False),
                     "system_prompts_excluded": True,
-                    "note": "Enhanced LLM-readable format with structured reasoning breakdown"
+                    "full_pipeline_applied": self.full_pipeline_available,
+                    "note": "Enhanced LLM-readable format with comprehensive processing pipeline"
                 },
                 "conversation": self._transform_conversation(conversation)
             }
+            
+            # Add pipeline processing metadata if available
+            if self.full_pipeline_available and 'export_metadata' in processed_data:
+                pipeline_metadata = processed_data['export_metadata']
+                enhanced_structure['export_metadata'].update({
+                    "system_prompt_stripping": pipeline_metadata.get('system_prompt_stripping'),
+                    "agent_attribution": pipeline_metadata.get('agent_attribution'),
+                    "tool_normalization": pipeline_metadata.get('tool_normalization'),
+                    "query_standardization": pipeline_metadata.get('user_query_standardization'),
+                    "response_standardization": pipeline_metadata.get('response_standardization'),
+                    "quality_analysis": pipeline_metadata.get('quality_analysis')
+                })
             
             return enhanced_structure
             
@@ -848,3 +896,215 @@ class ConversationTransformer:
             logger.warning(f"Error extracting handover indicators: {e}")
         
         return handover_indicators
+    
+    def _apply_full_processing_pipeline(self, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply the complete processing pipeline to conversation data"""
+        
+        processed_data = conversation_data.copy()
+        
+        try:
+            # Step 1: System prompt stripping (pre-processing)
+            if self.system_prompt_stripper:
+                processed_data, stripping_stats = self.system_prompt_stripper.preprocess_conversation_data(processed_data)
+                logger.info(f"System prompt stripping complete: {stripping_stats.get('total_prompts_removed', 0)} prompts removed")
+            
+            # Step 2: User query standardization
+            if self.query_extractor:
+                processed_data = self.query_extractor.standardize_conversation_query_field(processed_data)
+                logger.info("User query standardization complete")
+            
+            # Step 3: Response content parsing
+            if self.response_parser:
+                processed_data = self.response_parser.standardize_conversation_response(processed_data)
+                logger.info("Response content parsing complete")
+            
+            # Step 4: Agent attribution enhancement
+            if self.agent_attribution_engine:
+                processed_data = self._apply_enhanced_agent_attribution(processed_data)
+                logger.info("Enhanced agent attribution complete")
+            
+            # Step 5: Tool execution normalization
+            if self.tool_normalizer:
+                processed_data = self._apply_tool_normalization(processed_data)
+                logger.info("Tool execution normalization complete")
+            
+            # Step 6: Quality analysis
+            if self.quality_analyzer:
+                processed_data = self._apply_quality_analysis(processed_data)
+                logger.info("Quality analysis complete")
+            
+            return processed_data
+            
+        except Exception as e:
+            logger.error(f"Error in processing pipeline: {e}")
+            # Return original data if pipeline fails
+            return conversation_data
+    
+    def _apply_enhanced_agent_attribution(self, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply enhanced agent attribution to conversation"""
+        
+        conversation = conversation_data.get('conversation', {})
+        agent_flow = conversation.get('agent_flow', [])
+        
+        if not agent_flow:
+            return conversation_data
+        
+        agents_involved = set()
+        handoffs_detected = []
+        attribution_stats = {
+            'steps_processed': 0,
+            'high_confidence_attributions': 0,
+            'handoffs_detected': 0,
+            'collaboration_events': 0
+        }
+        
+        # Apply attribution to each step
+        for step in agent_flow:
+            attribution = self.agent_attribution_engine.detect_agent_from_multiple_sources(step)
+            
+            # Update step with enhanced attribution
+            original_agent = step.get('agent_name', 'unknown')
+            step['agent_name'] = attribution.attributed_agent
+            step['enhanced_agent_attribution'] = {
+                'attributed_agent': attribution.attributed_agent,
+                'confidence_score': attribution.confidence_score,
+                'evidence_sources': attribution.evidence_sources,
+                'detection_methods': attribution.detection_methods,
+                'original_agent': attribution.original_agent,
+                'handoff_detected': attribution.handoff_detected,
+                'collaboration_indicators': attribution.collaboration_indicators
+            }
+            
+            agents_involved.add(attribution.attributed_agent)
+            attribution_stats['steps_processed'] += 1
+            
+            if attribution.confidence_score >= 0.8:
+                attribution_stats['high_confidence_attributions'] += 1
+            
+            if attribution.handoff_detected:
+                attribution_stats['handoffs_detected'] += 1
+            
+            if attribution.collaboration_indicators:
+                attribution_stats['collaboration_events'] += len(attribution.collaboration_indicators)
+        
+        # Detect conversation-level handoffs
+        handoffs = self.agent_attribution_engine.detect_agent_handoffs_in_conversation(agent_flow)
+        handoffs_detected = [{'from_agent': h.from_agent, 'to_agent': h.to_agent, 'handoff_reason': h.handoff_reason, 'confidence_score': h.confidence_score, 'handoff_type': h.handoff_type, 'timestamp': h.timestamp} for h in handoffs]
+        
+        # Update conversation with attribution results
+        conversation['agents_involved'] = list(agents_involved)
+        conversation['detected_agent_handovers'] = handoffs_detected
+        
+        # Add attribution metadata
+        if 'export_metadata' not in conversation_data:
+            conversation_data['export_metadata'] = {}
+        
+        conversation_data['export_metadata']['agent_attribution'] = {
+            'applied': True,
+            'attribution_engine_version': '1.0',
+            'statistics': attribution_stats,
+            'agents_identified': list(agents_involved),
+            'handoffs_detected': len(handoffs_detected),
+            'attribution_timestamp': datetime.utcnow().isoformat()
+        }
+        
+        return conversation_data
+    
+    def _apply_tool_normalization(self, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply tool execution normalization to conversation"""
+        
+        conversation = conversation_data.get('conversation', {})
+        agent_flow = conversation.get('agent_flow', [])
+        
+        if not agent_flow:
+            return conversation_data
+        
+        # Normalize tool executions
+        normalized_flow, normalization_stats = self.tool_normalizer.normalize_tool_executions(agent_flow)
+        
+        # Update conversation with normalized flow
+        conversation['agent_flow'] = normalized_flow
+        
+        # Add normalization metadata
+        if 'export_metadata' not in conversation_data:
+            conversation_data['export_metadata'] = {}
+        
+        conversation_data['export_metadata']['tool_normalization'] = {
+            'applied': True,
+            'normalization_engine_version': '1.0',
+            'statistics': {
+                'original_executions': normalization_stats.original_executions,
+                'normalized_executions': normalization_stats.normalized_executions,
+                'duplicates_removed': normalization_stats.duplicates_removed,
+                'failed_executions': normalization_stats.failed_executions,
+                'high_quality_executions': normalization_stats.high_quality_executions,
+                'tool_types_used': list(normalization_stats.tool_types_used),
+                'total_execution_time_ms': normalization_stats.total_execution_time_ms
+            },
+            'normalization_timestamp': normalization_stats.normalization_timestamp
+        }
+        
+        logger.info(f"Tool normalization: {normalization_stats.original_executions} -> {normalization_stats.normalized_executions} executions")
+        
+        return conversation_data
+    
+    def _apply_quality_analysis(self, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply comprehensive quality analysis to conversation"""
+        
+        # Perform quality analysis
+        quality_analysis = self.quality_analyzer.analyze_conversation_quality(conversation_data)
+        
+        # Add quality analysis to conversation
+        conversation = conversation_data.get('conversation', {})
+        conversation['quality_analysis'] = {
+            'overall_score': quality_analysis.quality_metrics.overall_score,
+            'quality_metrics': {
+                'completeness_score': quality_analysis.quality_metrics.completeness_score,
+                'accuracy_score': quality_analysis.quality_metrics.accuracy_score,
+                'timeliness_score': quality_analysis.quality_metrics.timeliness_score,
+                'relevance_score': quality_analysis.quality_metrics.relevance_score,
+                'user_satisfaction_score': quality_analysis.quality_metrics.user_satisfaction_score,
+                'technical_quality_score': quality_analysis.quality_metrics.technical_quality_score,
+                'business_impact_score': quality_analysis.quality_metrics.business_impact_score
+            },
+            'outcome_analysis': {
+                'outcome': quality_analysis.outcome_analysis.outcome.value,
+                'confidence': quality_analysis.outcome_analysis.confidence,
+                'user_satisfaction': quality_analysis.outcome_analysis.user_satisfaction.value,
+                'business_value_delivered': quality_analysis.outcome_analysis.business_value_delivered,
+                'follow_up_needed': quality_analysis.outcome_analysis.follow_up_needed,
+                'success_indicators': quality_analysis.outcome_analysis.success_indicators,
+                'failure_indicators': quality_analysis.outcome_analysis.failure_indicators,
+                'improvement_suggestions': quality_analysis.outcome_analysis.improvement_suggestions
+            },
+            'agent_performance': [
+                {
+                    'agent_name': perf.agent_name,
+                    'effectiveness_score': perf.effectiveness_score,
+                    'response_time_ms': perf.response_time_ms,
+                    'tool_success_rate': perf.tool_success_rate,
+                    'collaboration_score': perf.collaboration_score,
+                    'business_contribution': perf.business_contribution
+                } for perf in quality_analysis.agent_performance
+            ],
+            'system_performance': quality_analysis.system_performance,
+            'recommendations': quality_analysis.recommendations
+        }
+        
+        # Add quality analysis metadata
+        if 'export_metadata' not in conversation_data:
+            conversation_data['export_metadata'] = {}
+        
+        conversation_data['export_metadata']['quality_analysis'] = {
+            'applied': True,
+            'analyzer_version': '1.0',
+            'analysis_timestamp': quality_analysis.analysis_timestamp,
+            'overall_score': quality_analysis.quality_metrics.overall_score,
+            'quality_category': quality_analysis.metadata.get('quality_category', 'unknown'),
+            'business_relevance': quality_analysis.metadata.get('business_relevance', 0.0),
+            'improvement_potential': quality_analysis.metadata.get('improvement_potential', 0.0)
+        }
+        
+        logger.info(f"Quality analysis complete: overall score {quality_analysis.quality_metrics.overall_score:.2f}")
+        
+        return conversation_data
