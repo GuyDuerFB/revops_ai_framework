@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       agent_name:
-        description: 'Name of the agent directory to deploy (under agents/)'
+        description: 'Name of the agent directory to deploy (see available agents below)'
         required: true
         type: string
 
@@ -38,21 +38,54 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install boto3 botocore
     
-    - name: Validate agent directory
+    - name: List available agents and validate selection
       id: validate
       run: |
+        echo "📋 Available Agent Directories:"
+        echo "==============================="
+        
+        # List all agent directories with details
+        AGENT_COUNT=0
+        for dir in agents/*/; do
+          if [ -d "$dir" ]; then
+            AGENT_COUNT=$((AGENT_COUNT + 1))
+            AGENT_NAME=$(basename "$dir")
+            INSTRUCTIONS_FILE="${dir}instructions.md"
+            
+            if [ -f "$INSTRUCTIONS_FILE" ]; then
+              # Check if instructions are customized
+              if grep -q "<AGENT_NAME>" "$INSTRUCTIONS_FILE" 2>/dev/null; then
+                STATUS="⚠️  Template (needs customization)"
+              else
+                STATUS="✅ Ready for deployment"
+              fi
+            else
+              STATUS="❌ Missing instructions.md"
+            fi
+            
+            echo "  ${AGENT_COUNT}. ${AGENT_NAME} - ${STATUS}"
+          fi
+        done
+        
+        if [ $AGENT_COUNT -eq 0 ]; then
+          echo "  No agent directories found in agents/"
+          echo ""
+          echo "💡 Use the 'Create New Agent' workflow to create an agent first"
+          exit 1
+        fi
+        
+        echo ""
+        echo "🔍 Validating selected agent: ${{ github.event.inputs.agent_name }}"
+        echo "=================================================================="
+        
         AGENT_DIR="agents/${{ github.event.inputs.agent_name }}"
         INSTRUCTIONS_FILE="${AGENT_DIR}/instructions.md"
         
-        echo "🔍 Validating agent directory structure..."
-        echo "Agent directory: ${AGENT_DIR}"
-        echo "Instructions file: ${INSTRUCTIONS_FILE}"
-        
-        # Check if agent directory exists
+        # Check if selected agent directory exists
         if [ ! -d "${AGENT_DIR}" ]; then
           echo "❌ Error: Agent directory '${AGENT_DIR}' does not exist"
-          echo "Available agents:"
-          ls -la agents/ | grep '^d' | grep -v '\.$' || echo "No agent directories found"
+          echo ""
+          echo "Please select one of the available agents listed above."
           exit 1
         fi
         

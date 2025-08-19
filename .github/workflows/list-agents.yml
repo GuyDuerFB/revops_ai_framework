@@ -1,0 +1,115 @@
+name: "List Available Agents"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list-agents:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+    
+    - name: List all available agents
+      run: |
+        echo "🤖 RevOps AI Framework - Available Agents"
+        echo "=========================================="
+        echo ""
+        
+        AGENT_COUNT=0
+        READY_COUNT=0
+        TEMPLATE_COUNT=0
+        MISSING_COUNT=0
+        
+        # Check if agents directory exists
+        if [ ! -d "agents" ]; then
+          echo "❌ No agents directory found"
+          echo "💡 Use the 'Create New Agent' workflow to create your first agent"
+          exit 0
+        fi
+        
+        # List all agent directories with detailed status
+        for dir in agents/*/; do
+          if [ -d "$dir" ]; then
+            AGENT_COUNT=$((AGENT_COUNT + 1))
+            AGENT_NAME=$(basename "$dir")
+            INSTRUCTIONS_FILE="${dir}instructions.md"
+            
+            echo "📁 Agent: ${AGENT_NAME}"
+            echo "   Directory: ${dir}"
+            
+            if [ -f "$INSTRUCTIONS_FILE" ]; then
+              # Check if instructions are customized
+              if grep -q "<AGENT_NAME>" "$INSTRUCTIONS_FILE" 2>/dev/null; then
+                echo "   Status: ⚠️  Template (needs customization)"
+                echo "   Action: Edit ${INSTRUCTIONS_FILE} and replace all [CUSTOMIZE: ...] placeholders"
+                TEMPLATE_COUNT=$((TEMPLATE_COUNT + 1))
+              else
+                echo "   Status: ✅ Ready for deployment"
+                echo "   Action: Can be deployed with 'Deploy Agent to AWS' workflow"
+                READY_COUNT=$((READY_COUNT + 1))
+              fi
+              
+              # Show file size and last modified
+              FILE_SIZE=$(ls -lh "$INSTRUCTIONS_FILE" | awk '{print $5}')
+              echo "   Instructions: ${INSTRUCTIONS_FILE} (${FILE_SIZE})"
+            else
+              echo "   Status: ❌ Missing instructions.md"
+              echo "   Action: Create ${INSTRUCTIONS_FILE} file"
+              MISSING_COUNT=$((MISSING_COUNT + 1))
+            fi
+            
+            echo ""
+          fi
+        done
+        
+        # Summary
+        echo "📊 Summary"
+        echo "=========="
+        echo "Total Agents: ${AGENT_COUNT}"
+        echo "✅ Ready for Deployment: ${READY_COUNT}"
+        echo "⚠️  Need Customization: ${TEMPLATE_COUNT}"
+        echo "❌ Missing Instructions: ${MISSING_COUNT}"
+        echo ""
+        
+        if [ $READY_COUNT -gt 0 ]; then
+          echo "🚀 Agents ready for deployment:"
+          for dir in agents/*/; do
+            if [ -d "$dir" ]; then
+              AGENT_NAME=$(basename "$dir")
+              INSTRUCTIONS_FILE="${dir}instructions.md"
+              
+              if [ -f "$INSTRUCTIONS_FILE" ] && ! grep -q "<AGENT_NAME>" "$INSTRUCTIONS_FILE" 2>/dev/null; then
+                echo "   - ${AGENT_NAME}"
+              fi
+            fi
+          done
+          echo ""
+          echo "💡 Use 'Deploy Agent to AWS' workflow with one of these agent names"
+        fi
+        
+        if [ $TEMPLATE_COUNT -gt 0 ]; then
+          echo "⚠️  Agents needing customization:"
+          for dir in agents/*/; do
+            if [ -d "$dir" ]; then
+              AGENT_NAME=$(basename "$dir")
+              INSTRUCTIONS_FILE="${dir}instructions.md"
+              
+              if [ -f "$INSTRUCTIONS_FILE" ] && grep -q "<AGENT_NAME>" "$INSTRUCTIONS_FILE" 2>/dev/null; then
+                echo "   - ${AGENT_NAME} (edit ${INSTRUCTIONS_FILE})"
+              fi
+            fi
+          done
+        fi
+        
+        if [ $AGENT_COUNT -eq 0 ]; then
+          echo "🆕 No agents found. Create your first agent:"
+          echo "   1. Use 'Create New Agent' workflow"
+          echo "   2. Customize the generated instructions.md"
+          echo "   3. Deploy with 'Deploy Agent to AWS' workflow"
+        fi
