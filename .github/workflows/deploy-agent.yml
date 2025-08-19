@@ -1,4 +1,4 @@
-name: Agent Deployment
+name: "Deploy Agent to AWS"
 
 on:
   workflow_dispatch:

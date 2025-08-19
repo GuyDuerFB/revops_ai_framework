@@ -1,4 +1,4 @@
-name: Knowledge Base Sync
+name: "Knowledge Base Sync"
 
 on:
   push:

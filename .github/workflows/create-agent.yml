@@ -1,4 +1,4 @@
-name: Agent Creation
+name: "Create New Agent"
 
 on:
   workflow_dispatch:
