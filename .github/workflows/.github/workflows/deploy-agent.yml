@@ -147,7 +147,6 @@ except:
               echo "⚠️  Agent status: $AGENT_STATUS (may need time to initialize)"
             fi
             
-            # Test basic agent connectivity (non-invasive)
             echo "✅ Post-deployment validation completed"
           else
             echo "⚠️  Could not extract agent ID from deployment output"
@@ -204,8 +203,4 @@ except Exception as e:
         else
           echo "❌ Deployment failed"
           echo "📝 Check the logs above for error details"
-          echo "🔧 Common issues:"
-          echo "  - AWS permissions insufficient"
-          echo "  - Agent instructions contain template placeholders"
-          echo "  - Invalid agent name or directory structure"
         fi

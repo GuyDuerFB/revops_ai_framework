@@ -74,7 +74,7 @@ Description: ${{ github.event.inputs.agent_description }}
           echo "📋 Next steps:"
           echo "  1. Review and customize the instructions.md file"
           echo "  2. Test the agent instructions locally if needed"
-          echo "  3. Use the 'Deploy Agent' workflow to deploy to AWS"
+          echo "  3. Use the 'Agent Deployment' workflow to deploy to AWS"
         else
           echo "⚠️  No changes detected - agent may already exist or creation failed"
           exit 1
@@ -101,13 +101,11 @@ print(sanitized)
         echo "1. Edit agents/${SANITIZED_NAME}/instructions.md to customize the agent"
         echo "2. Replace template placeholders with actual agent-specific content"
         echo "3. Define the exact output format in the 'Required Output Format' section"
-        echo "4. Use the 'Deploy Agent' workflow to deploy to AWS when ready"
+        echo "4. Use the 'Agent Deployment' workflow to deploy to AWS when ready"
         echo ""
         echo "📚 Template placeholders to replace:"
         echo "  - <AGENT_NAME>"
         echo "  - <PRIMARY_OBJECTIVE>"
         echo "  - <KEY_EXPERTISE_A>, <KEY_EXPERTISE_B>, <KEY_EXPERTISE_C>"
         echo "  - <TRIGGER_EVENTS>"
-        echo "  - <INPUT_ARTIFACTS>, <OUTPUT_ARTIFACTS>"
-        echo "  - <QUALITY_CRITERIA>"
         echo "  - And more in the template..."
