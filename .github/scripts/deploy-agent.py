@@ -154,9 +154,9 @@ class AgentDeployer:
     
     def _generate_agent_config(self, instructions_content: str) -> Dict[str, Any]:
         """Generate agent configuration based on template and agent-specific values"""
-        # Create display name from agent directory name
+        # Use exact directory name as agent name
+        agent_name_formatted = self.agent_name
         display_name = self.agent_name.replace('-', ' ').replace('_', ' ').title()
-        agent_name_formatted = f"{display_name}Agent-V4"
         
         return {
             'agentName': agent_name_formatted,
@@ -271,49 +271,57 @@ class AgentDeployer:
             print(f"❌ Error preparing agent: {e}")
             return False
     
-    def _create_alias(self, agent_id: str) -> Tuple[bool, Dict[str, Any]]:
-        """Create an alias for the agent"""
-        alias_config = self.config['default_aliases'][self.environment]
-        alias_name = f"{self.agent_name.replace('-', '_').title()}{alias_config['suffix']}"
+    def _create_aliases(self, agent_id: str) -> Tuple[bool, Dict[str, Any]]:
+        """Create dev and prod aliases for the agent"""
+        aliases_info = {
+            'dev_alias': {},
+            'prod_alias': {}
+        }
         
-        if self.dry_run:
-            print(f"🔍 [DRY RUN] Would create alias:")
-            print(f"   Name: {alias_name}")
-            print(f"   Environment: {self.environment}")
-            print(f"   Agent Version: {alias_config['agent_version']}")
-            return True, {
-                'alias_id': 'DRY_RUN_ALIAS_ID',
-                'alias_name': alias_name
-            }
+        # Create both dev and prod aliases
+        for env_type in ['dev', 'prod']:
+            alias_name = f"{self.agent_name}_{env_type}"
+            
+            if self.dry_run:
+                print(f"🔍 [DRY RUN] Would create alias:")
+                print(f"   Name: {alias_name}")
+                print(f"   Environment: {env_type}")
+                print(f"   Agent Version: 1")
+                aliases_info[f'{env_type}_alias'] = {
+                    'alias_id': f'DRY_RUN_ALIAS_ID_{env_type.upper()}',
+                    'alias_name': alias_name
+                }
+                continue
+            
+            try:
+                print(f"🏷️  Creating {env_type} alias: {alias_name}...")
+                
+                response = self.bedrock_client.create_agent_alias(
+                    agentId=agent_id,
+                    agentAliasName=alias_name,
+                    description=f"{env_type.title()} environment alias for {self.agent_name}",
+                    routingConfiguration=[{
+                        'agentVersion': '1'  # Use version 1 for both aliases
+                    }]
+                )
+                
+                alias_info = response['agentAlias']
+                alias_id = alias_info['agentAliasId']
+                
+                print(f"✅ Created {env_type} alias successfully")
+                print(f"   Alias ID: {alias_id}")
+                print(f"   Alias Name: {alias_name}")
+                
+                aliases_info[f'{env_type}_alias'] = {
+                    'alias_id': alias_id,
+                    'alias_name': alias_name
+                }
+                
+            except ClientError as e:
+                print(f"❌ Error creating {env_type} alias: {e}")
+                return False, {}
         
-        try:
-            print(f"🏷️  Creating alias for {self.environment} environment...")
-            
-            response = self.bedrock_client.create_agent_alias(
-                agentId=agent_id,
-                agentAliasName=alias_name,
-                description=f"{alias_config['description']} for {self.agent_name}",
-                routingConfiguration=[{
-                    'agentVersion': alias_config['agent_version']
-                }]
-            )
-            
-            alias_info = response['agentAlias']
-            alias_id = alias_info['agentAliasId']
-            
-            print(f"✅ Alias created successfully")
-            print(f"   Alias ID: {alias_id}")
-            print(f"   Alias Name: {alias_name}")
-            
-            return True, {
-                'alias_id': alias_id,
-                'alias_name': alias_name,
-                'environment': self.environment
-            }
-            
-        except ClientError as e:
-            print(f"❌ Error creating alias: {e}")
-            return False, {}
+        return True, aliases_info
     
     def _update_multi_agent_policies(self, agent_id: str) -> bool:
         """Update multi-agent collaboration policies to include the new agent"""
@@ -430,12 +438,12 @@ class AgentDeployer:
             if not self._prepare_agent(agent_id):
                 return False
             
-            # Step 7: Create alias
-            success, alias_info = self._create_alias(agent_id)
+            # Step 7: Create aliases
+            success, aliases_info = self._create_aliases(agent_id)
             if not success:
                 return False
             
-            self.deployment_output.update(alias_info)
+            self.deployment_output.update(aliases_info)
             
             # Step 8: Update multi-agent policies (manual step noted)
             self._update_multi_agent_policies(agent_id)
