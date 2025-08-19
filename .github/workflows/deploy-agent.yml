@@ -121,15 +121,7 @@ jobs:
         
         # Get agent details from deployment output
         if [ -f "/tmp/agent_deployment_output.json" ]; then
-          AGENT_ID=$(python3 -c "
-import json
-try:
-    with open('/tmp/agent_deployment_output.json', 'r') as f:
-        data = json.load(f)
-    print(data.get('agent_id', ''))
-except:
-    pass
-          ")
+          AGENT_ID=$(python3 -c "import json; data=json.load(open('/tmp/agent_deployment_output.json')); print(data.get('agent_id', ''))" 2>/dev/null || echo "")
           
           if [ -n "$AGENT_ID" ]; then
             echo "🔍 Validating agent ${AGENT_ID}..."
@@ -177,20 +169,14 @@ except:
               echo ""
               echo "📊 Deployment Details:"
               echo "======================"
-              python3 -c "
-import json
-try:
-    with open('/tmp/agent_deployment_output.json', 'r') as f:
-        data = json.load(f)
-    print(f\"Agent ID: {data.get('agent_id', 'N/A')}\")
-    print(f\"Agent ARN: {data.get('agent_arn', 'N/A')}\")
-    print(f\"Alias ID: {data.get('alias_id', 'N/A')}\")
-    print(f\"Alias Name: {data.get('alias_name', 'N/A')}\")
-    print(f\"Foundation Model: {data.get('foundation_model', 'N/A')}\")
-    print(f\"Knowledge Base: {data.get('knowledge_base_id', 'N/A')}\")
-except Exception as e:
-    print(f'Could not read deployment output: {e}')
-              "
+              if [ -f "/tmp/agent_deployment_output.json" ]; then
+                echo "Agent ID: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('agent_id', 'N/A'))" 2>/dev/null || echo 'N/A')"
+                echo "Agent ARN: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('agent_arn', 'N/A'))" 2>/dev/null || echo 'N/A')"
+                echo "Foundation Model: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('foundation_model', 'N/A'))" 2>/dev/null || echo 'N/A')"
+                echo "Knowledge Base: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('knowledge_base_id', 'N/A'))" 2>/dev/null || echo 'N/A')"
+              else
+                echo "Could not read deployment output file"
+              fi
             fi
             
             echo ""

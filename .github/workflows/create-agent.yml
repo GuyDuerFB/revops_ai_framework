@@ -50,21 +50,13 @@ jobs:
           git add agents/
           
           # Create descriptive commit message
-          SANITIZED_NAME=$(python3 -c "
-import re
-name = '${{ github.event.inputs.agent_name }}'
-sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name.lower().strip())
-sanitized = re.sub(r'-+', '-', sanitized).strip('-')
-print(sanitized)
-          ")
+          SANITIZED_NAME=$(python3 -c "import re; name = '${{ github.event.inputs.agent_name }}'; sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name.lower().strip()); sanitized = re.sub(r'-+', '-', sanitized).strip('-'); print(sanitized)")
           
-          git commit -m "feat: create new agent ${SANITIZED_NAME}
-
-Created by: ${{ github.actor }}
-Agent Name: ${{ github.event.inputs.agent_name }}
-Description: ${{ github.event.inputs.agent_description }}
-
-🤖 Generated with GitHub Actions"
+          git commit -m "feat: create new agent ${SANITIZED_NAME}" \
+                     -m "Created by: ${{ github.actor }}" \
+                     -m "Agent Name: ${{ github.event.inputs.agent_name }}" \
+                     -m "Description: ${{ github.event.inputs.agent_description }}" \
+                     -m "Generated with GitHub Actions"
           
           # Push changes
           git push
@@ -74,7 +66,7 @@ Description: ${{ github.event.inputs.agent_description }}
           echo "📋 Next steps:"
           echo "  1. Review and customize the instructions.md file"
           echo "  2. Test the agent instructions locally if needed"
-          echo "  3. Use the 'Agent Deployment' workflow to deploy to AWS"
+          echo "  3. Use the 'Deploy Agent to AWS' workflow to deploy to AWS"
         else
           echo "⚠️  No changes detected - agent may already exist or creation failed"
           exit 1
@@ -83,13 +75,7 @@ Description: ${{ github.event.inputs.agent_description }}
     - name: Summary
       if: success()
       run: |
-        SANITIZED_NAME=$(python3 -c "
-import re
-name = '${{ github.event.inputs.agent_name }}'
-sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name.lower().strip())
-sanitized = re.sub(r'-+', '-', sanitized).strip('-')
-print(sanitized)
-        ")
+        SANITIZED_NAME=$(python3 -c "import re; name = '${{ github.event.inputs.agent_name }}'; sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name.lower().strip()); sanitized = re.sub(r'-+', '-', sanitized).strip('-'); print(sanitized)")
         
         echo "🎉 Agent Creation Complete!"
         echo "=========================="
@@ -101,7 +87,7 @@ print(sanitized)
         echo "1. Edit agents/${SANITIZED_NAME}/instructions.md to customize the agent"
         echo "2. Replace template placeholders with actual agent-specific content"
         echo "3. Define the exact output format in the 'Required Output Format' section"
-        echo "4. Use the 'Agent Deployment' workflow to deploy to AWS when ready"
+        echo "4. Use the 'Deploy Agent to AWS' workflow to deploy to AWS when ready"
         echo ""
         echo "📚 Template placeholders to replace:"
         echo "  - <AGENT_NAME>"
