@@ -7,20 +7,6 @@ on:
         description: 'Name of the agent directory to deploy (under agents/)'
         required: true
         type: string
-      environment:
-        description: 'Deployment environment'
-        required: false
-        type: choice
-        options:
-          - dev
-          - staging
-          - prod
-        default: dev
-      dry_run:
-        description: 'Preview changes without deployment (dry run)'
-        required: false
-        type: boolean
-        default: false
 
 jobs:
   deploy-agent-to-aws:
@@ -86,13 +72,10 @@ jobs:
         
         # Check if it still contains template placeholders (basic check)
         if grep -q "<AGENT_NAME>" "${INSTRUCTIONS_FILE}"; then
-          echo "⚠️  Warning: Instructions file appears to contain template placeholders"
+          echo "❌ Error: Instructions file contains template placeholders"
           echo "Please customize the instructions before deployment"
-          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
-            echo "❌ Deployment aborted due to uncustomized template"
-            echo "Use dry_run=true to preview what would be deployed"
-            exit 1
-          fi
+          echo "Replace all [CUSTOMIZE: ...] placeholders in ${INSTRUCTIONS_FILE}"
+          exit 1
         fi
         
         echo "✅ Agent directory validation passed"
@@ -102,20 +85,17 @@ jobs:
     - name: Deploy agent to AWS
       id: deploy
       run: |
-        if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
-          echo "🔍 DRY RUN MODE - No actual deployment will occur"
-          echo "======================================================"
-        fi
+        echo "🚀 Deploying agent to AWS Bedrock (Sandbox Environment)"
+        echo "========================================================"
         
         python3 .github/scripts/deploy-agent.py \
           --agent-name "${{ github.event.inputs.agent_name }}" \
-          --environment "${{ github.event.inputs.environment }}" \
+          --environment "sandbox" \
           --agent-dir "${{ steps.validate.outputs.agent-dir }}" \
-          --instructions-file "${{ steps.validate.outputs.instructions-file }}" \
-          $(if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then echo "--dry-run"; fi)
+          --instructions-file "${{ steps.validate.outputs.instructions-file }}"
     
     - name: Post-deployment validation
-      if: steps.deploy.outcome == 'success' && github.event.inputs.dry_run != 'true'
+      if: steps.deploy.outcome == 'success'
       run: |
         echo "🧪 Running post-deployment validation..."
         
@@ -153,39 +133,29 @@ jobs:
         echo "📋 Agent Deployment Summary"
         echo "============================"
         echo "🤖 Agent Name: ${{ github.event.inputs.agent_name }}"
-        echo "🌍 Environment: ${{ github.event.inputs.environment }}"
-        echo "🔍 Dry Run: ${{ github.event.inputs.dry_run }}"
+        echo "🌍 Environment: Sandbox (Account: 740202120544)"
         echo "📁 Agent Directory: ${{ steps.validate.outputs.agent-dir }}"
         
         if [ "${{ steps.deploy.outcome }}" == "success" ]; then
-          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
-            echo "✅ Dry run completed successfully"
-            echo "🔧 Ready for actual deployment"
-          else
-            echo "✅ Deployment completed successfully"
-            
-            # Show deployment details if available
-            if [ -f "/tmp/agent_deployment_output.json" ]; then
-              echo ""
-              echo "📊 Deployment Details:"
-              echo "======================"
-              if [ -f "/tmp/agent_deployment_output.json" ]; then
-                echo "Agent ID: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('agent_id', 'N/A'))" 2>/dev/null || echo 'N/A')"
-                echo "Agent ARN: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('agent_arn', 'N/A'))" 2>/dev/null || echo 'N/A')"
-                echo "Foundation Model: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('foundation_model', 'N/A'))" 2>/dev/null || echo 'N/A')"
-                echo "Knowledge Base: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('knowledge_base_id', 'N/A'))" 2>/dev/null || echo 'N/A')"
-              else
-                echo "Could not read deployment output file"
-              fi
-            fi
-            
+          echo "✅ Deployment completed successfully"
+          
+          # Show deployment details if available
+          if [ -f "/tmp/agent_deployment_output.json" ]; then
             echo ""
-            echo "🔧 Next Steps:"
-            echo "1. Test the agent through the RevOps AI Framework"
-            echo "2. Monitor CloudWatch logs for agent execution"
-            echo "3. Update agent instructions if needed and redeploy"
-            echo "4. Consider creating a production alias when ready"
+            echo "📊 Deployment Details:"
+            echo "======================"
+            echo "Agent ID: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('agent_id', 'N/A'))" 2>/dev/null || echo 'N/A')"
+            echo "Agent ARN: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('agent_arn', 'N/A'))" 2>/dev/null || echo 'N/A')"
+            echo "Foundation Model: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('foundation_model', 'N/A'))" 2>/dev/null || echo 'N/A')"
+            echo "Knowledge Base: $(python3 -c "import json; print(json.load(open('/tmp/agent_deployment_output.json')).get('knowledge_base_id', 'N/A'))" 2>/dev/null || echo 'N/A')"
           fi
+          
+          echo ""
+          echo "🔧 Next Steps:"
+          echo "1. Test the agent through the RevOps AI Framework"
+          echo "2. Monitor CloudWatch logs for agent execution"
+          echo "3. Update agent instructions if needed and redeploy"
+          echo "4. Agent is ready for use in Sandbox environment"
         else
           echo "❌ Deployment failed"
           echo "📝 Check the logs above for error details"
