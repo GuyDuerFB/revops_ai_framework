@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       agent_name:
-        description: 'Name of the agent directory to deploy (see available agents below)'
+        description: 'Name of the agent directory to deploy (use "List Available Agents" workflow to see options)'
         required: true
         type: string
 
