@@ -1,4 +1,4 @@
-name: Create New Agent
+name: Agent Creation
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
         default: 'A specialized agent for the RevOps AI Framework'
 
 jobs:
-  create-agent:
+  create-new-agent:
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # Required for OIDC

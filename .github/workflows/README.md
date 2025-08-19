@@ -15,7 +15,7 @@ This directory contains automated workflows for the RevOps AI Framework.
 - Triggers Bedrock knowledge base ingestion
 - Excludes `firebolt_schema/` for controlled schema management
 
-### 2. Create New Agent (`create-agent.yml`)
+### 2. Agent Creation (`create-agent.yml`)
 **Trigger**: Manual (`workflow_dispatch`)  
 **Purpose**: Creates new agent directory structure with templated instructions
 
@@ -31,12 +31,12 @@ This directory contains automated workflows for the RevOps AI Framework.
 
 **Usage**:
 1. Go to Actions tab in GitHub
-2. Select "Create New Agent" workflow
+2. Select "Agent Creation" workflow
 3. Click "Run workflow"
 4. Enter agent name and optional description
 5. Review created directory and customize `instructions.md`
 
-### 3. Deploy Agent to AWS (`deploy-agent.yml`)
+### 3. Agent Deployment (`deploy-agent.yml`)
 **Trigger**: Manual (`workflow_dispatch`)  
 **Purpose**: Deploys agent to AWS Bedrock with consistent configuration
 
@@ -55,7 +55,7 @@ This directory contains automated workflows for the RevOps AI Framework.
 **Usage**:
 1. Ensure agent instructions are customized (no template placeholders)
 2. Go to Actions tab in GitHub
-3. Select "Deploy Agent to AWS" workflow
+3. Select "Agent Deployment" workflow
 4. Click "Run workflow"
 5. Enter agent name and select environment
 6. Optionally enable dry-run for preview

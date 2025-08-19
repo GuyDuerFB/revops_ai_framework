@@ -1,4 +1,4 @@
-name: Deploy Agent to AWS
+name: Agent Deployment
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ on:
         default: false
 
 jobs:
-  deploy-agent:
+  deploy-agent-to-aws:
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # Required for OIDC
