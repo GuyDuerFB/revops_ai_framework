@@ -39,6 +39,11 @@
       "suffix": "_Prod",
       "description": "Production environment alias", 
       "agent_version": "1"
+    },
+    "sandbox": {
+      "suffix": "_Sandbox",
+      "description": "Sandbox environment alias",
+      "agent_version": "DRAFT"
     }
   },
   "aws_settings": {

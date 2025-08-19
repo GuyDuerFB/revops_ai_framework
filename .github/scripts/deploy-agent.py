@@ -473,7 +473,7 @@ def main():
     parser.add_argument(
         '--environment',
         default='dev',
-        choices=['dev', 'staging', 'prod'],
+        choices=['dev', 'staging', 'prod', 'sandbox'],
         help='Deployment environment'
     )
     parser.add_argument(
