@@ -1159,6 +1159,12 @@ python3 deploy.py
 ```
 
 ### Update Agents
+
+**Via GitHub Actions (Recommended)**:
+1. **Create New Agent**: Actions → "Create New Agent" → Enter agent name
+2. **Deploy Agent**: Actions → "Deploy Agent to AWS" → Select agent and environment
+
+**Via Script**:
 ```bash
 cd deployment/scripts
 python3 deploy.py --agent manager

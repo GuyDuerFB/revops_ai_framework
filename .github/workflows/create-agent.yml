@@ -1,0 +1,113 @@
+name: Create New Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_name:
+        description: 'Name of the new agent (will be sanitized for directory name)'
+        required: true
+        type: string
+      agent_description:
+        description: 'Brief description of the agent purpose'
+        required: false
+        type: string
+        default: 'A specialized agent for the RevOps AI Framework'
+
+jobs:
+  create-agent:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: write   # Required to create files and commit changes
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Create agent directory structure
+      id: create-agent
+      run: |
+        python3 .github/scripts/create-agent.py \
+          --agent-name "${{ github.event.inputs.agent_name }}" \
+          --description "${{ github.event.inputs.agent_description }}"
+    
+    - name: Commit and push changes
+      run: |
+        # Configure git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Check if there are changes to commit
+        if [[ -n $(git status --porcelain) ]]; then
+          # Add new agent directory
+          git add agents/
+          
+          # Create descriptive commit message
+          SANITIZED_NAME=$(python3 -c "
+import re
+name = '${{ github.event.inputs.agent_name }}'
+sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name.lower().strip())
+sanitized = re.sub(r'-+', '-', sanitized).strip('-')
+print(sanitized)
+          ")
+          
+          git commit -m "feat: create new agent ${SANITIZED_NAME}
+
+Created by: ${{ github.actor }}
+Agent Name: ${{ github.event.inputs.agent_name }}
+Description: ${{ github.event.inputs.agent_description }}
+
+🤖 Generated with GitHub Actions"
+          
+          # Push changes
+          git push
+          
+          echo "✅ Successfully created and committed new agent: ${SANITIZED_NAME}"
+          echo "📁 Agent directory: agents/${SANITIZED_NAME}/"
+          echo "📋 Next steps:"
+          echo "  1. Review and customize the instructions.md file"
+          echo "  2. Test the agent instructions locally if needed"
+          echo "  3. Use the 'Deploy Agent' workflow to deploy to AWS"
+        else
+          echo "⚠️  No changes detected - agent may already exist or creation failed"
+          exit 1
+        fi
+    
+    - name: Summary
+      if: success()
+      run: |
+        SANITIZED_NAME=$(python3 -c "
+import re
+name = '${{ github.event.inputs.agent_name }}'
+sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '-', name.lower().strip())
+sanitized = re.sub(r'-+', '-', sanitized).strip('-')
+print(sanitized)
+        ")
+        
+        echo "🎉 Agent Creation Complete!"
+        echo "=========================="
+        echo "📝 Agent Name: ${{ github.event.inputs.agent_name }}"
+        echo "📁 Directory: agents/${SANITIZED_NAME}/"
+        echo "📄 Instructions: agents/${SANITIZED_NAME}/instructions.md"
+        echo ""
+        echo "🔧 Next Steps:"
+        echo "1. Edit agents/${SANITIZED_NAME}/instructions.md to customize the agent"
+        echo "2. Replace template placeholders with actual agent-specific content"
+        echo "3. Define the exact output format in the 'Required Output Format' section"
+        echo "4. Use the 'Deploy Agent' workflow to deploy to AWS when ready"
+        echo ""
+        echo "📚 Template placeholders to replace:"
+        echo "  - <AGENT_NAME>"
+        echo "  - <PRIMARY_OBJECTIVE>"
+        echo "  - <KEY_EXPERTISE_A>, <KEY_EXPERTISE_B>, <KEY_EXPERTISE_C>"
+        echo "  - <TRIGGER_EVENTS>"
+        echo "  - <INPUT_ARTIFACTS>, <OUTPUT_ARTIFACTS>"
+        echo "  - <QUALITY_CRITERIA>"
+        echo "  - And more in the template..."

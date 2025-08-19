@@ -1,0 +1,66 @@
+{
+  "foundation_model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "execution_role_arn": "arn:aws:iam::740202120544:role/AmazonBedrockExecutionRoleForAgents_revops",
+  "knowledge_base_id": "F61WLOYZSW",
+  "collaboration_type": "SUPERVISOR",
+  "idle_session_ttl": 600,
+  "region": "us-east-1",
+  "account_id": "740202120544",
+  "multi_agent_policies": [
+    "arn:aws:iam::740202120544:policy/service-role/AmazonBedrockAgentsMultiAgentsPolicies_Z8943USQ7P",
+    "arn:aws:iam::740202120544:policy/BedrockAgentExecutionPolicy", 
+    "arn:aws:iam::740202120544:policy/BedrockKnowledgeBasePolicy"
+  ],
+  "existing_agents": {
+    "manager_agent": "PVWGKOWSOT",
+    "data_agent": "NOJMSQ8JPT", 
+    "deal_analysis_agent": "DBHYUWC6U6",
+    "lead_analysis_agent": "IP9HPDIEPL",
+    "web_search_agent": "QKRQXXPJOJ",
+    "execution_agent": "AINAPUEIZU"
+  },
+  "knowledge_base_config": {
+    "name": "revops-schema-kb-1751466030",
+    "embedding_model": "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0",
+    "description": "A general repository of Firebolt related logic. Can be referenceable but instructions are highly important so only refer if not able to conclude something."
+  },
+  "default_aliases": {
+    "dev": {
+      "suffix": "_Dev",
+      "description": "Development environment alias",
+      "agent_version": "DRAFT"
+    },
+    "staging": {
+      "suffix": "_Staging", 
+      "description": "Staging environment alias",
+      "agent_version": "1"
+    },
+    "prod": {
+      "suffix": "_Prod",
+      "description": "Production environment alias", 
+      "agent_version": "1"
+    }
+  },
+  "aws_settings": {
+    "profile_name": "FireboltSystemAdministrator-740202120544",
+    "max_retries": 3,
+    "retry_delay": 5,
+    "timeout": 300
+  },
+  "validation": {
+    "required_placeholders_removed": [
+      "<AGENT_NAME>",
+      "<PRIMARY_OBJECTIVE>", 
+      "<KEY_EXPERTISE_A>",
+      "<TRIGGER_EVENTS>",
+      "<INPUT_ARTIFACTS>",
+      "<OUTPUT_ARTIFACTS>"
+    ],
+    "required_sections": [
+      "## Agent Purpose",
+      "## Your Specialized Role", 
+      "## Agent Collaboration",
+      "## Required Output Format"
+    ]
+  }
+}
